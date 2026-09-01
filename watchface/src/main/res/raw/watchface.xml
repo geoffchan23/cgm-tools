@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Big Glucose watch face.
+
+  Layout mirrors the stock Pixel digital face:
+      Mon Aug 31      <- date, small
+        9:50          <- time, large
+        9.9           <- glucose complication, LARGE (this is the point)
+
+  The canvas below is 450x450. Wear OS scales it to the real screen
+  (the Pixel Watch 2 is 384x384), so all coordinates are resolution
+  independent -- do not change them to match your watch.
+
+  Everything you are likely to want to tweak is at the top of the file.
+-->
+<WatchFace width="450" height="450" clipShape="CIRCLE">
+
+    <Metadata key="CLOCK_TYPE" value="DIGITAL" />
+    <Metadata key="PREVIEW_TIME" value="09:50:00" />
+
+    <Scene backgroundColor="#ff000000">
+
+        <!-- ============================================================
+             DATE  -  "Mon Aug 31"
+             ============================================================ -->
+        <PartText x="25" y="78" width="400" height="40" alpha="255">
+            <Text align="CENTER">
+                <Font size="30" weight="BOLD" color="#ff168bf4">
+                    <Template>%s %s %d<Parameter expression="[DAY_OF_WEEK_S]" /><Parameter expression="[MONTH_S]" /><Parameter expression="[DAY]" /></Template>
+                </Font>
+            </Text>
+        </PartText>
+
+        <!-- ============================================================
+             TIME  -  "9:50"
+
+             12-hour with no leading zero, matching the photo.
+             For 24-hour, change [HOUR_1_12] to [HOUR_0_23].
+             ============================================================ -->
+        <PartText x="25" y="118" width="400" height="145" alpha="255">
+            <Text align="CENTER">
+                <Font size="118" weight="BOLD" color="#ff168bf4">
+                    <Template>%d:%02d<Parameter expression="[HOUR_1_12]" /><Parameter expression="[MINUTE]" /></Template>
+                </Font>
+            </Text>
+        </PartText>
+
+        <!-- ============================================================
+             GLUCOSE  -  the Dexcom complication, rendered BIG
+
+             size="100" here vs. roughly 26 on the stock face.
+             Bump or drop this number to taste; that is the one knob
+             this whole project exists for.
+
+             We ask for SHORT_TEXT first. That is what strips "mmol/L"
+             and the "Now" timestamp -- SHORT_TEXT is capped at about
+             7 characters, so Dexcom hands over just the value (and,
+             with luck, the trend arrow) instead of the full sentence.
+
+             LONG_TEXT is declared as a fallback in case Dexcom does not
+             publish a SHORT_TEXT variant. If you end up on LONG_TEXT the
+             units come back -- tell Claude and we will handle it.
+             ============================================================ -->
+        <ComplicationSlot
+            slotId="0"
+            x="45" y="272" width="360" height="118"
+            displayName="@string/complication_glucose"
+            supportedTypes="SHORT_TEXT LONG_TEXT"
+            isCustomizable="TRUE"
+            alpha="255">
+
+            <Complication type="SHORT_TEXT">
+                <PartText x="0" y="0" width="360" height="118" alpha="255">
+                    <Text align="CENTER">
+                        <Font size="100" weight="BOLD" color="#ff168bf4">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </Text>
+                </PartText>
+            </Complication>
+
+            <Complication type="LONG_TEXT">
+                <PartText x="0" y="0" width="360" height="118" alpha="255">
+                    <Text align="CENTER">
+                        <Font size="72" weight="BOLD" color="#ff168bf4">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </Text>
+                </PartText>
+            </Complication>
+
+        </ComplicationSlot>
+
+    </Scene>
+</WatchFace>
