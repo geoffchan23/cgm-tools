@@ -10,6 +10,8 @@ trend arrow, if Dexcom supplies it in the short-text form) stay.
      9.9               <- was tiny, now the size of the clock
 ```
 
+The face being replaced is photographed in `docs/stock-face-reference.jpg`.
+
 Built for a Pixel Watch 2 on Wear OS 6, paired with the Dexcom G7 app.
 It uses the **Watch Face Format** — declarative XML, no code — which is
 the only format Wear OS accepts as of January 2026.
@@ -133,3 +135,8 @@ include the trend arrow.
 - **The small white dot** on the stock face is the system notification
   indicator, drawn by Wear OS. It isn't part of the face and appears
   automatically.
+
+---
+
+If you are Claude Code picking this up fresh, read `CLAUDE.md` first —
+it covers what has and has not been verified.
