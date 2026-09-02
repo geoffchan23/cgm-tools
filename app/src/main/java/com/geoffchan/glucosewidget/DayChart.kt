@@ -192,13 +192,19 @@ fun RangeChart(
             val triH = with(density) { 9.dp.toPx() }
             val dosePaint = android.graphics.Paint().apply {
                 this.color = android.graphics.Color.argb(0xFF, 0xD0, 0xBC, 0xFF)
-                textSize = with(density) { 10.sp.toPx() }
+                textSize = with(density) { 13.sp.toPx() }
+                isFakeBoldText = true
                 isAntiAlias = true
             }
-            for ((minute, dose) in doses) {
+            // markers that would overlap horizontally stack upward instead
+            var prevX = Float.NEGATIVE_INFINITY
+            var level = 0
+            for ((minute, dose) in doses.sortedBy { it.first }) {
                 if (minute < viewStartMin - 5 || minute > viewEndMin + 5) continue
                 val x = xOf(minute)
-                val baseY = plot.bottom - 2f
+                level = if (x - prevX < triH * 2.5f) level + 1 else 0
+                prevX = x
+                val baseY = plot.bottom - 2f - level * (triH + dosePaint.textSize * 0.4f)
                 val path = androidx.compose.ui.graphics.Path().apply {
                     moveTo(x, baseY - triH)
                     lineTo(x - triH * 0.6f, baseY)
