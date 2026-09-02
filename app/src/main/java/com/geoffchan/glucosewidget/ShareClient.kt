@@ -57,6 +57,26 @@ object ShareClient {
     private fun latestBody(sessionId: String): String =
         post("Publisher/ReadPublisherLatestGlucoseValues?sessionId=$sessionId&minutes=1440&maxCount=1", "")
 
+    private fun historyBody(sessionId: String): String =
+        post("Publisher/ReadPublisherLatestGlucoseValues?sessionId=$sessionId&minutes=1440&maxCount=288", "")
+
+    /**
+     * Fetch the trailing 24 h of readings, newest first. Same session
+     * handling as [fetchLatest]. Backfills gaps left by phone downtime.
+     */
+    fun fetchHistory(username: String, password: String, cachedSession: String?): Pair<List<Reading>, String> {
+        if (!cachedSession.isNullOrEmpty()) {
+            runCatching {
+                val rs = parseReadings(historyBody(cachedSession))
+                if (rs.isNotEmpty()) return rs to cachedSession
+            }
+        }
+        val session = login(username, password)
+        val rs = parseReadings(historyBody(session))
+        if (rs.isEmpty()) throw ShareException("No readings returned — is Share sharing active?")
+        return rs to session
+    }
+
     /**
      * Fetch the latest reading, reusing [cachedSession] when possible and
      * re-authenticating once when it has expired. Returns the reading and

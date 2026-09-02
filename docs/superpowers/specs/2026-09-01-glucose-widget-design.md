@@ -81,3 +81,27 @@ watch face project (AGP 8.7.3, JDK 17, SDK 35 via Homebrew).
   conversion, trend→arrow map, color/state selection, stale logic.
 - On-device: sideload via wireless ADB, screenshot the widget, iterate
   — same loop as the watch face.
+
+---
+
+# v2 addendum — history + journal (2026-09-02)
+
+Decision reversal, deliberate: official Dexcom API is skipped, so the app
+now accumulates its own history from Share (previous "no collection" call
+is superseded by Geoff).
+
+- **Room/SQLite**, on-device. `readings(timestampMs PK, mgdl, trend)`
+  immutable/deduped; `journal(id PK, day "YYYY-MM-DD", text, createdAtMs,
+  updatedAtMs)` — day-level free-text entries, many per day, no time of
+  day (LLMs will infer times from text later — Geoff's call).
+- **Collection**: each 5-min poll fetches the trailing 24 h
+  (minutes=1440, maxCount=288) and upserts — gaps <24 h self-heal.
+  Scale: ~105k rows/yr; SQLite is comfortable for decades.
+- **Day view UI**: opens on today; ‹ › + date picker; midnight-to-midnight
+  chart (target band 3.9–10, widget color language, today = partial);
+  journal list with add/edit/delete below. Settings on a second screen.
+- **No export feature.** Claude Code pulls the DB directly over wireless
+  ADB via `run-as` (debug build): `tools/pull-db.sh` + repo CLAUDE.md
+  document the recipe and schema. Each pull doubles as a full backup.
+- Health-data note: DB lives unencrypted in app-private storage on a
+  personal phone; accepted.
