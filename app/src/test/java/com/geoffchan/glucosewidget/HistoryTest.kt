@@ -1,6 +1,7 @@
 package com.geoffchan.glucosewidget
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
@@ -118,5 +119,29 @@ class DoseDefaultTest {
         assertEquals(25, defaultUnits("long-acting", java.time.DayOfWeek.FRIDAY))
         assertEquals(25, defaultUnits("long-acting", java.time.DayOfWeek.SATURDAY))
         assertEquals(25, defaultUnits("long-acting", java.time.DayOfWeek.SUNDAY))
+    }
+}
+
+class DoseParseTest {
+    @Test fun `parses canonical dose notes`() {
+        val d = parseDoseNote("dose: short-acting 4u @ 13:05")!!
+        assertEquals(true, d.isShort)
+        assertEquals(4, d.units)
+        assertEquals(13 * 60 + 5, d.minuteOfDay)
+        val l = parseDoseNote("dose: long-acting 25u @ 21:30")!!
+        assertEquals(false, l.isShort)
+        assertEquals(25, l.units)
+    }
+
+    @Test fun `parses legacy free-name form, defaults to short unless named long`() {
+        val d = parseDoseNote("dose: insulin 4u @ 08:00")!!
+        assertEquals(true, d.isShort)
+        assertEquals(4, d.units)
+    }
+
+    @Test fun `non-dose notes return null`() {
+        assertNull(parseDoseNote("had pasta at noon"))
+        assertNull(parseDoseNote("#sick"))
+        assertNull(parseDoseNote("dose: gibberish"))
     }
 }

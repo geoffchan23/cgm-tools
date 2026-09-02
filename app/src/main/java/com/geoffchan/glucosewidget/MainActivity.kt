@@ -187,6 +187,13 @@ class MainActivity : ComponentActivity() {
 
                         // ---- chart ----
                         val settings = remember { runBlocking { Store.settings(this@MainActivity) } }
+                        val doseMarks = entries.mapNotNull { e ->
+                            if (e.scope != SCOPE_DAY) return@mapNotNull null
+                            val d = parseDoseNote(e.text) ?: return@mapNotNull null
+                            val dayOffset = java.time.temporal.ChronoUnit.DAYS
+                                .between(firstDay, LocalDate.parse(e.day)).toInt()
+                            (dayOffset * 1440f + d.minuteOfDay) to d
+                        }
                         RangeChart(
                             readings = readings,
                             firstDay = firstDay,
@@ -195,10 +202,18 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxWidth().height(240.dp).padding(horizontal = 12.dp),
                             lowMmol = settings.lowMmol,
                             highMmol = settings.highMmol,
+                            doses = doseMarks,
                         )
                         Text(
-                            if (readings.isEmpty()) "No readings in this range"
-                            else "${readings.size} readings",
+                            buildString {
+                                append(
+                                    if (readings.isEmpty()) "No readings in this range"
+                                    else "${readings.size} readings",
+                                )
+                                if (doseMarks.isNotEmpty()) {
+                                    append(" · ${doseMarks.size} dose"); if (doseMarks.size > 1) append("s"); append(" ▲")
+                                }
+                            },
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.padding(start = 24.dp, top = 2.dp),
                         )

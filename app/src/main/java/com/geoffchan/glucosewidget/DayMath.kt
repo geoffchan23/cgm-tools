@@ -58,6 +58,21 @@ fun defaultUnits(type: String, dayOfWeek: java.time.DayOfWeek): Int = when {
 fun doseNoteText(name: String, amount: String, time: String): String =
     "dose: ${name.trim()} ${amount.trim()} @ $time"
 
+data class DoseNote(val isShort: Boolean, val units: Int, val minuteOfDay: Int)
+
+private val DOSE_RE = Regex("""^dose: (.+) (\d+)\S* @ (\d{1,2}):(\d{2})$""")
+
+/** Parse a dose journal entry; legacy free-name notes count as short-acting. */
+fun parseDoseNote(text: String): DoseNote? {
+    val m = DOSE_RE.find(text) ?: return null
+    val (name, units, hh, mm) = m.destructured
+    return DoseNote(
+        isShort = !name.contains("long", ignoreCase = true),
+        units = units.toInt(),
+        minuteOfDay = hh.toInt() * 60 + mm.toInt(),
+    )
+}
+
 /** [start, end) in epoch ms of [days] consecutive local days from [firstDay]. */
 fun rangeBoundsMs(firstDay: LocalDate, days: Int, zone: ZoneId): Pair<Long, Long> {
     val start = firstDay.atStartOfDay(zone).toInstant().toEpochMilli()

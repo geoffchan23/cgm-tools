@@ -53,6 +53,7 @@ fun RangeChart(
     modifier: Modifier = Modifier,
     lowMmol: Double = Store.DEFAULT_LOW,
     highMmol: Double = Store.DEFAULT_HIGH,
+    doses: List<Pair<Float, DoseNote>> = emptyList(), // minute-of-range to dose
 ) {
     val density = LocalDensity.current
     val (startMs, endMs) = rangeBoundsMs(firstDay, days, zone)
@@ -182,6 +183,38 @@ fun RangeChart(
                     else -> Color.White
                 }
                 drawCircle(color, r, Offset(xOf(minute), yOf(mmol)))
+            }
+
+            // dose markers: triangles along the bottom edge — filled for
+            // short-acting, outlined for long-acting, units labeled beside.
+            // Purple, deliberately outside the red/amber/white status set.
+            val dosePurple = Color(0xFFD0BCFF)
+            val triH = with(density) { 9.dp.toPx() }
+            val dosePaint = android.graphics.Paint().apply {
+                this.color = android.graphics.Color.argb(0xFF, 0xD0, 0xBC, 0xFF)
+                textSize = with(density) { 10.sp.toPx() }
+                isAntiAlias = true
+            }
+            for ((minute, dose) in doses) {
+                if (minute < viewStartMin - 5 || minute > viewEndMin + 5) continue
+                val x = xOf(minute)
+                val baseY = plot.bottom - 2f
+                val path = androidx.compose.ui.graphics.Path().apply {
+                    moveTo(x, baseY - triH)
+                    lineTo(x - triH * 0.6f, baseY)
+                    lineTo(x + triH * 0.6f, baseY)
+                    close()
+                }
+                if (dose.isShort) {
+                    drawPath(path, dosePurple)
+                } else {
+                    drawPath(path, dosePurple, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f))
+                }
+                if (visibleMinutes <= 2880f) {
+                    drawIntoCanvas {
+                        it.nativeCanvas.drawText("${dose.units}u", x + triH * 0.8f, baseY - 2f, dosePaint)
+                    }
+                }
             }
 
             // "now" marker when the visible window includes the present,
