@@ -32,3 +32,14 @@ fun minuteOfDay(timestampMs: Long, day: LocalDate, zone: ZoneId): Float {
     val (start, _) = dayBoundsMs(day, zone)
     return (timestampMs - start) / 60_000f
 }
+
+/** The Monday of the ISO week containing [date]. Week keys use this. */
+fun weekStartOf(date: LocalDate): LocalDate =
+    date.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+
+/** [start, end) in epoch ms of [days] consecutive local days from [firstDay]. */
+fun rangeBoundsMs(firstDay: LocalDate, days: Int, zone: ZoneId): Pair<Long, Long> {
+    val start = firstDay.atStartOfDay(zone).toInstant().toEpochMilli()
+    val end = firstDay.plusDays(days.toLong()).atStartOfDay(zone).toInstant().toEpochMilli()
+    return start to end
+}

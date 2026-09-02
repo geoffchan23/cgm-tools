@@ -20,9 +20,16 @@ Schema:
   mmol/L = mgdl / 18.0182. Trend strings: Flat, FortyFiveUp/Down,
   SingleUp/Down, DoubleUp/Down, None, NotComputable, RateOutOfRange.
 - `journal(id INTEGER PK, day TEXT 'YYYY-MM-DD', text TEXT,
-  createdAtMs INTEGER, updatedAtMs INTEGER)` — free-text day notes,
-  many per day, no intra-day time (LLM infers times from text).
-  `day` is the phone's local date (America/Toronto).
+  createdAtMs INTEGER, updatedAtMs INTEGER, scope TEXT 'day'|'week')` —
+  free-text notes, many per key, no intra-day time (LLM infers times
+  from text). For scope='day', `day` is the local date; for
+  scope='week', `day` is the MONDAY of the ISO week (weeks run Mon–Sun).
+  All local dates are the phone's timezone (America/Toronto).
+
+The journal text is the enrichment source: Geoff writes free-form food/
+activity/sleep notes at day and week level, and expects Claude Code to
+parse them into structured data (meals, activities, etc.) during
+analysis sessions — structure lives in the analysis, not the app.
 
 ## Build & deploy
 

@@ -5,7 +5,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -22,6 +20,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,7 +47,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -65,18 +66,24 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 var day by remember { mutableStateOf(LocalDate.now(zone)) }
+                var mode by remember { mutableStateOf(SCOPE_DAY) }
                 var showPicker by remember { mutableStateOf(false) }
                 var editing by remember { mutableStateOf<JournalEntity?>(null) }
                 var adding by remember { mutableStateOf(false) }
                 var deleting by remember { mutableStateOf<JournalEntity?>(null) }
                 val scope = rememberCoroutineScope()
 
-                val (startMs, endMs) = dayBoundsMs(day, zone)
+                val today = LocalDate.now(zone)
+                val isWeek = mode == SCOPE_WEEK
+                val firstDay = if (isWeek) weekStartOf(day) else day
+                val spanDays = if (isWeek) 7 else 1
+                val entryKey = firstDay.toString()
+
+                val (startMs, endMs) = rangeBoundsMs(firstDay, spanDays, zone)
                 val readings by dao.readingsBetween(startMs, endMs)
                     .collectAsState(initial = emptyList())
-                val entries by dao.journalForDay(day.toString())
+                val entries by dao.journalFor(mode, entryKey)
                     .collectAsState(initial = emptyList())
-                val today = LocalDate.now(zone)
 
                 Scaffold(
                     floatingActionButton = {
@@ -86,27 +93,39 @@ class MainActivity : ComponentActivity() {
                     },
                 ) { padding ->
                     Column(Modifier.fillMaxSize().padding(padding)) {
-                        // ---- date header ----
+                        // ---- header ----
                         Row(
                             Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            IconButton(onClick = { day = day.minusDays(1) }) {
-                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous day")
+                            IconButton(onClick = { day = day.minusDays(spanDays.toLong()) }) {
+                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous")
                             }
                             Column(
                                 Modifier.weight(1f),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
+                                val fmt = DateTimeFormatter.ofPattern("MMM d", Locale.CANADA)
                                 Text(
-                                    day.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.CANADA)),
+                                    if (isWeek) {
+                                        "${firstDay.format(fmt)} – ${firstDay.plusDays(6).format(fmt)}"
+                                    } else {
+                                        day.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.CANADA))
+                                    },
                                     style = MaterialTheme.typography.titleLarge,
                                 )
-                                if (day == today) Text("Today", style = MaterialTheme.typography.labelSmall)
+                                val current = if (isWeek) weekStartOf(today) == firstDay else day == today
+                                if (current)
+
+                                    Text(
+                                        if (isWeek) "This week" else "Today",
+                                        style = MaterialTheme.typography.labelSmall,
+                                    )
                             }
-                            IconButton(onClick = { day = day.plusDays(1) }, enabled = day < today) {
-                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next day")
-                            }
+                            IconButton(
+                                onClick = { day = day.plusDays(spanDays.toLong()) },
+                                enabled = firstDay.plusDays(spanDays.toLong()) <= today,
+                            ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next") }
                             IconButton(onClick = { showPicker = true }) {
                                 Icon(Icons.Filled.DateRange, "Pick date")
                             }
@@ -115,18 +134,28 @@ class MainActivity : ComponentActivity() {
                             }) { Icon(Icons.Filled.Settings, "Settings") }
                         }
 
+                        // ---- day/week toggle ----
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            FilterChip(selected = !isWeek, onClick = { mode = SCOPE_DAY }, label = { Text("Day") })
+                            FilterChip(selected = isWeek, onClick = { mode = SCOPE_WEEK }, label = { Text("Week") })
+                        }
+
                         // ---- chart ----
-                        val settings = remember { kotlinx.coroutines.runBlocking { Store.settings(this@MainActivity) } }
-                        DayChart(
+                        val settings = remember { runBlocking { Store.settings(this@MainActivity) } }
+                        RangeChart(
                             readings = readings,
-                            day = day,
+                            firstDay = firstDay,
+                            days = spanDays,
                             zone = zone,
                             modifier = Modifier.fillMaxWidth().height(240.dp).padding(horizontal = 12.dp),
                             lowMmol = settings.lowMmol,
                             highMmol = settings.highMmol,
                         )
                         Text(
-                            if (readings.isEmpty()) "No readings for this day"
+                            if (readings.isEmpty()) "No readings in this range"
                             else "${readings.size} readings",
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.padding(start = 24.dp, top = 2.dp),
@@ -134,7 +163,7 @@ class MainActivity : ComponentActivity() {
 
                         Spacer(Modifier.height(8.dp))
 
-                        // ---- journal ----
+                        // ---- journal (scoped to day or week) ----
                         LazyColumn(
                             Modifier.weight(1f).padding(horizontal = 12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -184,12 +213,25 @@ class MainActivity : ComponentActivity() {
                     var text by remember(adding, editing) { mutableStateOf(editing?.text ?: "") }
                     AlertDialog(
                         onDismissRequest = { adding = false; editing = null },
-                        title = { Text(if (adding) "New note" else "Edit note") },
+                        title = {
+                            Text(
+                                when {
+                                    editing != null -> "Edit note"
+                                    isWeek -> "New note — week of ${firstDay.format(DateTimeFormatter.ofPattern("MMM d", Locale.CANADA))}"
+                                    else -> "New note — ${day.format(DateTimeFormatter.ofPattern("MMM d", Locale.CANADA))}"
+                                },
+                            )
+                        },
                         text = {
                             OutlinedTextField(
                                 text, { text = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                placeholder = { Text("What happened? Meals, activity, sleep…") },
+                                placeholder = {
+                                    Text(
+                                        if (isWeek) "How was the week? Routine, food themes, exercise…"
+                                        else "What happened? Meals, activity, sleep…",
+                                    )
+                                },
                                 minLines = 3,
                             )
                         },
@@ -199,7 +241,10 @@ class MainActivity : ComponentActivity() {
                                 onClick = {
                                     val now = System.currentTimeMillis()
                                     val toSave = editing?.copy(text = text.trim(), updatedAtMs = now)
-                                        ?: JournalEntity(day = day.toString(), text = text.trim(), createdAtMs = now, updatedAtMs = now)
+                                        ?: JournalEntity(
+                                            day = entryKey, text = text.trim(),
+                                            createdAtMs = now, updatedAtMs = now, scope = mode,
+                                        )
                                     scope.launch {
                                         if (editing != null) dao.updateJournal(toSave) else dao.insertJournal(toSave)
                                         adding = false; editing = null

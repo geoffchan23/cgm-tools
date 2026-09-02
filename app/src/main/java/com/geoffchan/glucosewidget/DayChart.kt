@@ -13,18 +13,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.TextStyle
+import java.util.Locale
 import kotlin.math.ceil
 
 /**
- * One day of glucose, midnight to midnight. Dots, not a line — a line
- * would interpolate across collection gaps and invent data. Color is
- * status (low red / high amber / in-range white) with the shaded target
- * band as the redundant, non-color encoding. Single series: no legend.
+ * Glucose over [days] consecutive days starting at [firstDay]. Dots, not a
+ * line — a line would interpolate across collection gaps and invent data.
+ * Color is status (low red / high amber / in-range white) with the shaded
+ * target band as the redundant, non-color encoding. Single series: no legend.
+ *
+ * days == 1: hour labels every 6 h. days > 1: a gridline per midnight,
+ * weekday initial under each day.
  */
 @Composable
-fun DayChart(
+fun RangeChart(
     readings: List<ReadingEntity>,
-    day: LocalDate,
+    firstDay: LocalDate,
+    days: Int,
     zone: ZoneId,
     modifier: Modifier = Modifier,
     lowMmol: Double = Store.DEFAULT_LOW,
@@ -32,8 +38,8 @@ fun DayChart(
 ) {
     val density = LocalDensity.current
     Canvas(modifier) {
-        val (startMs, endMs) = dayBoundsMs(day, zone)
-        val minutesInDay = (endMs - startMs) / 60_000f // DST-correct
+        val (startMs, endMs) = rangeBoundsMs(firstDay, days, zone)
+        val minutesInRange = (endMs - startMs) / 60_000f
 
         val labelPx = with(density) { 10.sp.toPx() }
         val padLeft = with(density) { 30.dp.toPx() }
@@ -46,7 +52,7 @@ fun DayChart(
         val yMin = 2.0
         fun yOf(mmol: Double) =
             plot.bottom - ((mmol - yMin) / (yMax - yMin)).toFloat() * plot.height
-        fun xOf(minute: Float) = plot.left + (minute / minutesInDay) * plot.width
+        fun xOf(minute: Float) = plot.left + (minute / minutesInRange) * plot.width
 
         val gridInk = Color(0x22FFFFFF)
         val mutedInk = Color(0x99FFFFFF)
@@ -64,7 +70,7 @@ fun DayChart(
             isAntiAlias = true
         }
 
-        // horizontal gridlines + y labels at whole-number marks
+        // horizontal gridlines + y labels
         val yTicks = buildList {
             var v = 5.0
             while (v < yMax) { add(v); v += 5.0 }
@@ -80,17 +86,32 @@ fun DayChart(
             }
         }
 
-        // x labels every 6 h
-        for (h in 0..24 step 6) {
-            val x = xOf(h * 60f).coerceAtMost(plot.right)
-            drawLine(gridInk, Offset(x, plot.top), Offset(x, plot.bottom), strokeWidth = 1f)
-            drawIntoCanvas {
-                it.nativeCanvas.drawText("%02d".format(h % 24), x - labelPx, plot.bottom + labelPx + 4f, textPaint)
+        // x gridlines + labels
+        if (days == 1) {
+            for (h in 0..24 step 6) {
+                val x = xOf(h * 60f).coerceAtMost(plot.right)
+                drawLine(gridInk, Offset(x, plot.top), Offset(x, plot.bottom), strokeWidth = 1f)
+                drawIntoCanvas {
+                    it.nativeCanvas.drawText("%02d".format(h % 24), x - labelPx, plot.bottom + labelPx + 4f, textPaint)
+                }
             }
+        } else {
+            for (d in 0 until days) {
+                val dayStart = rangeBoundsMs(firstDay.plusDays(d.toLong()), 1, zone).first
+                val x = xOf((dayStart - startMs) / 60_000f)
+                drawLine(gridInk, Offset(x, plot.top), Offset(x, plot.bottom), strokeWidth = 1f)
+                val label = firstDay.plusDays(d.toLong()).dayOfWeek
+                    .getDisplayName(TextStyle.NARROW, Locale.CANADA)
+                val dayWidth = plot.width / days
+                drawIntoCanvas {
+                    it.nativeCanvas.drawText(label, x + dayWidth / 2 - labelPx / 2, plot.bottom + labelPx + 4f, textPaint)
+                }
+            }
+            drawLine(gridInk, Offset(plot.right, plot.top), Offset(plot.right, plot.bottom), strokeWidth = 1f)
         }
 
-        // the data — one dot per reading
-        val r = with(density) { 2.dp.toPx() }
+        // the data — one dot per reading (smaller when the span is wide)
+        val r = with(density) { if (days == 1) 2.dp.toPx() else 1.2.dp.toPx() }
         for (reading in readings) {
             val mmol = mmolValue(reading.mgdl)
             val color = when {
@@ -101,11 +122,11 @@ fun DayChart(
             drawCircle(
                 color = color,
                 radius = r,
-                center = Offset(xOf(minuteOfDay(reading.timestampMs, day, zone)), yOf(mmol)),
+                center = Offset(xOf((reading.timestampMs - startMs) / 60_000f), yOf(mmol)),
             )
         }
 
-        // "now" marker on today
+        // "now" marker when the range includes the present
         val now = System.currentTimeMillis()
         if (now in startMs until endMs) {
             val x = xOf((now - startMs) / 60_000f)

@@ -63,3 +63,21 @@ class DayMathTest {
         assertEquals(90f, minuteOfDay(start + 90 * 60_000, day, toronto), 0.01f)
     }
 }
+
+class WeekMathTest {
+    @Test fun `weekStartOf returns the Monday of the week`() {
+        // 2026-09-02 is a Wednesday
+        assertEquals(LocalDate.of(2026, 8, 31), weekStartOf(LocalDate.of(2026, 9, 2)))
+        // a Monday maps to itself
+        assertEquals(LocalDate.of(2026, 8, 31), weekStartOf(LocalDate.of(2026, 8, 31)))
+        // a Sunday belongs to the week that started 6 days earlier
+        assertEquals(LocalDate.of(2026, 8, 31), weekStartOf(LocalDate.of(2026, 9, 6)))
+    }
+
+    @Test fun `rangeBoundsMs spans the requested number of days`() {
+        val zone = ZoneId.of("America/Toronto")
+        val (start, end) = rangeBoundsMs(LocalDate.of(2026, 8, 31), 7, zone)
+        assertEquals(7 * 24 * 3600_000L, end - start)
+        assertEquals(dayBoundsMs(LocalDate.of(2026, 8, 31), zone).first, start)
+    }
+}
