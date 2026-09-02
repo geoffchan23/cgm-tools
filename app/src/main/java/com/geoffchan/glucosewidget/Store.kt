@@ -53,12 +53,20 @@ object Store {
     }
 
     private val KEY_LAST_MED = stringPreferencesKey("lastMed")
+    private val KEY_LAST_UNITS = intPreferencesKey("lastUnits")
 
     suspend fun lastMedication(context: Context): String =
-        context.dataStore.data.first()[KEY_LAST_MED] ?: "insulin"
+        context.dataStore.data.first()[KEY_LAST_MED] ?: "short-acting"
 
     suspend fun saveLastMedication(context: Context, name: String) {
         context.dataStore.edit { it[KEY_LAST_MED] = name }
+    }
+
+    suspend fun lastUnits(context: Context): Int =
+        context.dataStore.data.first()[KEY_LAST_UNITS] ?: 4
+
+    suspend fun saveLastUnits(context: Context, units: Int) {
+        context.dataStore.edit { it[KEY_LAST_UNITS] = units }
     }
 
     // --- credentials + session ---

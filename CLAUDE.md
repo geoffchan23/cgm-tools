@@ -35,9 +35,12 @@ Two machine-friendly conventions ride inside ordinary day-scope entries:
 - **Day tags**: an entry whose whole text is `#sick`, `#stress`,
   `#travel`, or `#cycle` (toggled via chips in the day view; the app
   hides them from the notes list). Treat as boolean day flags.
-- **Doses**: `dose: <name> <amount> @ HH:mm` (quick-entry button;
-  always logged to today at the tap time, e.g.
-  `dose: insulin 4u @ 13:05`). Parse name/amount/time from the pattern.
+- **Doses**: `dose: <type> <units>u @ HH:mm` where type is
+  `short-acting` or `long-acting` and units is 1–100. Quick-entry
+  button; always logged to today at the tap time, e.g.
+  `dose: short-acting 4u @ 13:05`. Parse type/units/time from the
+  pattern. (Entries logged before 2026-09-02 may use the older
+  `dose: <name> <amount> @ HH:mm` free-name form.)
 
 ## Build & deploy
 

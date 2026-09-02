@@ -309,21 +309,62 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (dosing) {
-                    var medName by remember { mutableStateOf(runBlocking { Store.lastMedication(this@MainActivity) }) }
-                    var amount by remember { mutableStateOf("") }
+                    var insulinType by remember {
+                        mutableStateOf(runBlocking { Store.lastMedication(this@MainActivity) })
+                    }
+                    var unitsText by remember {
+                        mutableStateOf(runBlocking { Store.lastUnits(this@MainActivity) }.toString())
+                    }
+                    fun unitsOrNull() = unitsText.toIntOrNull()?.takeIf { it in 1..100 }
+                    fun bump(delta: Int) {
+                        unitsText = ((unitsText.toIntOrNull() ?: 0) + delta).coerceIn(1, 100).toString()
+                    }
                     AlertDialog(
                         onDismissRequest = { dosing = false },
                         title = { Text("Log dose") },
                         text = {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedTextField(medName, { medName = it }, label = { Text("Medication") }, singleLine = true)
-                                OutlinedTextField(amount, { amount = it }, label = { Text("Amount (e.g. 4u, 500mg)") }, singleLine = true)
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    FilterChip(
+                                        selected = insulinType == "short-acting",
+                                        onClick = { insulinType = "short-acting" },
+                                        label = { Text("Short-acting") },
+                                    )
+                                    FilterChip(
+                                        selected = insulinType == "long-acting",
+                                        onClick = { insulinType = "long-acting" },
+                                        label = { Text("Long-acting") },
+                                    )
+                                }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    androidx.compose.material3.FilledTonalIconButton(onClick = { bump(-1) }) {
+                                        Text("−", style = MaterialTheme.typography.titleLarge)
+                                    }
+                                    OutlinedTextField(
+                                        unitsText,
+                                        { new -> if (new.length <= 3 && new.all(Char::isDigit)) unitsText = new },
+                                        label = { Text("Units") },
+                                        singleLine = true,
+                                        isError = unitsOrNull() == null,
+                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
+                                        ),
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    androidx.compose.material3.FilledTonalIconButton(onClick = { bump(+1) }) {
+                                        Text("+", style = MaterialTheme.typography.titleLarge)
+                                    }
+                                }
                             }
                         },
                         confirmButton = {
                             Button(
-                                enabled = medName.isNotBlank() && amount.isNotBlank(),
+                                enabled = unitsOrNull() != null,
                                 onClick = {
+                                    val units = unitsOrNull() ?: return@Button
                                     val now = System.currentTimeMillis()
                                     val time = java.time.LocalTime.now(zone)
                                         .format(DateTimeFormatter.ofPattern("HH:mm"))
@@ -331,11 +372,12 @@ class MainActivity : ComponentActivity() {
                                         dao.insertJournal(
                                             JournalEntity(
                                                 day = LocalDate.now(zone).toString(),
-                                                text = doseNoteText(medName, amount, time),
+                                                text = doseNoteText(insulinType, "${units}u", time),
                                                 createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY,
                                             ),
                                         )
-                                        Store.saveLastMedication(this@MainActivity, medName.trim())
+                                        Store.saveLastMedication(this@MainActivity, insulinType)
+                                        Store.saveLastUnits(this@MainActivity, units)
                                         dosing = false
                                     }
                                 },
