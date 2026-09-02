@@ -319,6 +319,8 @@ class MainActivity : ComponentActivity() {
                     fun bump(delta: Int) {
                         unitsText = ((unitsText.toIntOrNull() ?: 0) + delta).coerceIn(1, 100).toString()
                     }
+                    var doseTime by remember { mutableStateOf(java.time.LocalTime.now(zone).withSecond(0)) }
+                    var showTimePicker by remember { mutableStateOf(false) }
                     AlertDialog(
                         onDismissRequest = { dosing = false },
                         title = { Text("Log dose") },
@@ -358,6 +360,19 @@ class MainActivity : ComponentActivity() {
                                         Text("+", style = MaterialTheme.typography.titleLarge)
                                     }
                                 }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    TextButton(onClick = { doseTime = doseTime.minusMinutes(15) }) { Text("−15m") }
+                                    androidx.compose.material3.OutlinedButton(
+                                        onClick = { showTimePicker = true },
+                                        modifier = Modifier.weight(1f),
+                                    ) {
+                                        Text(doseTime.format(DateTimeFormatter.ofPattern("HH:mm")))
+                                    }
+                                    TextButton(onClick = { doseTime = doseTime.plusMinutes(15) }) { Text("+15m") }
+                                }
                             }
                         },
                         confirmButton = {
@@ -366,8 +381,7 @@ class MainActivity : ComponentActivity() {
                                 onClick = {
                                     val units = unitsOrNull() ?: return@Button
                                     val now = System.currentTimeMillis()
-                                    val time = java.time.LocalTime.now(zone)
-                                        .format(DateTimeFormatter.ofPattern("HH:mm"))
+                                    val time = doseTime.format(DateTimeFormatter.ofPattern("HH:mm"))
                                     scope.launch {
                                         dao.insertJournal(
                                             JournalEntity(
@@ -385,6 +399,28 @@ class MainActivity : ComponentActivity() {
                         },
                         dismissButton = { TextButton(onClick = { dosing = false }) { Text("Cancel") } },
                     )
+
+                    if (showTimePicker) {
+                        val timeState = androidx.compose.material3.rememberTimePickerState(
+                            initialHour = doseTime.hour,
+                            initialMinute = doseTime.minute,
+                            is24Hour = true,
+                        )
+                        AlertDialog(
+                            onDismissRequest = { showTimePicker = false },
+                            title = { Text("Dose time") },
+                            text = { androidx.compose.material3.TimePicker(state = timeState) },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    doseTime = java.time.LocalTime.of(timeState.hour, timeState.minute)
+                                    showTimePicker = false
+                                }) { Text("OK") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
+                            },
+                        )
+                    }
                 }
 
                 deleting?.let { doomed ->
