@@ -9,7 +9,7 @@ data class Reading(val mgdl: Int, val timestampMs: Long, val trend: String)
 
 enum class GlucoseState { IN_RANGE, LOW, HIGH, STALE }
 
-const val STALE_AFTER_MS: Long = 10 * 60_000
+const val STALE_AFTER_MS: Long = 12 * 60_000
 
 /** mg/dL -> mmol/L with one decimal, the value Dexcom displays in Canada. */
 fun mmolValue(mgdl: Int): Double = (mgdl / 18.0182 * 10).roundToInt() / 10.0

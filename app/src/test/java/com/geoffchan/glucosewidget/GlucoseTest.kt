@@ -79,7 +79,7 @@ class StateTest {
     }
 
     @Test fun `stale wins over range`() {
-        val s = displayState(reading, nowMs = 1_000_000L + 11 * 60_000, lowMmol = 3.9, highMmol = 10.0)
+        val s = displayState(reading, nowMs = 1_000_000L + 13 * 60_000, lowMmol = 3.9, highMmol = 10.0)
         assertEquals(GlucoseState.STALE, s)
     }
 
