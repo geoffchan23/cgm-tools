@@ -48,6 +48,10 @@ interface GlucoseDao {
     @Query("SELECT * FROM journal WHERE day = :key AND scope = :scope ORDER BY createdAtMs")
     fun journalFor(scope: String, key: String): Flow<List<JournalEntity>>
 
+    // Day-scoped notes inside a date range; ISO dates compare correctly as strings.
+    @Query("SELECT * FROM journal WHERE scope = 'day' AND day >= :firstDay AND day <= :lastDay ORDER BY day, createdAtMs")
+    fun dayJournalInRange(firstDay: String, lastDay: String): Flow<List<JournalEntity>>
+
     @Insert suspend fun insertJournal(entry: JournalEntity): Long
     @Update suspend fun updateJournal(entry: JournalEntity)
     @Delete suspend fun deleteJournal(entry: JournalEntity)

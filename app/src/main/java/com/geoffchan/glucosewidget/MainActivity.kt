@@ -82,8 +82,14 @@ class MainActivity : ComponentActivity() {
                 val (startMs, endMs) = rangeBoundsMs(firstDay, spanDays, zone)
                 val readings by dao.readingsBetween(startMs, endMs)
                     .collectAsState(initial = emptyList())
-                val entries by dao.journalFor(mode, entryKey)
+                val scopedEntries by dao.journalFor(mode, entryKey)
                     .collectAsState(initial = emptyList())
+                // Week view also lists that week's day notes, labeled by date.
+                val dayEntriesInWeek by (
+                    if (isWeek) dao.dayJournalInRange(firstDay.toString(), firstDay.plusDays(6).toString())
+                    else dao.journalFor("none", "none")
+                    ).collectAsState(initial = emptyList())
+                val entries = scopedEntries + dayEntriesInWeek
 
                 Scaffold(
                     floatingActionButton = {
@@ -170,18 +176,26 @@ class MainActivity : ComponentActivity() {
                         ) {
                             items(entries, key = { it.id }) { entry ->
                                 Card(Modifier.fillMaxWidth()) {
-                                    Row(
-                                        Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Text(
-                                            entry.text,
-                                            Modifier.weight(1f).padding(vertical = 8.dp),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                        )
-                                        TextButton(onClick = { editing = entry }) { Text("Edit") }
-                                        IconButton(onClick = { deleting = entry }) {
-                                            Icon(Icons.Filled.Delete, "Delete note")
+                                    Column(Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp)) {
+                                        if (isWeek && entry.scope == SCOPE_DAY) {
+                                            Text(
+                                                LocalDate.parse(entry.day)
+                                                    .format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.CANADA)),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.padding(top = 6.dp),
+                                            )
+                                        }
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                entry.text,
+                                                Modifier.weight(1f).padding(vertical = 8.dp),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                            )
+                                            TextButton(onClick = { editing = entry }) { Text("Edit") }
+                                            IconButton(onClick = { deleting = entry }) {
+                                                Icon(Icons.Filled.Delete, "Delete note")
+                                            }
                                         }
                                     }
                                 }
