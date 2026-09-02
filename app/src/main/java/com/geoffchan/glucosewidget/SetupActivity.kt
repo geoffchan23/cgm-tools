@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -46,7 +48,22 @@ class SetupActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
-                Surface(Modifier.fillMaxSize()) {
+                androidx.compose.material3.Scaffold(
+                    topBar = {
+                        @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+                        androidx.compose.material3.TopAppBar(
+                            title = { Text("Settings") },
+                            navigationIcon = {
+                                androidx.compose.material3.IconButton(onClick = { finish() }) {
+                                    androidx.compose.material3.Icon(
+                                        Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                        contentDescription = "Back",
+                                    )
+                                }
+                            },
+                        )
+                    },
+                ) { insets ->
                     var username by remember { mutableStateOf(existing?.first ?: "") }
                     var password by remember { mutableStateOf(existing?.second ?: "") }
                     var low by remember { mutableStateOf(settings.lowMmol.toString()) }
@@ -55,10 +72,10 @@ class SetupActivity : ComponentActivity() {
                     val scope = rememberCoroutineScope()
 
                     Column(
-                        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+                        Modifier.fillMaxSize().padding(insets).verticalScroll(rememberScrollState())
+                            .padding(horizontal = 24.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Text("Glucose Widget", style = MaterialTheme.typography.headlineSmall)
                         Text(
                             "Uses the wearer's Dexcom account (the login the G7 app uses). " +
                                 "Credentials stay on this phone.",
