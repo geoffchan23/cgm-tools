@@ -1,13 +1,21 @@
 package com.geoffchan.glucosewidget
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -17,14 +25,24 @@ import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.math.ceil
 
+/** Gridline spacing for a visible span, minutes. Coarser as you zoom out. */
+fun tickStepMinutes(visibleMinutes: Float): Int = when {
+    visibleMinutes <= 120f -> 15
+    visibleMinutes <= 360f -> 30
+    visibleMinutes <= 600f -> 60
+    visibleMinutes <= 1200f -> 180
+    visibleMinutes <= 2880f -> 360
+    else -> 1440
+}
+
 /**
  * Glucose over [days] consecutive days starting at [firstDay]. Dots, not a
  * line — a line would interpolate across collection gaps and invent data.
  * Color is status (low red / high amber / in-range white) with the shaded
  * target band as the redundant, non-color encoding. Single series: no legend.
  *
- * days == 1: hour labels every 6 h. days > 1: a gridline per midnight,
- * weekday initial under each day.
+ * Pinch zooms the time axis (glucose axis stays fixed), drag pans, both
+ * clamped to the range; double-tap resets. Ticks adapt to the visible span.
  */
 @Composable
 fun RangeChart(
@@ -37,22 +55,45 @@ fun RangeChart(
     highMmol: Double = Store.DEFAULT_HIGH,
 ) {
     val density = LocalDensity.current
-    Canvas(modifier) {
-        val (startMs, endMs) = rangeBoundsMs(firstDay, days, zone)
-        val minutesInRange = (endMs - startMs) / 60_000f
+    val (startMs, endMs) = rangeBoundsMs(firstDay, days, zone)
+    val totalMinutes = (endMs - startMs) / 60_000f
 
+    var zoomX by remember(firstDay, days) { mutableFloatStateOf(1f) }
+    var viewStartMin by remember(firstDay, days) { mutableFloatStateOf(0f) }
+    val visibleMinutes = totalMinutes / zoomX
+
+    val padLeftPx = with(density) { 30.dp.toPx() }
+
+    Canvas(
+        modifier
+            .pointerInput(firstDay, days) {
+                detectTransformGestures { centroid, pan, gestureZoom, _ ->
+                    val plotW = (size.width - padLeftPx).coerceAtLeast(1f)
+                    val frac = ((centroid.x - padLeftPx) / plotW).coerceIn(0f, 1f)
+                    val anchorMin = viewStartMin + frac * (totalMinutes / zoomX)
+                    zoomX = (zoomX * gestureZoom).coerceIn(1f, 96f)
+                    val newVisible = totalMinutes / zoomX
+                    viewStartMin = (anchorMin - frac * newVisible - pan.x / plotW * newVisible)
+                        .coerceIn(0f, totalMinutes - newVisible)
+                }
+            }
+            .pointerInput(firstDay, days) {
+                detectTapGestures(onDoubleTap = { zoomX = 1f; viewStartMin = 0f })
+            },
+    ) {
         val labelPx = with(density) { 10.sp.toPx() }
-        val padLeft = with(density) { 30.dp.toPx() }
         val padBottom = with(density) { 18.dp.toPx() }
         val padTop = with(density) { 6.dp.toPx() }
-        val plot = Rect(padLeft, padTop, size.width, size.height - padBottom)
+        val plot = Rect(padLeftPx, padTop, size.width, size.height - padBottom)
+        val viewEndMin = viewStartMin + visibleMinutes
 
         val maxData = readings.maxOfOrNull { mmolValue(it.mgdl) } ?: 0.0
         val yMax = maxOf(14.0, ceil(maxData) + 1)
         val yMin = 2.0
         fun yOf(mmol: Double) =
             plot.bottom - ((mmol - yMin) / (yMax - yMin)).toFloat() * plot.height
-        fun xOf(minute: Float) = plot.left + (minute / minutesInRange) * plot.width
+        fun xOf(minute: Float) =
+            plot.left + ((minute - viewStartMin) / visibleMinutes) * plot.width
 
         val gridInk = Color(0x22FFFFFF)
         val mutedInk = Color(0x99FFFFFF)
@@ -86,51 +127,69 @@ fun RangeChart(
             }
         }
 
-        // x gridlines + labels
-        if (days == 1) {
-            for (h in 0..24 step 6) {
-                val x = xOf(h * 60f).coerceAtMost(plot.right)
-                drawLine(gridInk, Offset(x, plot.top), Offset(x, plot.bottom), strokeWidth = 1f)
-                drawIntoCanvas {
-                    it.nativeCanvas.drawText("%02d".format(h % 24), x - labelPx, plot.bottom + labelPx + 4f, textPaint)
-                }
-            }
-        } else {
+        // x gridlines + labels, adaptive to zoom
+        val step = tickStepMinutes(visibleMinutes)
+        if (step >= 1440) {
+            // day ticks on exact local midnights (DST-correct)
             for (d in 0 until days) {
                 val dayStart = rangeBoundsMs(firstDay.plusDays(d.toLong()), 1, zone).first
-                val x = xOf((dayStart - startMs) / 60_000f)
+                val m = (dayStart - startMs) / 60_000f
+                if (m < viewStartMin - 1 || m > viewEndMin + 1) continue
+                val x = xOf(m)
                 drawLine(gridInk, Offset(x, plot.top), Offset(x, plot.bottom), strokeWidth = 1f)
                 val label = firstDay.plusDays(d.toLong()).dayOfWeek
                     .getDisplayName(TextStyle.NARROW, Locale.CANADA)
-                val dayWidth = plot.width / days
+                val dayWidthPx = plot.width * (1440f / visibleMinutes)
                 drawIntoCanvas {
-                    it.nativeCanvas.drawText(label, x + dayWidth / 2 - labelPx / 2, plot.bottom + labelPx + 4f, textPaint)
+                    it.nativeCanvas.drawText(label, x + dayWidthPx / 2 - labelPx / 2, plot.bottom + labelPx + 4f, textPaint)
                 }
             }
-            drawLine(gridInk, Offset(plot.right, plot.top), Offset(plot.right, plot.bottom), strokeWidth = 1f)
-        }
-
-        // the data — one dot per reading (smaller when the span is wide)
-        val r = with(density) { if (days == 1) 2.dp.toPx() else 1.2.dp.toPx() }
-        for (reading in readings) {
-            val mmol = mmolValue(reading.mgdl)
-            val color = when {
-                mmol < lowMmol -> Color(0xFFFF5252)
-                mmol > highMmol -> Color(0xFFFFB300)
-                else -> Color.White
+        } else {
+            var m = (ceil(viewStartMin / step) * step)
+            while (m <= viewEndMin) {
+                val x = xOf(m)
+                drawLine(gridInk, Offset(x, plot.top), Offset(x, plot.bottom), strokeWidth = 1f)
+                val minuteOfDay = m.toInt() % 1440
+                val isMidnight = minuteOfDay == 0
+                val label = if (isMidnight && days > 1) {
+                    firstDay.plusDays((m.toInt() / 1440).toLong()).dayOfWeek
+                        .getDisplayName(TextStyle.SHORT, Locale.CANADA)
+                } else {
+                    "%02d:%02d".format(minuteOfDay / 60, minuteOfDay % 60)
+                }
+                drawIntoCanvas {
+                    it.nativeCanvas.drawText(label, x - labelPx * 1.2f, plot.bottom + labelPx + 4f, textPaint)
+                }
+                m += step
             }
-            drawCircle(
-                color = color,
-                radius = r,
-                center = Offset(xOf((reading.timestampMs - startMs) / 60_000f), yOf(mmol)),
-            )
         }
 
-        // "now" marker when the range includes the present
-        val now = System.currentTimeMillis()
-        if (now in startMs until endMs) {
-            val x = xOf((now - startMs) / 60_000f)
-            drawLine(mutedInk, Offset(x, plot.top), Offset(x, plot.bottom), strokeWidth = 2f)
+        // the data — one dot per reading; a touch larger when zoomed in
+        val baseR = when {
+            visibleMinutes <= 720f -> 3.dp
+            visibleMinutes <= 2000f -> 2.dp
+            else -> 1.2.dp
+        }
+        val r = with(density) { baseR.toPx() }
+        clipRect(plot.left, plot.top, plot.right, plot.bottom) {
+            for (reading in readings) {
+                val minute = (reading.timestampMs - startMs) / 60_000f
+                if (minute < viewStartMin - 5 || minute > viewEndMin + 5) continue
+                val mmol = mmolValue(reading.mgdl)
+                val color = when {
+                    mmol < lowMmol -> Color(0xFFFF5252)
+                    mmol > highMmol -> Color(0xFFFFB300)
+                    else -> Color.White
+                }
+                drawCircle(color, r, Offset(xOf(minute), yOf(mmol)))
+            }
+
+            // "now" marker when the visible window includes the present
+            val now = System.currentTimeMillis()
+            if (now in startMs until endMs) {
+                val x = xOf((now - startMs) / 60_000f)
+                drawLine(mutedInk, Offset(x, plot.top), Offset(x, plot.bottom), strokeWidth = 2f)
+            }
         }
     }
 }

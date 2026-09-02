@@ -81,3 +81,14 @@ class WeekMathTest {
         assertEquals(dayBoundsMs(LocalDate.of(2026, 8, 31), zone).first, start)
     }
 }
+
+class TickTest {
+    @Test fun `tick step adapts to visible span`() {
+        assertEquals(15, tickStepMinutes(90f))       // <=1.5h visible: 15-min ticks
+        assertEquals(30, tickStepMinutes(180f))      // 3h: 30-min
+        assertEquals(60, tickStepMinutes(480f))      // 8h: hourly
+        assertEquals(180, tickStepMinutes(720f))     // 12h: 3-hourly
+        assertEquals(360, tickStepMinutes(1440f))    // full day: 6-hourly (matches old look)
+        assertEquals(1440, tickStepMinutes(10080f))  // full week: daily
+    }
+}
