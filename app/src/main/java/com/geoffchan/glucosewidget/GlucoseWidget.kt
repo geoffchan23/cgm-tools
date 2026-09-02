@@ -11,7 +11,7 @@ import androidx.glance.GlanceTheme
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
-import androidx.glance.appwidget.action.actionRunCallback
+import androidx.glance.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
@@ -42,11 +42,6 @@ class GlucoseWidgetReceiver : GlanceAppWidgetReceiver() {
     }
 }
 
-class RefreshAction : ActionCallback {
-    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
-        Refresh.enqueue(context)
-    }
-}
 
 class GlucoseWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -70,7 +65,7 @@ class GlucoseWidget : GlanceAppWidget() {
                 .background(bg)
                 .cornerRadius(24.dp)
                 .padding(8.dp)
-                .clickable(actionRunCallback<RefreshAction>()),
+                .clickable(actionStartActivity<MainActivity>()),
             verticalAlignment = Alignment.CenterVertically,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {

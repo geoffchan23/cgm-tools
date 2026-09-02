@@ -62,6 +62,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val dao = GlucoseDb.get(this).dao()
         val zone = ZoneId.systemDefault()
+        Refresh.enqueue(this) // opening the app freshens the data
 
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
