@@ -184,11 +184,45 @@ fun RangeChart(
                 drawCircle(color, r, Offset(xOf(minute), yOf(mmol)))
             }
 
-            // "now" marker when the visible window includes the present
+            // "now" marker when the visible window includes the present,
+            // with the current reading readable right at the line
             val now = System.currentTimeMillis()
             if (now in startMs until endMs) {
-                val x = xOf((now - startMs) / 60_000f)
+                val nowMin = (now - startMs) / 60_000f
+                val x = xOf(nowMin)
                 drawLine(mutedInk, Offset(x, plot.top), Offset(x, plot.bottom), strokeWidth = 2f)
+
+                val latest = readings.maxByOrNull { it.timestampMs }
+                if (latest != null && nowMin >= viewStartMin && nowMin <= viewEndMin) {
+                    val mmol = mmolValue(latest.mgdl)
+                    val stale = now - latest.timestampMs > STALE_AFTER_MS
+                    val color = when {
+                        stale -> android.graphics.Color.argb(0xFF, 0x9E, 0x9E, 0x9E)
+                        mmol < lowMmol -> android.graphics.Color.argb(0xFF, 0xFF, 0x52, 0x52)
+                        mmol > highMmol -> android.graphics.Color.argb(0xFF, 0xFF, 0xB3, 0x00)
+                        else -> android.graphics.Color.WHITE
+                    }
+                    // ring the newest dot so the label visibly belongs to it
+                    val latestMin = (latest.timestampMs - startMs) / 60_000f
+                    drawCircle(
+                        Color(color), r + with(density) { 3.dp.toPx() },
+                        Offset(xOf(latestMin), yOf(mmol)),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f),
+                    )
+                    val bigPaint = android.graphics.Paint().apply {
+                        this.color = color
+                        textSize = with(density) { 16.sp.toPx() }
+                        isFakeBoldText = true
+                        isAntiAlias = true
+                    }
+                    val label = mmolText(latest.mgdl) + " " + trendArrow(latest.trend)
+                    val w = bigPaint.measureText(label)
+                    val pad = with(density) { 6.dp.toPx() }
+                    val tx = if (x + pad + w > plot.right) x - pad - w else x + pad
+                    drawIntoCanvas {
+                        it.nativeCanvas.drawText(label, tx, plot.top + bigPaint.textSize, bigPaint)
+                    }
+                }
             }
         }
     }
