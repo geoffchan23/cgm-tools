@@ -313,7 +313,7 @@ class MainActivity : ComponentActivity() {
                         mutableStateOf(runBlocking { Store.lastMedication(this@MainActivity) })
                     }
                     var unitsText by remember {
-                        mutableStateOf(runBlocking { Store.lastUnits(this@MainActivity) }.toString())
+                        mutableStateOf(defaultUnits(insulinType, LocalDate.now(zone).dayOfWeek).toString())
                     }
                     fun unitsOrNull() = unitsText.toIntOrNull()?.takeIf { it in 1..100 }
                     fun bump(delta: Int) {
@@ -329,12 +329,18 @@ class MainActivity : ComponentActivity() {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     FilterChip(
                                         selected = insulinType == "short-acting",
-                                        onClick = { insulinType = "short-acting" },
+                                        onClick = {
+                                            insulinType = "short-acting"
+                                            unitsText = defaultUnits("short-acting", LocalDate.now(zone).dayOfWeek).toString()
+                                        },
                                         label = { Text("Short-acting") },
                                     )
                                     FilterChip(
                                         selected = insulinType == "long-acting",
-                                        onClick = { insulinType = "long-acting" },
+                                        onClick = {
+                                            insulinType = "long-acting"
+                                            unitsText = defaultUnits("long-acting", LocalDate.now(zone).dayOfWeek).toString()
+                                        },
                                         label = { Text("Long-acting") },
                                     )
                                 }
@@ -391,7 +397,6 @@ class MainActivity : ComponentActivity() {
                                             ),
                                         )
                                         Store.saveLastMedication(this@MainActivity, insulinType)
-                                        Store.saveLastUnits(this@MainActivity, units)
                                         dosing = false
                                     }
                                 },

@@ -106,3 +106,17 @@ class ConventionTest {
         assertEquals("dose: metformin 500mg @ 08:30", doseNoteText(" metformin ", " 500mg ", "08:30"))
     }
 }
+
+class DoseDefaultTest {
+    @Test fun `short acting defaults to 4 every day`() {
+        for (d in java.time.DayOfWeek.entries) assertEquals(4, defaultUnits("short-acting", d))
+    }
+
+    @Test fun `long acting is 19 on weekdays and 25 Fri through Sun`() {
+        assertEquals(19, defaultUnits("long-acting", java.time.DayOfWeek.MONDAY))
+        assertEquals(19, defaultUnits("long-acting", java.time.DayOfWeek.THURSDAY))
+        assertEquals(25, defaultUnits("long-acting", java.time.DayOfWeek.FRIDAY))
+        assertEquals(25, defaultUnits("long-acting", java.time.DayOfWeek.SATURDAY))
+        assertEquals(25, defaultUnits("long-acting", java.time.DayOfWeek.SUNDAY))
+    }
+}

@@ -42,6 +42,18 @@ val DAY_TAGS = listOf("#sick", "#stress", "#travel", "#cycle")
 
 fun isTagEntry(text: String): Boolean = text.startsWith("#") && !text.contains(" ")
 
+/**
+ * Geoff's dosing routine: short-acting is 4u; long-acting is 19u on
+ * weekdays and 25u Friday through Sunday. Prefills the dose dialog.
+ */
+fun defaultUnits(type: String, dayOfWeek: java.time.DayOfWeek): Int = when {
+    type == "long-acting" && dayOfWeek in listOf(
+        java.time.DayOfWeek.FRIDAY, java.time.DayOfWeek.SATURDAY, java.time.DayOfWeek.SUNDAY,
+    ) -> 25
+    type == "long-acting" -> 19
+    else -> 4
+}
+
 /** Canonical dose-note format; the analysis parser relies on it. */
 fun doseNoteText(name: String, amount: String, time: String): String =
     "dose: ${name.trim()} ${amount.trim()} @ $time"
