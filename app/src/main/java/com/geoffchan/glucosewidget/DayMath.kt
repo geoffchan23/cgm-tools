@@ -37,6 +37,15 @@ fun minuteOfDay(timestampMs: Long, day: LocalDate, zone: ZoneId): Float {
 fun weekStartOf(date: LocalDate): LocalDate =
     date.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
 
+/** One-tap day tags. Stored as journal entries whose whole text is the tag. */
+val DAY_TAGS = listOf("#sick", "#stress", "#travel", "#cycle")
+
+fun isTagEntry(text: String): Boolean = text.startsWith("#") && !text.contains(" ")
+
+/** Canonical dose-note format; the analysis parser relies on it. */
+fun doseNoteText(name: String, amount: String, time: String): String =
+    "dose: ${name.trim()} ${amount.trim()} @ $time"
+
 /** [start, end) in epoch ms of [days] consecutive local days from [firstDay]. */
 fun rangeBoundsMs(firstDay: LocalDate, days: Int, zone: ZoneId): Pair<Long, Long> {
     val start = firstDay.atStartOfDay(zone).toInstant().toEpochMilli()

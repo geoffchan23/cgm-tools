@@ -92,3 +92,17 @@ class TickTest {
         assertEquals(1440, tickStepMinutes(10080f))  // full week: daily
     }
 }
+
+class ConventionTest {
+    @Test fun `tag entries are recognized`() {
+        assertTrue(isTagEntry("#sick"))
+        assertTrue(isTagEntry("#travel"))
+        org.junit.Assert.assertFalse(isTagEntry("had #pasta for lunch"))
+        org.junit.Assert.assertFalse(isTagEntry("regular note"))
+    }
+
+    @Test fun `dose note format is stable for the parser`() {
+        assertEquals("dose: insulin 4u @ 13:05", doseNoteText("insulin", "4u", "13:05"))
+        assertEquals("dose: metformin 500mg @ 08:30", doseNoteText(" metformin ", " 500mg ", "08:30"))
+    }
+}

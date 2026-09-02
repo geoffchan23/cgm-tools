@@ -31,6 +31,14 @@ activity/sleep notes at day and week level, and expects Claude Code to
 parse them into structured data (meals, activities, etc.) during
 analysis sessions — structure lives in the analysis, not the app.
 
+Two machine-friendly conventions ride inside ordinary day-scope entries:
+- **Day tags**: an entry whose whole text is `#sick`, `#stress`,
+  `#travel`, or `#cycle` (toggled via chips in the day view; the app
+  hides them from the notes list). Treat as boolean day flags.
+- **Doses**: `dose: <name> <amount> @ HH:mm` (quick-entry button;
+  always logged to today at the tap time, e.g.
+  `dose: insulin 4u @ 13:05`). Parse name/amount/time from the pattern.
+
 ## Build & deploy
 
 ```bash

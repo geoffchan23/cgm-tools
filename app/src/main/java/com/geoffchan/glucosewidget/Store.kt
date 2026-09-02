@@ -52,6 +52,15 @@ object Store {
         return Settings(p[KEY_LOW] ?: DEFAULT_LOW, p[KEY_HIGH] ?: DEFAULT_HIGH)
     }
 
+    private val KEY_LAST_MED = stringPreferencesKey("lastMed")
+
+    suspend fun lastMedication(context: Context): String =
+        context.dataStore.data.first()[KEY_LAST_MED] ?: "insulin"
+
+    suspend fun saveLastMedication(context: Context, name: String) {
+        context.dataStore.edit { it[KEY_LAST_MED] = name }
+    }
+
     // --- credentials + session ---
 
     private fun securePrefs(context: Context) = EncryptedSharedPreferences.create(

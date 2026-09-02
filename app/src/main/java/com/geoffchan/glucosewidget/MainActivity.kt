@@ -72,6 +72,7 @@ class MainActivity : ComponentActivity() {
                 var editing by remember { mutableStateOf<JournalEntity?>(null) }
                 var adding by remember { mutableStateOf(false) }
                 var deleting by remember { mutableStateOf<JournalEntity?>(null) }
+                var dosing by remember { mutableStateOf(false) }
                 val scope = rememberCoroutineScope()
 
                 val today = LocalDate.now(zone)
@@ -150,6 +151,40 @@ class MainActivity : ComponentActivity() {
                             FilterChip(selected = isWeek, onClick = { mode = SCOPE_WEEK }, label = { Text("Week") })
                         }
 
+                        // ---- day tags + quick dose (day mode only) ----
+                        if (!isWeek) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                for (tag in DAY_TAGS) {
+                                    val existing = entries.firstOrNull { it.scope == SCOPE_DAY && it.text == tag }
+                                    FilterChip(
+                                        selected = existing != null,
+                                        onClick = {
+                                            scope.launch {
+                                                if (existing != null) {
+                                                    dao.deleteJournal(existing)
+                                                } else {
+                                                    val now = System.currentTimeMillis()
+                                                    dao.insertJournal(
+                                                        JournalEntity(
+                                                            day = entryKey, text = tag,
+                                                            createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY,
+                                                        ),
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        label = { Text(tag.removePrefix("#")) },
+                                    )
+                                }
+                                Spacer(Modifier.weight(1f))
+                                TextButton(onClick = { dosing = true }) { Text("+ Dose") }
+                            }
+                        }
+
                         // ---- chart ----
                         val settings = remember { runBlocking { Store.settings(this@MainActivity) } }
                         RangeChart(
@@ -175,7 +210,7 @@ class MainActivity : ComponentActivity() {
                             Modifier.weight(1f).padding(horizontal = 12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            items(entries, key = { it.id }) { entry ->
+                            items(entries.filterNot { isTagEntry(it.text) }, key = { it.id }) { entry ->
                                 Card(Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp)) {
                                         if (isWeek && entry.scope == SCOPE_DAY) {
@@ -270,6 +305,43 @@ class MainActivity : ComponentActivity() {
                         dismissButton = {
                             TextButton(onClick = { adding = false; editing = null }) { Text("Cancel") }
                         },
+                    )
+                }
+
+                if (dosing) {
+                    var medName by remember { mutableStateOf(runBlocking { Store.lastMedication(this@MainActivity) }) }
+                    var amount by remember { mutableStateOf("") }
+                    AlertDialog(
+                        onDismissRequest = { dosing = false },
+                        title = { Text("Log dose") },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(medName, { medName = it }, label = { Text("Medication") }, singleLine = true)
+                                OutlinedTextField(amount, { amount = it }, label = { Text("Amount (e.g. 4u, 500mg)") }, singleLine = true)
+                            }
+                        },
+                        confirmButton = {
+                            Button(
+                                enabled = medName.isNotBlank() && amount.isNotBlank(),
+                                onClick = {
+                                    val now = System.currentTimeMillis()
+                                    val time = java.time.LocalTime.now(zone)
+                                        .format(DateTimeFormatter.ofPattern("HH:mm"))
+                                    scope.launch {
+                                        dao.insertJournal(
+                                            JournalEntity(
+                                                day = LocalDate.now(zone).toString(),
+                                                text = doseNoteText(medName, amount, time),
+                                                createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY,
+                                            ),
+                                        )
+                                        Store.saveLastMedication(this@MainActivity, medName.trim())
+                                        dosing = false
+                                    }
+                                },
+                            ) { Text("Save") }
+                        },
+                        dismissButton = { TextButton(onClick = { dosing = false }) { Text("Cancel") } },
                     )
                 }
 
