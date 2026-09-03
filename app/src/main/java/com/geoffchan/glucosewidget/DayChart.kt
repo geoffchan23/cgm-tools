@@ -54,6 +54,7 @@ fun RangeChart(
     lowMmol: Double = Store.DEFAULT_LOW,
     highMmol: Double = Store.DEFAULT_HIGH,
     doses: List<Pair<Float, DoseNote>> = emptyList(), // minute-of-range to dose
+    events: List<Pair<Float, String>> = emptyList(), // minute-of-range to event name
 ) {
     val density = LocalDensity.current
     val (startMs, endMs) = rangeBoundsMs(firstDay, days, zone)
@@ -219,6 +220,34 @@ fun RangeChart(
                 if (visibleMinutes <= 2880f) {
                     drawIntoCanvas {
                         it.nativeCanvas.drawText("${dose.units}u", x + triH * 0.8f, baseY - 2f, dosePaint)
+                    }
+                }
+            }
+
+            // event markers: teal diamonds hanging from the top edge (doses
+            // own the bottom), name labeled below when zoomed in enough
+            val eventTeal = Color(0xFF80DEEA)
+            val diaR = with(density) { 5.dp.toPx() }
+            val eventPaint = android.graphics.Paint().apply {
+                this.color = android.graphics.Color.argb(0xFF, 0x80, 0xDE, 0xEA)
+                textSize = with(density) { 12.sp.toPx() }
+                isAntiAlias = true
+            }
+            var evPrevX = Float.NEGATIVE_INFINITY
+            var evLevel = 0
+            for ((minute, name) in events.sortedBy { it.first }) {
+                if (minute < viewStartMin - 5 || minute > viewEndMin + 5) continue
+                val x = xOf(minute)
+                evLevel = if (x - evPrevX < diaR * 12f && visibleMinutes <= 2880f) evLevel + 1 else 0
+                evPrevX = x
+                val cy = plot.top + diaR + 2f + evLevel * (diaR * 2 + eventPaint.textSize)
+                val path = androidx.compose.ui.graphics.Path().apply {
+                    moveTo(x, cy - diaR); lineTo(x + diaR, cy); lineTo(x, cy + diaR); lineTo(x - diaR, cy); close()
+                }
+                drawPath(path, eventTeal)
+                if (visibleMinutes <= 2880f) {
+                    drawIntoCanvas {
+                        it.nativeCanvas.drawText(name, x + diaR + 3f, cy + eventPaint.textSize / 3, eventPaint)
                     }
                 }
             }

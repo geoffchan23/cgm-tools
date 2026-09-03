@@ -60,6 +60,24 @@ fun doseNoteText(name: String, amount: String, time: String): String =
 
 data class DoseNote(val isShort: Boolean, val units: Int, val minuteOfDay: Int)
 
+data class EventNote(val name: String, val minuteOfDay: Int)
+
+private val EVENT_RE = Regex("""^event: (.+) @ (\d{1,2}):(\d{2})$""")
+
+/**
+ * Parse a derived event entry (`event: coffee @ 10:30`). These are written
+ * by Claude Code extraction runs, not by hand; the app plots them and
+ * hides them from the notes list.
+ */
+fun parseEventNote(text: String): EventNote? {
+    val m = EVENT_RE.find(text) ?: return null
+    val (name, hh, mm) = m.destructured
+    return EventNote(name.trim(), hh.toInt() * 60 + mm.toInt())
+}
+
+/** Entries the notes list hides: tags (chips) and derived events (chart). */
+fun isDerivedEntry(text: String): Boolean = isTagEntry(text) || parseEventNote(text) != null
+
 private val DOSE_RE = Regex("""^dose: (.+) (\d+)\S* @ (\d{1,2}):(\d{2})$""")
 
 /** Parse a dose journal entry; legacy free-name notes count as short-acting. */

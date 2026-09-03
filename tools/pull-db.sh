@@ -12,11 +12,11 @@ PKG=com.geoffchan.glucosewidget
 DIR="$(cd "$(dirname "$0")/.." && pwd)/data"
 mkdir -p "$DIR"
 
-SERIAL_ARG=()
-[ $# -ge 1 ] && SERIAL_ARG=(-s "$1")
+ADB="adb"
+[ $# -ge 1 ] && ADB="adb -s $1"
 
 for f in glucose.db glucose.db-wal glucose.db-shm; do
-  adb "${SERIAL_ARG[@]}" exec-out run-as $PKG cat "databases/$f" > "$DIR/$f" 2>/dev/null || rm -f "$DIR/$f"
+  $ADB exec-out run-as $PKG cat "databases/$f" > "$DIR/$f" 2>/dev/null || rm -f "$DIR/$f"
 done
 
 [ -s "$DIR/glucose.db" ] || { echo "pull failed — is the phone connected? (adb devices)"; exit 1; }

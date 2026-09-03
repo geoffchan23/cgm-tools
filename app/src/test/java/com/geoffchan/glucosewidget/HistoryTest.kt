@@ -145,3 +145,17 @@ class DoseParseTest {
         assertNull(parseDoseNote("dose: gibberish"))
     }
 }
+
+class EventParseTest {
+    @Test fun `parses event notes`() {
+        val e = parseEventNote("event: coffee @ 10:30")!!
+        assertEquals("coffee", e.name)
+        assertEquals(10 * 60 + 30, e.minuteOfDay)
+        assertEquals("ice cream", parseEventNote("event: ice cream @ 19:30")!!.name)
+    }
+
+    @Test fun `non-events return null`() {
+        assertNull(parseEventNote("dose: short-acting 4u @ 11:00"))
+        assertNull(parseEventNote("regular note"))
+    }
+}

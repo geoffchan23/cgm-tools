@@ -52,6 +52,9 @@ interface GlucoseDao {
     @Query("SELECT * FROM journal WHERE scope = 'day' AND day >= :firstDay AND day <= :lastDay ORDER BY day, createdAtMs")
     fun dayJournalInRange(firstDay: String, lastDay: String): Flow<List<JournalEntity>>
 
+    @Query("DELETE FROM journal WHERE scope = 'day' AND day = :day AND text LIKE 'event: %'")
+    suspend fun deleteEventsForDay(day: String)
+
     @Insert suspend fun insertJournal(entry: JournalEntity): Long
     @Update suspend fun updateJournal(entry: JournalEntity)
     @Delete suspend fun deleteJournal(entry: JournalEntity)

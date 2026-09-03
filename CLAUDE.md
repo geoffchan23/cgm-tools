@@ -42,6 +42,34 @@ Two machine-friendly conventions ride inside ordinary day-scope entries:
   pattern. (Entries logged before 2026-09-02 may use the older
   `dose: <name> <amount> @ HH:mm` free-name form.)
 
+## Journal → events extraction (Claude Code runs this)
+
+Parse day notes into `event: <name> @ HH:mm` entries (plotted as teal
+diamonds on the chart's top edge; hidden from the notes list). Insert
+via the ADB ingest receiver — NOT by editing the SQLite file (WAL):
+
+```bash
+adb shell am broadcast -n com.geoffchan.glucosewidget/.IngestReceiver \
+  --es op clear-events --es day 2026-09-01          # idempotent re-runs
+adb shell am broadcast -n com.geoffchan.glucosewidget/.IngestReceiver \
+  --es op insert --es day 2026-09-01 --es text "'event: coffee @ 10:30'"
+# op=refresh also exists (manual data refresh)
+```
+
+Gotchas: add `</dev/null` when broadcasting inside a shell loop (adb
+eats stdin); the receiver is DUMP-guarded because Android skips shell
+broadcasts to non-exported receivers.
+
+**Geoff's standing time rules** (use when a note gives no time):
+- coffee → 10:30
+- dinner → 17:15
+- Keep event names short (chart labels): coffee, snack, dinner,
+  ice cream, plus activities like "ikea trip".
+
+**Ledger**: `analysis/parse-ledger.json` records parsed days. Skip a
+day unless its notes' `updatedAtMs` is newer than its `parsedAt`; when
+re-parsing, `clear-events` first, and update the ledger.
+
 ## Build & deploy
 
 ```bash

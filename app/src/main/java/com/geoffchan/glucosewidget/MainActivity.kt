@@ -194,6 +194,13 @@ class MainActivity : ComponentActivity() {
                                 .between(firstDay, LocalDate.parse(e.day)).toInt()
                             (dayOffset * 1440f + d.minuteOfDay) to d
                         }
+                        val eventMarks = entries.mapNotNull { e ->
+                            if (e.scope != SCOPE_DAY) return@mapNotNull null
+                            val ev = parseEventNote(e.text) ?: return@mapNotNull null
+                            val dayOffset = java.time.temporal.ChronoUnit.DAYS
+                                .between(firstDay, LocalDate.parse(e.day)).toInt()
+                            (dayOffset * 1440f + ev.minuteOfDay) to ev.name
+                        }
                         RangeChart(
                             readings = readings,
                             firstDay = firstDay,
@@ -203,6 +210,7 @@ class MainActivity : ComponentActivity() {
                             lowMmol = settings.lowMmol,
                             highMmol = settings.highMmol,
                             doses = doseMarks,
+                            events = eventMarks,
                         )
                         Text(
                             buildString {
@@ -225,7 +233,7 @@ class MainActivity : ComponentActivity() {
                             Modifier.weight(1f).padding(horizontal = 12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            items(entries.filterNot { isTagEntry(it.text) }, key = { it.id }) { entry ->
+                            items(entries.filterNot { isDerivedEntry(it.text) }, key = { it.id }) { entry ->
                                 Card(Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp)) {
                                         if (isWeek && entry.scope == SCOPE_DAY) {
