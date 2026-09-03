@@ -224,8 +224,8 @@ fun RangeChart(
                 }
             }
 
-            // event markers: teal diamonds hanging from the top edge (doses
-            // own the bottom), name labeled below when zoomed in enough
+            // event markers: teal diamonds in a band just above the dose
+            // triangles, so food/activity reads next to the insulin row
             val eventTeal = Color(0xFF80DEEA)
             val diaR = with(density) { 5.dp.toPx() }
             val eventPaint = android.graphics.Paint().apply {
@@ -240,7 +240,8 @@ fun RangeChart(
                 val x = xOf(minute)
                 evLevel = if (x - evPrevX < diaR * 12f && visibleMinutes <= 2880f) evLevel + 1 else 0
                 evPrevX = x
-                val cy = plot.top + diaR + 2f + evLevel * (diaR * 2 + eventPaint.textSize)
+                val eventBase = plot.bottom - with(density) { 30.dp.toPx() }
+                val cy = eventBase - evLevel * (diaR * 2 + eventPaint.textSize)
                 val path = androidx.compose.ui.graphics.Path().apply {
                     moveTo(x, cy - diaR); lineTo(x + diaR, cy); lineTo(x, cy + diaR); lineTo(x - diaR, cy); close()
                 }
