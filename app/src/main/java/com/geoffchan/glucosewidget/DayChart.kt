@@ -186,9 +186,16 @@ fun RangeChart(
                 drawCircle(color, r, Offset(xOf(minute), yOf(mmol)))
             }
 
-            // dose markers: triangles along the bottom edge — filled for
+            // Markers anchor to the glucose curve at their moment: events
+            // float just above the trace, doses just below, neither on it.
+            fun curveYAt(minute: Float): Float? = readings
+                .minByOrNull { kotlin.math.abs((it.timestampMs - startMs) / 60_000f - minute) }
+                ?.takeIf { kotlin.math.abs((it.timestampMs - startMs) / 60_000f - minute) <= 30f }
+                ?.let { yOf(mmolValue(it.mgdl)) }
+            val curveGap = with(density) { 22.dp.toPx() }
+
+            // dose markers: purple triangles below the curve — filled for
             // short-acting, outlined for long-acting, units labeled beside.
-            // Purple, deliberately outside the red/amber/white status set.
             val dosePurple = Color(0xFFD0BCFF)
             val triH = with(density) { 9.dp.toPx() }
             val dosePaint = android.graphics.Paint().apply {
@@ -197,7 +204,7 @@ fun RangeChart(
                 isFakeBoldText = true
                 isAntiAlias = true
             }
-            // markers that would overlap horizontally stack upward instead
+            // markers that would overlap horizontally stack away from the curve
             var prevX = Float.NEGATIVE_INFINITY
             var level = 0
             for ((minute, dose) in doses.sortedBy { it.first }) {
@@ -205,7 +212,14 @@ fun RangeChart(
                 val x = xOf(minute)
                 level = if (x - prevX < triH * 2.5f) level + 1 else 0
                 prevX = x
-                val baseY = plot.bottom - 2f - level * (triH + dosePaint.textSize * 0.4f)
+                val anchor = curveYAt(minute)?.plus(curveGap + triH) ?: (plot.bottom - 2f)
+                val stepDown = triH + dosePaint.textSize * 0.4f
+                // stack downward; if that would leave the plot, stack upward instead
+                val baseY = if (anchor + level * stepDown > plot.bottom - 2f) {
+                    plot.bottom - 2f - level * stepDown
+                } else {
+                    anchor + level * stepDown
+                }
                 val path = androidx.compose.ui.graphics.Path().apply {
                     moveTo(x, baseY - triH)
                     lineTo(x - triH * 0.6f, baseY)
@@ -224,8 +238,7 @@ fun RangeChart(
                 }
             }
 
-            // event markers: teal diamonds in a band just above the dose
-            // triangles, so food/activity reads next to the insulin row
+            // event markers: teal diamonds floating just above the curve
             val eventTeal = Color(0xFF80DEEA)
             val diaR = with(density) { 5.dp.toPx() }
             val eventPaint = android.graphics.Paint().apply {
@@ -240,8 +253,14 @@ fun RangeChart(
                 val x = xOf(minute)
                 evLevel = if (x - evPrevX < diaR * 12f && visibleMinutes <= 2880f) evLevel + 1 else 0
                 evPrevX = x
-                val eventBase = plot.bottom - with(density) { 30.dp.toPx() }
-                val cy = eventBase - evLevel * (diaR * 2 + eventPaint.textSize)
+                val evStep = diaR * 2 + eventPaint.textSize
+                val evAnchor = curveYAt(minute)?.minus(curveGap) ?: (plot.bottom - with(density) { 30.dp.toPx() })
+                // stack upward; if that would leave the plot, stack downward instead
+                val cy = if (evAnchor - evLevel * evStep < plot.top + diaR) {
+                    plot.top + diaR + evLevel * evStep
+                } else {
+                    evAnchor - evLevel * evStep
+                }
                 val path = androidx.compose.ui.graphics.Path().apply {
                     moveTo(x, cy - diaR); lineTo(x + diaR, cy); lineTo(x, cy + diaR); lineTo(x - diaR, cy); close()
                 }
