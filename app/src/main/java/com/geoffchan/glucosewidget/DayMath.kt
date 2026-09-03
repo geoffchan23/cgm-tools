@@ -37,9 +37,7 @@ fun minuteOfDay(timestampMs: Long, day: LocalDate, zone: ZoneId): Float {
 fun weekStartOf(date: LocalDate): LocalDate =
     date.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
 
-/** One-tap day tags. Stored as journal entries whose whole text is the tag. */
-val DAY_TAGS = listOf("#sick", "#stress", "#travel", "#cycle")
-
+/** Legacy one-tap day tags (chips UI removed 2026-09-02); still hidden from lists. */
 fun isTagEntry(text: String): Boolean = text.startsWith("#") && !text.contains(" ")
 
 /**
@@ -77,6 +75,22 @@ fun parseEventNote(text: String): EventNote? {
 
 /** Entries the notes list hides: tags (chips) and derived events (chart). */
 fun isDerivedEntry(text: String): Boolean = isTagEntry(text) || parseEventNote(text) != null
+
+/** Chart marker inputs (minute-of-range keyed) from day-scope journal entries. */
+fun markerData(
+    entries: List<JournalEntity>,
+    firstDay: LocalDate,
+): Pair<List<Pair<Float, DoseNote>>, List<Pair<Float, String>>> {
+    val doses = mutableListOf<Pair<Float, DoseNote>>()
+    val events = mutableListOf<Pair<Float, String>>()
+    for (e in entries) {
+        if (e.scope != SCOPE_DAY) continue
+        val dayOffset = java.time.temporal.ChronoUnit.DAYS.between(firstDay, LocalDate.parse(e.day)).toInt()
+        parseDoseNote(e.text)?.let { doses += (dayOffset * 1440f + it.minuteOfDay) to it }
+        parseEventNote(e.text)?.let { events += (dayOffset * 1440f + it.minuteOfDay) to it.name }
+    }
+    return doses to events
+}
 
 private val DOSE_RE = Regex("""^dose: (.+) (\d+)\S* @ (\d{1,2}):(\d{2})$""")
 

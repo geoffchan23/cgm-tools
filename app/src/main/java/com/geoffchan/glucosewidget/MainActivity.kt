@@ -93,10 +93,26 @@ class MainActivity : ComponentActivity() {
                     ).collectAsState(initial = emptyList())
                 val entries = scopedEntries + dayEntriesInWeek
 
+                var showAddMenu by remember { mutableStateOf(false) }
                 Scaffold(
                     floatingActionButton = {
-                        FloatingActionButton(onClick = { adding = true }) {
-                            Icon(Icons.Filled.Add, contentDescription = "Add note")
+                        androidx.compose.foundation.layout.Box {
+                            FloatingActionButton(onClick = { showAddMenu = true }) {
+                                Icon(Icons.Filled.Add, contentDescription = "Add")
+                            }
+                            androidx.compose.material3.DropdownMenu(
+                                expanded = showAddMenu,
+                                onDismissRequest = { showAddMenu = false },
+                            ) {
+                                androidx.compose.material3.DropdownMenuItem(
+                                    text = { Text("Log dose") },
+                                    onClick = { showAddMenu = false; dosing = true },
+                                )
+                                androidx.compose.material3.DropdownMenuItem(
+                                    text = { Text("Add journal entry") },
+                                    onClick = { showAddMenu = false; adding = true },
+                                )
+                            }
                         }
                     },
                 ) { padding ->
@@ -151,67 +167,33 @@ class MainActivity : ComponentActivity() {
                             FilterChip(selected = isWeek, onClick = { mode = SCOPE_WEEK }, label = { Text("Week") })
                         }
 
-                        // ---- day tags + quick dose (day mode only) ----
-                        if (!isWeek) {
-                            Row(
-                                Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                for (tag in DAY_TAGS) {
-                                    val existing = entries.firstOrNull { it.scope == SCOPE_DAY && it.text == tag }
-                                    FilterChip(
-                                        selected = existing != null,
-                                        onClick = {
-                                            scope.launch {
-                                                if (existing != null) {
-                                                    dao.deleteJournal(existing)
-                                                } else {
-                                                    val now = System.currentTimeMillis()
-                                                    dao.insertJournal(
-                                                        JournalEntity(
-                                                            day = entryKey, text = tag,
-                                                            createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY,
-                                                        ),
-                                                    )
-                                                }
-                                            }
-                                        },
-                                        label = { Text(tag.removePrefix("#")) },
-                                    )
-                                }
-                                Spacer(Modifier.weight(1f))
-                                TextButton(onClick = { dosing = true }) { Text("+ Dose") }
-                            }
-                        }
 
                         // ---- chart ----
                         val settings = remember { runBlocking { Store.settings(this@MainActivity) } }
-                        val doseMarks = entries.mapNotNull { e ->
-                            if (e.scope != SCOPE_DAY) return@mapNotNull null
-                            val d = parseDoseNote(e.text) ?: return@mapNotNull null
-                            val dayOffset = java.time.temporal.ChronoUnit.DAYS
-                                .between(firstDay, LocalDate.parse(e.day)).toInt()
-                            (dayOffset * 1440f + d.minuteOfDay) to d
+                        val (doseMarks, eventMarks) = markerData(entries, firstDay)
+                        androidx.compose.foundation.layout.Box {
+                            RangeChart(
+                                readings = readings,
+                                firstDay = firstDay,
+                                days = spanDays,
+                                zone = zone,
+                                modifier = Modifier.fillMaxWidth().height(240.dp).padding(horizontal = 12.dp),
+                                lowMmol = settings.lowMmol,
+                                highMmol = settings.highMmol,
+                                doses = doseMarks,
+                                events = eventMarks,
+                            )
+                            IconButton(
+                                onClick = {
+                                    startActivity(
+                                        Intent(this@MainActivity, ChartActivity::class.java)
+                                            .putExtra("epochDay", firstDay.toEpochDay())
+                                            .putExtra("days", spanDays),
+                                    )
+                                },
+                                modifier = Modifier.align(Alignment.TopEnd).padding(end = 8.dp),
+                            ) { Text("⛶", style = MaterialTheme.typography.titleLarge) }
                         }
-                        val eventMarks = entries.mapNotNull { e ->
-                            if (e.scope != SCOPE_DAY) return@mapNotNull null
-                            val ev = parseEventNote(e.text) ?: return@mapNotNull null
-                            val dayOffset = java.time.temporal.ChronoUnit.DAYS
-                                .between(firstDay, LocalDate.parse(e.day)).toInt()
-                            (dayOffset * 1440f + ev.minuteOfDay) to ev.name
-                        }
-                        RangeChart(
-                            readings = readings,
-                            firstDay = firstDay,
-                            days = spanDays,
-                            zone = zone,
-                            modifier = Modifier.fillMaxWidth().height(240.dp).padding(horizontal = 12.dp),
-                            lowMmol = settings.lowMmol,
-                            highMmol = settings.highMmol,
-                            doses = doseMarks,
-                            events = eventMarks,
-                        )
                         Text(
                             buildString {
                                 append(
