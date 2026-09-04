@@ -5,23 +5,20 @@ to sideload only — nothing here is published to any store.
 
 ## Why this exists
 
-I built these for my wife, who lives with diabetes.
+I built these for my wife, who has lived with type 1 diabetes since she was 2 years old.
 
-The **watch face** came first, out of frustration: the stock G7 watch face
+The **watch face** came first, out of frustration. The stock G7 watch face
 renders the glucose number *so small* on her Pixel Watch 2 that it's hard to
 read at a glance, and there was no way to enlarge it or swap in a better
 option on the watch itself. So I made one that keeps her familiar stock Pixel
 face exactly as-is and just renders the glucose reading big.
 
-The **phone app** is the start of something larger: a place to blend her
-glucose data with the context around it — when she takes insulin, when and
-what she eats. Doses are logged as structured entries, but everything else is
-kept as free-text **journal entries** on purpose. We use agents to parse that
-unstructured text into structured datapoints that plot on the chart, so
-capturing a day never means fighting a form.
+The **phone app** is the start of a larger idea that I've had sitting in the back of my mind for years. It's a place to blend her
+glucose data with the real world context that affects it every day e.g. when she takes insulin, when and
+what she eats, stress, exercise etc. Doses are logged as structured entries, but everything else is
+kept as free-text **journal entries** on purpose. The unstructured data is then parsed by agents into data points that we plot on the chart against her glucose numbers.
 
-The long-term vision is exactly that blend: unstructured journaling plus
-structured readings and doses, interpreted by LLMs/agents, to build a deeper,
+The long-term vision is to build a deeper,
 richer understanding of her diabetes management over time.
 
 ## The two pieces
