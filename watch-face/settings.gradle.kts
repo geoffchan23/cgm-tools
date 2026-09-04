@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "dexcom-watchface"
+rootProject.name = "big-glucose"
 include(":watchface")
