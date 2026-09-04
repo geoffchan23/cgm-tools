@@ -1,0 +1,33 @@
+{
+  "_comment": "Days whose journal notes have been parsed into event: entries on the phone. Re-parse a day only if its notes changed after parsedAt (compare journal.updatedAtMs). Clear old events first: op=clear-events.",
+  "2026-09-01": {
+    "parsedAt": "2026-09-02T22:15:00-04:00",
+    "sourceNotes": 1,
+    "events": [
+      "coffee @ 10:30 (default rule)",
+      "ikea trip @ 15:00",
+      "dinner @ 17:15 (default rule; IKEA grazing incl. ice cream folded in, no stated times)"
+    ]
+  },
+  "2026-09-02": {
+    "parsedAt": "2026-09-02T22:15:00-04:00",
+    "sourceNotes": 1,
+    "events": [
+      "coffee @ 11:00",
+      "snack @ 15:00",
+      "dinner @ 17:30",
+      "ice cream @ 19:30"
+    ]
+  },
+  "2026-09-03": {
+    "parsedAt": "2026-09-03T23:05:00-04:00",
+    "sourceNotes": 1,
+    "events": [
+      "coffee @ 11:00",
+      "snack @ 15:30 (curry puff)",
+      "dinner @ 17:30 (grilled cheese, half jumbo sausage)",
+      "ice cream @ 21:00 (107g)",
+      "chips @ 22:30 (chips + aspartame juice)"
+    ]
+  }
+}
