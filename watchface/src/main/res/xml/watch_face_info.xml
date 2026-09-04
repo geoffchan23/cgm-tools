@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Required by the Wear OS watch face resolver: without this file the
+     face installs but never appears in the picker ("could not be parsed
+     - Resource ID #0x0" in WearServices logs). Preview is the only
+     required element. -->
+<WatchFaceInfo>
+  <Preview value="@drawable/preview" />
+</WatchFaceInfo>

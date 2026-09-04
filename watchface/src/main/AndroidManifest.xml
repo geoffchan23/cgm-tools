@@ -3,16 +3,13 @@
 
     <uses-feature android:name="android.hardware.type.watch" />
 
-    <!-- Declares this as a Watch Face Format face (no executable code). -->
-    <uses-feature
-        android:name="com.google.android.wearable.watchface.format"
-        android:required="true" />
-
+    <!-- Watch Face Format: no code, no service. The system finds the face
+         via the format.version property and res/raw/watchface.xml. This
+         mirrors the official WatchFaceFormat sample manifest. -->
     <application
         android:hasCode="false"
         android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
-        android:supportsRtl="true">
+        android:label="@string/watch_face_name">
 
         <!-- WFF version 2 == Wear OS 5 and up. The Pixel Watch 2 runs
              Wear OS 6, so this is comfortably supported. -->
@@ -23,26 +20,5 @@
         <meta-data
             android:name="com.google.android.wearable.standalone"
             android:value="true" />
-
-        <!-- The platform supplies this service; there is no code in the APK. -->
-        <service
-            android:name="androidx.wear.watchface.control.WatchFaceControlService"
-            android:exported="true"
-            android:label="@string/watch_face_name"
-            android:permission="android.permission.BIND_WALLPAPER">
-
-            <intent-filter>
-                <action android:name="android.service.wallpaper.WallpaperService" />
-                <category android:name="com.google.android.wearable.watchface.category.WATCH_FACE" />
-            </intent-filter>
-
-            <meta-data
-                android:name="com.google.android.wearable.watchface.preview"
-                android:resource="@drawable/preview" />
-
-            <meta-data
-                android:name="android.service.wallpaper"
-                android:resource="@xml/watch_face" />
-        </service>
     </application>
 </manifest>

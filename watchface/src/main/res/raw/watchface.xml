@@ -3,76 +3,207 @@
   Big Glucose watch face.
 
   Layout mirrors the stock Pixel digital face:
-      Mon Aug 31      <- date, small
-        9:50          <- time, large
-        9.9           <- glucose complication, LARGE (this is the point)
+      MON AUG 31      <- date, small ("MON" periwinkle, "AUG 31" white)
+        10:50         <- time, large periwinkle
+        9.9           <- glucose complication, LARGE white (this is the point)
 
   The canvas below is 450x450. Wear OS scales it to the real screen
   (the Pixel Watch 2 is 384x384), so all coordinates are resolution
-  independent -- do not change them to match your watch.
+  independent - do not change them to match your watch.
 
-  Everything you are likely to want to tweak is at the top of the file.
+  Colors were sampled from an ADB screenshot of the real stock face
+  (not the photo): weekday #aeb4ff, clock #a0a7ff, date suffix and
+  glucose both #ffffff.
+
+  The date is built from Condition lookup tables because WFF has no
+  uppercase function: [DAY_OF_WEEK_S] renders "Mon", the stock face
+  shows "MON". [DAY_OF_WEEK] maps 1=Sunday .. 7=Saturday.
+
+  The weekday is right-aligned to x=196 and the "AUG 31" part is
+  left-aligned from x=211, so the pair reads as one centered line.
 -->
 <WatchFace width="450" height="450" clipShape="CIRCLE">
 
     <Metadata key="CLOCK_TYPE" value="DIGITAL" />
-    <Metadata key="PREVIEW_TIME" value="09:50:00" />
+    <Metadata key="PREVIEW_TIME" value="10:50:00" />
 
     <Scene backgroundColor="#ff000000">
 
         <!-- ============================================================
-             DATE  -  "Mon Aug 31"
+             DATE - weekday, e.g. "MON", periwinkle
              ============================================================ -->
-        <PartText x="25" y="78" width="400" height="40" alpha="255">
-            <Text align="CENTER">
-                <Font size="30" weight="BOLD" color="#ff168bf4">
-                    <Template>%s %s %d<Parameter expression="[DAY_OF_WEEK_S]" /><Parameter expression="[MONTH_S]" /><Parameter expression="[DAY]" /></Template>
-                </Font>
-            </Text>
-        </PartText>
+        <Condition>
+            <Expressions>
+                <Expression name="sun"><![CDATA[[DAY_OF_WEEK] == 1]]></Expression>
+                <Expression name="mon"><![CDATA[[DAY_OF_WEEK] == 2]]></Expression>
+                <Expression name="tue"><![CDATA[[DAY_OF_WEEK] == 3]]></Expression>
+                <Expression name="wed"><![CDATA[[DAY_OF_WEEK] == 4]]></Expression>
+                <Expression name="thu"><![CDATA[[DAY_OF_WEEK] == 5]]></Expression>
+                <Expression name="fri"><![CDATA[[DAY_OF_WEEK] == 6]]></Expression>
+            </Expressions>
+            <Compare expression="sun">
+                <PartText x="0" y="41" width="196" height="40">
+                    <Text align="END"><Font family="SYNC_TO_DEVICE" size="30" weight="BOLD" color="#ffaeb4ff">SUN</Font></Text>
+                </PartText>
+            </Compare>
+            <Compare expression="mon">
+                <PartText x="0" y="41" width="196" height="40">
+                    <Text align="END"><Font family="SYNC_TO_DEVICE" size="30" weight="BOLD" color="#ffaeb4ff">MON</Font></Text>
+                </PartText>
+            </Compare>
+            <Compare expression="tue">
+                <PartText x="0" y="41" width="196" height="40">
+                    <Text align="END"><Font family="SYNC_TO_DEVICE" size="30" weight="BOLD" color="#ffaeb4ff">TUE</Font></Text>
+                </PartText>
+            </Compare>
+            <Compare expression="wed">
+                <PartText x="0" y="41" width="196" height="40">
+                    <Text align="END"><Font family="SYNC_TO_DEVICE" size="30" weight="BOLD" color="#ffaeb4ff">WED</Font></Text>
+                </PartText>
+            </Compare>
+            <Compare expression="thu">
+                <PartText x="0" y="41" width="196" height="40">
+                    <Text align="END"><Font family="SYNC_TO_DEVICE" size="30" weight="BOLD" color="#ffaeb4ff">THU</Font></Text>
+                </PartText>
+            </Compare>
+            <Compare expression="fri">
+                <PartText x="0" y="41" width="196" height="40">
+                    <Text align="END"><Font family="SYNC_TO_DEVICE" size="30" weight="BOLD" color="#ffaeb4ff">FRI</Font></Text>
+                </PartText>
+            </Compare>
+            <Default>
+                <PartText x="0" y="41" width="196" height="40">
+                    <Text align="END"><Font family="SYNC_TO_DEVICE" size="30" weight="BOLD" color="#ffaeb4ff">SAT</Font></Text>
+                </PartText>
+            </Default>
+        </Condition>
 
         <!-- ============================================================
-             TIME  -  "9:50"
+             DATE - month and day, e.g. "AUG 31", white
+             ============================================================ -->
+        <Condition>
+            <Expressions>
+                <Expression name="jan"><![CDATA[[MONTH] == 1]]></Expression>
+                <Expression name="feb"><![CDATA[[MONTH] == 2]]></Expression>
+                <Expression name="mar"><![CDATA[[MONTH] == 3]]></Expression>
+                <Expression name="apr"><![CDATA[[MONTH] == 4]]></Expression>
+                <Expression name="may"><![CDATA[[MONTH] == 5]]></Expression>
+                <Expression name="jun"><![CDATA[[MONTH] == 6]]></Expression>
+                <Expression name="jul"><![CDATA[[MONTH] == 7]]></Expression>
+                <Expression name="aug"><![CDATA[[MONTH] == 8]]></Expression>
+                <Expression name="sep"><![CDATA[[MONTH] == 9]]></Expression>
+                <Expression name="oct"><![CDATA[[MONTH] == 10]]></Expression>
+                <Expression name="nov"><![CDATA[[MONTH] == 11]]></Expression>
+            </Expressions>
+            <Compare expression="jan">
+                <PartText x="211" y="41" width="239" height="40">
+                    <Text align="START"><Font family="SYNC_TO_DEVICE" size="30" weight="BOLD" color="#ffffffff"><Template>JAN %d<Parameter expression="[DAY]" /></Template></Font></Text>
+                </PartText>
+            </Compare>
+            <Compare expression="feb">
+                <PartText x="211" y="41" width="239" height="40">
+                    <Text align="START"><Font family="SYNC_TO_DEVICE" size="30" weight="BOLD" color="#ffffffff"><Template>FEB %d<Parameter expression="[DAY]" /></Template></Font></Text>
+                </PartText>
+            </Compare>
+            <Compare expression="mar">
+                <PartText x="211" y="41" width="239" height="40">
+                    <Text align="START"><Font family="SYNC_TO_DEVICE" size="30" weight="BOLD" color="#ffffffff"><Template>MAR %d<Parameter expression="[DAY]" /></Template></Font></Text>
+                </PartText>
+            </Compare>
+            <Compare expression="apr">
+                <PartText x="211" y="41" width="239" height="40">
+                    <Text align="START"><Font family="SYNC_TO_DEVICE" size="30" weight="BOLD" color="#ffffffff"><Template>APR %d<Parameter expression="[DAY]" /></Template></Font></Text>
+                </PartText>
+            </Compare>
+            <Compare expression="may">
+                <PartText x="211" y="41" width="239" height="40">
+                    <Text align="START"><Font family="SYNC_TO_DEVICE" size="30" weight="BOLD" color="#ffffffff"><Template>MAY %d<Parameter expression="[DAY]" /></Template></Font></Text>
+                </PartText>
+            </Compare>
+            <Compare expression="jun">
+                <PartText x="211" y="41" width="239" height="40">
+                    <Text align="START"><Font family="SYNC_TO_DEVICE" size="30" weight="BOLD" color="#ffffffff"><Template>JUN %d<Parameter expression="[DAY]" /></Template></Font></Text>
+                </PartText>
+            </Compare>
+            <Compare expression="jul">
+                <PartText x="211" y="41" width="239" height="40">
+                    <Text align="START"><Font family="SYNC_TO_DEVICE" size="30" weight="BOLD" color="#ffffffff"><Template>JUL %d<Parameter expression="[DAY]" /></Template></Font></Text>
+                </PartText>
+            </Compare>
+            <Compare expression="aug">
+                <PartText x="211" y="41" width="239" height="40">
+                    <Text align="START"><Font family="SYNC_TO_DEVICE" size="30" weight="BOLD" color="#ffffffff"><Template>AUG %d<Parameter expression="[DAY]" /></Template></Font></Text>
+                </PartText>
+            </Compare>
+            <Compare expression="sep">
+                <PartText x="211" y="41" width="239" height="40">
+                    <Text align="START"><Font family="SYNC_TO_DEVICE" size="30" weight="BOLD" color="#ffffffff"><Template>SEP %d<Parameter expression="[DAY]" /></Template></Font></Text>
+                </PartText>
+            </Compare>
+            <Compare expression="oct">
+                <PartText x="211" y="41" width="239" height="40">
+                    <Text align="START"><Font family="SYNC_TO_DEVICE" size="30" weight="BOLD" color="#ffffffff"><Template>OCT %d<Parameter expression="[DAY]" /></Template></Font></Text>
+                </PartText>
+            </Compare>
+            <Compare expression="nov">
+                <PartText x="211" y="41" width="239" height="40">
+                    <Text align="START"><Font family="SYNC_TO_DEVICE" size="30" weight="BOLD" color="#ffffffff"><Template>NOV %d<Parameter expression="[DAY]" /></Template></Font></Text>
+                </PartText>
+            </Compare>
+            <Default>
+                <PartText x="211" y="41" width="239" height="40">
+                    <Text align="START"><Font family="SYNC_TO_DEVICE" size="30" weight="BOLD" color="#ffffffff"><Template>DEC %d<Parameter expression="[DAY]" /></Template></Font></Text>
+                </PartText>
+            </Default>
+        </Condition>
 
-             12-hour with no leading zero, matching the photo.
+        <!-- ============================================================
+             TIME - "10:50"
+
+             12-hour with no leading zero, matching the stock face.
              For 24-hour, change [HOUR_1_12] to [HOUR_0_23].
              ============================================================ -->
-        <PartText x="25" y="118" width="400" height="145" alpha="255">
+        <PartText x="25" y="105" width="400" height="145" alpha="255">
             <Text align="CENTER">
-                <Font size="118" weight="BOLD" color="#ff168bf4">
+                <Font family="SYNC_TO_DEVICE" size="134" weight="BOLD" color="#ffa0a7ff">
                     <Template>%d:%02d<Parameter expression="[HOUR_1_12]" /><Parameter expression="[MINUTE]" /></Template>
                 </Font>
             </Text>
         </PartText>
 
         <!-- ============================================================
-             GLUCOSE  -  the Dexcom complication, rendered BIG
+             GLUCOSE - the Dexcom reading, rendered BIG
 
-             size="100" here vs. roughly 26 on the stock face.
-             Bump or drop this number to taste; that is the one knob
-             this whole project exists for.
+             The provider is NOT the Dexcom app: on this watch the
+             complication comes from "Glucose Watch" (Sagitta Software),
+             com.sagittasoftware.glucosewatch, which bridges Dexcom data.
+             Verified via adb: it supports SHORT_TEXT, LONG_TEXT,
+             RANGED_VALUE, SMALL_IMAGE, MONOCHROMATIC_IMAGE (5 min updates).
 
-             We ask for SHORT_TEXT first. That is what strips "mmol/L"
-             and the "Now" timestamp -- SHORT_TEXT is capped at about
-             7 characters, so Dexcom hands over just the value (and,
-             with luck, the trend arrow) instead of the full sentence.
-
-             LONG_TEXT is declared as a fallback in case Dexcom does not
-             publish a SHORT_TEXT variant. If you end up on LONG_TEXT the
-             units come back -- tell Claude and we will handle it.
+             We render SHORT_TEXT first - that is what strips "mmol/L"
+             and the "3m" timestamp. The DefaultProviderPolicy pre-wires
+             the provider so the face arrives with glucose attached.
              ============================================================ -->
         <ComplicationSlot
             slotId="0"
-            x="45" y="272" width="360" height="118"
+            x="106" y="255" width="360" height="118"
             displayName="@string/complication_glucose"
             supportedTypes="SHORT_TEXT LONG_TEXT"
             isCustomizable="TRUE"
             alpha="255">
 
+            <DefaultProviderPolicy
+                primaryProvider="com.sagittasoftware.glucosewatch/com.sagittasoftware.glucosewatch.wear.GlucoseComplicationService"
+                primaryProviderType="SHORT_TEXT"
+                defaultSystemProvider="EMPTY"
+                defaultSystemProviderType="SHORT_TEXT" />
+
+            <BoundingBox x="0" y="0" width="360" height="118" />
+
             <Complication type="SHORT_TEXT">
                 <PartText x="0" y="0" width="360" height="118" alpha="255">
                     <Text align="CENTER">
-                        <Font size="100" weight="BOLD" color="#ff168bf4">
+                        <Font family="SYNC_TO_DEVICE" size="100" weight="BOLD" color="#ffffffff">
                             <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
                         </Font>
                     </Text>
@@ -80,9 +211,9 @@
             </Complication>
 
             <Complication type="LONG_TEXT">
-                <PartText x="0" y="0" width="360" height="118" alpha="255">
+                <PartText x="-61" y="0" width="360" height="118" alpha="255">
                     <Text align="CENTER">
-                        <Font size="72" weight="BOLD" color="#ff168bf4">
+                        <Font family="SYNC_TO_DEVICE" size="72" weight="BOLD" color="#ffffffff">
                             <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
                         </Font>
                     </Text>

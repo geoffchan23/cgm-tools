@@ -1,146 +1,95 @@
 # CLAUDE.md — handoff notes
 
-Read this first. It is the state of the work as of the last session, written
-for a fresh Claude Code session with no memory of how we got here.
-
----
+State of the work as of 2026-08-31. The face is **built, installed, and live
+on Geoff's wrist**, visually matching the stock face within a couple of pixels.
 
 ## The goal, in one sentence
 
-Geoff wears a **Pixel Watch 2** and wants his stock Pixel digital watch face
-kept exactly as-is, except the Dexcom glucose reading — currently a tiny line
-at the bottom — rendered **much bigger**, with the `mmol/L` units and the
-`Now` timestamp dropped.
+Geoff wears a **Pixel Watch 2** (Wear OS 6, 384x384) and wants his stock
+Pixel digital face kept exactly as-is, except the Dexcom glucose reading
+rendered much bigger, with `mmol/L` and the timestamp dropped.
 
-See `docs/stock-face-reference.jpg` for the target. That is a photo of the
-face he is replacing. `watchface/src/main/res/drawable-nodpi/preview.png` is
-a mock of what this project should produce.
+## What was learned on-device (supersedes earlier guesses)
 
-His exact words: *"we want it identical just with a bigger blood sugar
-number. also, remove the mmol/L but keep the direction number. lose the time
-last updated. make the blood sugar number bigger. everything else stays the
-same."*
+- **The complication provider is NOT Dexcom.** It is the "Glucose Watch" app
+  by Sagitta Software: `com.sagittasoftware.glucosewatch/…wear.GlucoseComplicationService`.
+  The Dexcom watch app (`com.dexcom.g6.region7.mmol`) provides no complication
+  at all. Verified by pulling the APK and reading its manifest.
+- **SHORT_TEXT exists and includes the trend arrow**: renders as `10.9 →`.
+  Units and timestamp gone, exactly as designed. Supported types:
+  SHORT_TEXT, LONG_TEXT, RANGED_VALUE, SMALL_IMAGE, MONOCHROMATIC_IMAGE;
+  updates every 300 s.
+- **The photo-sampled blue was wrong.** Real colors from an ADB screenshot of
+  the stock face: weekday `#aeb4ff`, clock `#a0a7ff`, month/day and glucose
+  plain white. The date is two-tone (weekday periwinkle, rest white) and
+  UPPERCASE (`MON AUG 31`) — both now replicated (uppercase via Condition
+  lookup tables over [DAY_OF_WEEK] 1=Sun..7=Sat and [MONTH]).
+- Screenshots capture at current screen brightness — a uniformly ~85%-dimmed
+  capture means the screen was dimming, not a color bug. Tap a blank corner
+  (`input tap 30 192`) right before `screencap`.
 
-## Setup facts (confirmed, do not re-litigate)
+## Build/dev loop (all working)
 
-| | |
-|---|---|
-| Watch | Pixel Watch 2, **Wear OS 6** (rolled out Oct 2025), 384x384 screen |
-| Phone | Pixel 10 Pro |
-| CGM | Dexcom G7, official Dexcom app on the phone |
-| Units | **mmol/L** (Canada) — values are like `9.9`, not `178` |
-| Data path | **Already working.** The Dexcom app publishes a Wear OS complication, and it is already showing on his stock face. |
+- Toolchain: Homebrew OpenJDK 17 + android-commandlinetools (SDK 35) +
+  platform-tools. No Android Studio. `local.properties` points at
+  `/opt/homebrew/share/android-commandlinetools`.
+- `JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home ./gradlew assembleDebug`
+- **Gradle cannot validate the WFF XML** (res/raw is opaque to aapt2). Always
+  run Google's validator after editing:
+  `java -jar wff-validator.jar 2 watchface/src/main/res/raw/watchface.xml`
+  (jar from https://github.com/google/watchface/releases, tag `latest`).
+- Watch connects over Wi-Fi ADB: `adb pair` once, then
+  `adb mdns services` to find the connect port, `adb connect IP:port`.
+  The watch drops off Wi-Fi when it sleeps off-charger; re-pair is not
+  needed, just re-connect.
+- Install: `adb install -r watchface/build/outputs/apk/debug/watchface-debug.apk`
+- **Activate from the shell** (no wrist taps needed):
+  `adb shell am broadcast -a com.google.android.wearable.app.DEBUG_SURFACE --es operation set-watchface --es watchFaceId com.geoffchan.bigglucose`
+- Iterate: screenshot with `adb shell screencap -p /sdcard/w.png && adb pull …`
+  and compare against `scratch stock3.png`-style captures pixel-wise.
 
-**The data problem is solved and is not part of this project.** Do not build
-a Dexcom Share poller, a Nightscout bridge, a companion phone app, or a
-`ComplicationDataSourceService`. Earlier in the conversation we scoped all of
-that out once he revealed the Dexcom complication already works. This repo
-draws a complication *slot*; Dexcom fills it.
+## Hard-won WFF gotchas (validator caught all of these)
 
-## Where things stand
+- `--` is illegal inside XML comments.
+- `<Font>` requires `family`; `SYNC_TO_DEVICE` uses the device font.
+- `<ComplicationSlot>` requires a `<BoundingShape>` child (e.g. BoundingBox).
+- `<Template>` requires at least one `<Parameter>`; static text goes directly
+  inside `<Font>` (mixed content).
+- The manifest must NOT declare a service (official sample has none), and
+  **`res/xml/watch_face_info.xml` with a `<Preview>` is mandatory** — without
+  it the face installs but WearServices logs
+  "could not be parsed - Resource ID #0x0" and it never appears anywhere.
 
-Everything in the repo was written in a **cloud container with no Android
-SDK** (Google's download hosts are blocked there). So:
+## Design decisions
 
-- ✅ The project is complete and committed on `claude/custom-wearos-watch-face-5a4az6`
-- ❌ **It has never been compiled. Not once.** No `gradlew` run, no WFF
-  validation, no install, nothing has ever touched a real watch.
+- Watch Face Format v2, `hasCode="false"`, 450x450 canvas — unchanged.
+- Slot renders SHORT_TEXT first (that's what strips units/timestamp);
+  LONG_TEXT fallback retained.
+- `DefaultProviderPolicy` pre-wires the Glucose Watch provider, so the face
+  arrives with glucose already attached — no manual slot assignment.
+- Date split: weekday right-aligned ending x=196, month/day left-aligned
+  from x=211 (450-space), approximating the stock centered two-tone line.
+- **Glucose number centering** (Geoff approved 2026-08-31): the arrow is baked
+  into COMPLICATION.TEXT ("10.8 →"; TITLE is empty — probed on-device), so the
+  slot is shifted right by half the constant arrow-tail width to center the
+  number itself: slot x=106 y=255, with x=-61 compensation on the LONG_TEXT
+  PartText so the fallback stays truly centered. If the provider ever sends
+  arrowless text ("--" during warm-up), it sits ~50 right of center — known,
+  accepted. Verified pixel-exact: number center 191.5/384, arrow fully clear
+  of the round edge.
 
-Treat the XML as a careful first draft, not as working code. The most likely
-failure is a wrong attribute or element name in `watchface.xml` — the Watch
-Face Format schema is strict and the build will name the offending line.
+## Remaining deltas / possible next steps
 
-## Do this next, in this order
-
-1. **Get the toolchain up.** `brew install --cask temurin android-platform-tools android-studio`,
-   then `local.properties` with `sdk.dir=...`. README has the detail.
-2. **Build it.** `./gradlew assembleDebug`. Expect failures in
-   `watchface/src/main/res/raw/watchface.xml`. Fix them against the official
-   spec at https://developer.android.com/training/wearables/wff — do not
-   guess at element names, look them up.
-3. **Connect the watch.** Developer options → ADB debugging. The charging
-   puck carries data, which is more reliable than wireless. Geoff has to
-   physically tap through this and tap "Allow"; ask him.
-4. **Install.** `adb install -r watchface/build/outputs/apk/debug/watchface-debug.apk`
-5. **Have him select the face and assign Dexcom to the slot.** One long-press,
-   two taps. This is unavoidable the first time unless step 7 works.
-6. **Screenshot and iterate.**
-   `adb shell screencap -p /sdcard/w.png && adb pull /sdcard/w.png` — then
-   look at it. This is the whole point of working locally; use it every time.
-
-Then the open questions below.
-
-## Open questions — none of these are answered yet
-
-**Does Dexcom publish a SHORT_TEXT complication, and does it include the
-trend arrow?** This is the big one. The whole design rests on it. Find out:
-
-```bash
-adb shell cmd package query-services \
-  -a android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST \
-  | grep -i -A20 dexcom
-```
-
-- If SHORT_TEXT exists and reads `9.9↗` → done, nothing to change.
-- If SHORT_TEXT is only `9.9` → the arrow needs a separate element beside
-  the number, probably `[COMPLICATION.MONOCHROMATIC_IMAGE]` in a `PartImage`.
-  Check what Dexcom actually supplies before designing this.
-- If there is no SHORT_TEXT at all → we fall back to LONG_TEXT, `mmol/L`
-  comes back, and the units cannot be stripped (WFF has no string
-  manipulation). Tell Geoff and discuss options rather than picking one.
-
-**Is the blue right?** `#ff168bf4` was sampled off a *photograph* of the
-stock face, so it is approximate. Once ADB works, screenshot the stock Pixel
-face directly and read the exact value. A clean sample of the large clock
-glyphs gave `#1470D7`; the whole-face 90th percentile gave `#168BF4`. Both
-are plausible; the screenshot settles it.
-
-Note: date, time, and glucose are **all the same blue** on the stock face.
-An earlier read that the glucose line was white was wrong — the camera
-overexposed the thin strokes. Verified by enlarging the crop.
-
-**Is the size right?** Glucose is `size="100"` against a `size="118"` clock,
-which makes them near-equal weight. Geoff may want it bigger still, which
-means shrinking the clock. Show him a screenshot and ask.
-
-## Design decisions — understand before changing
-
-- **Watch Face Format, not AndroidX.** WFF has been mandatory since January
-  2026. Do not port this to a Kotlin `WatchFaceService`; it will not install.
-- **`android:hasCode="false"`, no source files.** That is correct and
-  intentional. The service class in the manifest is supplied by the platform.
-- **The slot requests SHORT_TEXT first.** This is the mechanism that drops
-  `mmol/L` and `Now` — short text is capped around 7 chars, so Dexcom sends
-  the bare value. There is no string trimming anywhere and there cannot be.
-- **450x450 design canvas, scaled by the platform to 384x384.** Do not
-  "correct" the coordinates to 384. They are resolution independent on purpose.
-- **12-hour clock, no leading zero**, matching the photo. `[HOUR_1_12]`.
-
-## Known gap, deliberately deferred
-
-The date renders **`Mon Aug 31`**, but the stock face shows **`MON AUG 31`**.
-WFF has no uppercase function. Matching it exactly needs a `<Condition>`
-lookup table over 7 weekday and 12 month names — mechanical but verbose, and
-it was not worth risking a syntax error before the first build ever ran.
-
-**Do this once the build is green and installed.** It is a real part of
-"identical" and Geoff will notice it.
+- **Font.** SYNC_TO_DEVICE renders Roboto-ish; the stock clock uses Google's
+  rounded flex font. Matching exactly would need embedding a font in res/font.
+  Geoff has not yet said whether he cares.
+- **Ambient (AOD) rendering has not been checked.** No Variant/AMBIENT
+  elements exist; worth screenshotting the AOD state.
+- Sizes/positions were tuned pixel-wise against the stock screenshot
+  (clock size=134, date y=41); further taste tweaks are one sed + rebuild away.
+- Nothing is committed since the fixes; branch `claude/custom-wearos-watch-face-5a4az6`.
 
 ## Things not to do
 
-- Do not publish anything to the Play Store. He said explicitly: *"I don't
-  want to submit to any store. I just want to change my watch face."*
-  Sideloading via ADB is the entire distribution plan.
-- Do not add Dexcom API credentials, OAuth, or network code of any kind.
-- Do not open a pull request unless he asks.
-- Do not widen the scope. He wants one number bigger.
-
-## Repo map
-
-```
-watchface/src/main/res/raw/watchface.xml   <- the entire watch face; ~everything lives here
-watchface/src/main/AndroidManifest.xml     <- WFF declaration, service, preview
-watchface/build.gradle.kts                 <- compileSdk 35, minSdk 34 (WFF v2 needs Wear OS 5+)
-docs/stock-face-reference.jpg              <- the target, photographed
-README.md                                  <- build + install + ADB pairing, written for Geoff
-```
+- No Play Store publishing, no Dexcom API/network code, no PRs unless asked,
+  no scope widening. Sideload via ADB is the distribution plan.
