@@ -56,6 +56,9 @@ interface GlucoseDao {
     @Query("SELECT * FROM journal WHERE scope = 'day' AND day >= :sinceDay")
     suspend fun dayJournalSince(sinceDay: String): List<JournalEntity>
 
+    @Query("SELECT * FROM journal WHERE id = :id")
+    suspend fun journalById(id: Long): JournalEntity?
+
     @Insert suspend fun insertJournal(entry: JournalEntity): Long
     @Update suspend fun updateJournal(entry: JournalEntity)
     @Delete suspend fun deleteJournal(entry: JournalEntity)

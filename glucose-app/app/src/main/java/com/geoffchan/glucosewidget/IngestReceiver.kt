@@ -16,7 +16,10 @@ import kotlinx.coroutines.launch
  *   adb shell am broadcast -n com.geoffchan.glucosewidget/.IngestReceiver \
  *     --es op insert --es day 2026-09-01 --es text "event: coffee @ 10:30"
  *
- * There is deliberately no bulk delete: `event:` rows are user-logged data.
+ *   adb shell am broadcast -n .../.IngestReceiver --es op delete --es day 2026-09-01 --el id 42
+ *
+ * Delete is by single row id only; there is deliberately no bulk delete,
+ * since `event:` rows are user-logged data.
  */
 class IngestReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -33,6 +36,11 @@ class IngestReceiver : BroadcastReceiver() {
                         dao.insertJournal(
                             JournalEntity(day = day, text = text, createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY),
                         )
+                        GlucoseWidget().updateAll(context)
+                    }
+                    "delete" -> {
+                        val id = intent.getLongExtra("id", -1L)
+                        dao.journalById(id)?.let { dao.deleteJournal(it) }
                         GlucoseWidget().updateAll(context)
                     }
                     "refresh" -> Refresh.enqueue(context)

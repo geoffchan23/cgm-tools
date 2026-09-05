@@ -41,15 +41,16 @@ entries are free-text summaries. Conventions inside `journal.text`:
   from the list; treat as boolean day flags. Chips UI removed 2026-09-02.
 - Times are stored 24-hour; the UI shows 12-hour with AM/PM.
 
-Free-text day notes exist only for 2026-09-01 … 2026-09-04 (before the
-log dialog). Those days were parsed into `event:` rows by Claude Code —
-see `analysis/parse-ledger.json`. No further parsing is expected; if a
-legacy day ever needs a backfill, insert via the ADB receiver — NOT by
-editing the SQLite file (WAL):
+There are no free-text day notes left: the 2026-09-01 … 09-05 notes were
+parsed into `event:` rows and then deleted (originals preserved in
+`analysis/parse-ledger.json`). No further parsing is expected. To insert
+or delete a single row, use the ADB receiver — NOT the SQLite file (WAL):
 
 ```bash
 adb shell am broadcast -n com.geoffchan.glucosewidget/.IngestReceiver \
   --es op insert --es day 2026-09-01 --es text "'event: coffee @ 10:30'"
+adb shell am broadcast -n com.geoffchan.glucosewidget/.IngestReceiver \
+  --es op delete --es day x --el id 42                # one row, by journal.id
 # op=refresh also exists (manual data refresh + widget redraw)
 ```
 

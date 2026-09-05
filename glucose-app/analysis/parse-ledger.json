@@ -1,5 +1,5 @@
 {
-  "_comment": "Legacy: days whose free-text journal notes were parsed into event: entries by Claude Code (2026-09-01..04). Since 2026-09-05 food/exercise is logged directly in the app with a time, so no further parsing is expected.",
+  "_comment": "Legacy: free-text day notes (2026-09-01..05) parsed into event: rows by Claude Code, then the free-text rows were deleted from the phone on 2026-09-05 at Geoff's request. 'sourceText' preserves the deleted note. Since 2026-09-05 food/exercise is logged directly in the app with a time; no further parsing is expected.",
   "2026-09-01": {
     "parsedAt": "2026-09-02T22:15:00-04:00",
     "sourceNotes": 1,
@@ -7,7 +7,9 @@
       "coffee @ 10:30 (default rule)",
       "ikea trip @ 15:00",
       "dinner @ 17:15 (default rule; IKEA grazing incl. ice cream folded in, no stated times)"
-    ]
+    ],
+    "sourceText": "regular coffee. went to IKEA from 3-9pm. had a little poutine, potato medallion, samosa, couple bites of bingz Peking duck crispy sandwich, 3/4 cup of unicorn rainbow ice cream",
+    "freeTextDeleted": "2026-09-05"
   },
   "2026-09-02": {
     "parsedAt": "2026-09-02T22:15:00-04:00",
@@ -17,7 +19,9 @@
       "snack @ 15:00",
       "dinner @ 17:30",
       "ice cream @ 19:30"
-    ]
+    ],
+    "sourceText": "regular coffee at 11am. cup of Cheerios, curry puff, and couple bites of pasta at 3pm. sourdough grilled cheese for dinner at 5:30pm. half Dole whip ice cream at 7:30pm.",
+    "freeTextDeleted": "2026-09-05"
   },
   "2026-09-03": {
     "parsedAt": "2026-09-04T08:45:00-04:00",
@@ -29,6 +33,30 @@
       "dinner @ 17:30 (grilled cheese, half jumbo sausage)",
       "ice cream @ 21:00 (107g)",
       "chips @ 22:30 (chips + aspartame juice)"
+    ],
+    "sourceText": "coffee at 11:00 a.m. a curry puff at 3:30pm. grilled cheese and a half jumbo sausage at 5:30pm. 107g of ice cream at 9pm. chips and aspartame juice at 10:30pm. 2h of raking from 3-5pm",
+    "freeTextDeleted": "2026-09-05"
+  },
+  "2026-09-04": {
+    "parsedAt": "2026-09-05T11:40:00-04:00",
+    "sourceNotes": 1,
+    "freeTextDeleted": "2026-09-05",
+    "sourceText": "2 hi chew candies around 12:30am and 2 at 6am. coffee at 10:30am. half a medium pizza from Pizza Hut at 6pm. tres leches donut at 9:20pm",
+    "events": [
+      "candy @ 00:30 (2 Hi-Chew)",
+      "candy @ 06:00 (2 Hi-Chew)",
+      "coffee @ 10:30",
+      "pizza @ 18:00 (half medium Pizza Hut)",
+      "donut @ 21:20 (tres leches)"
+    ]
+  },
+  "2026-09-05": {
+    "parsedAt": "2026-09-05T11:40:00-04:00",
+    "sourceNotes": 1,
+    "freeTextDeleted": "2026-09-05",
+    "sourceText": "coffee at 10:55am",
+    "events": [
+      "coffee @ 10:55"
     ]
   }
 }
