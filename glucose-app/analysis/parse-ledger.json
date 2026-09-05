@@ -1,5 +1,5 @@
 {
-  "_comment": "Days whose journal notes have been parsed into event: entries on the phone. Re-parse a day only if its notes changed after parsedAt (compare journal.updatedAtMs). Clear old events first: op=clear-events.",
+  "_comment": "Legacy: days whose free-text journal notes were parsed into event: entries by Claude Code (2026-09-01..04). Since 2026-09-05 food/exercise is logged directly in the app with a time, so no further parsing is expected.",
   "2026-09-01": {
     "parsedAt": "2026-09-02T22:15:00-04:00",
     "sourceNotes": 1,

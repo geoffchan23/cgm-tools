@@ -38,9 +38,9 @@ day self-heal. The widget renders a cached snapshot.
 
 There is **no export feature** — instead, Claude Code pulls the SQLite file
 directly over ADB (the app is a debug build, so `run-as` works) for analysis,
-and free-text journal notes are parsed into structured `event:` markers by
-extraction runs. See [`CLAUDE.md`](CLAUDE.md) for the schema, the
-`tools/pull-db.sh` recipe, the parsing conventions, and the standing rules.
+and doses and food/exercise logs are already structured (`dose: … @ HH:mm`,
+`event: … @ HH:mm`). See [`CLAUDE.md`](CLAUDE.md) for the schema, the
+`tools/pull-db.sh` recipe, and the entry conventions.
 
 ## Notes on privacy
 

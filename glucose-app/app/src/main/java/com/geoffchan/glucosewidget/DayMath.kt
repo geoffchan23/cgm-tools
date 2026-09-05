@@ -62,14 +62,73 @@ data class DoseNote(val isShort: Boolean, val units: Int, val minuteOfDay: Int) 
     val time: java.time.LocalTime get() = java.time.LocalTime.of(minuteOfDay / 60, minuteOfDay % 60)
 }
 
-data class EventNote(val name: String, val minuteOfDay: Int)
+data class EventNote(val name: String, val minuteOfDay: Int) {
+    val time: java.time.LocalTime get() = java.time.LocalTime.of(minuteOfDay / 60, minuteOfDay % 60)
+}
+
+/** Canonical food/exercise log format; same shape the chart plots as diamonds. */
+fun eventNoteText(name: String, time: String): String = "event: ${name.trim()} @ $time"
+
+private val TIME_12H = java.time.format.DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.US)
+
+/** "12:21 PM" — what the user sees; storage stays 24-hour HH:mm. */
+fun time12(t: java.time.LocalTime): String = t.format(TIME_12H)
+
+/** Notes-list rendering: timed entries read "12:40 PM · lunch"; anything else is shown raw. */
+fun entryLabel(text: String): String {
+    parseDoseNote(text)?.let { return "${time12(it.time)} · ${it.units}u ${it.insulinType}" }
+    parseEventNote(text)?.let { return "${time12(it.time)} · ${it.name}" }
+    return text
+}
+
+/** Minute-of-day for timed entries (doses, logs); null for free text. */
+fun entryMinute(text: String): Int? =
+    parseDoseNote(text)?.minuteOfDay ?: parseEventNote(text)?.minuteOfDay
+
+/** Notes-list order: by day, then timed entries by time, then untimed by creation. */
+fun sortForList(entries: List<JournalEntity>): List<JournalEntity> =
+    entries.sortedWith(
+        compareBy<JournalEntity> { it.day }
+            .thenBy { entryMinute(it.text) == null }
+            .thenBy { entryMinute(it.text) ?: 0 }
+            .thenBy { it.createdAtMs },
+    )
+
+/** A marker for the widget: short label plus the instant it happened. */
+data class LastLog(val label: String, val atMs: Long)
+
+private fun instantOf(day: String, minuteOfDay: Int, zone: ZoneId): Long =
+    LocalDate.parse(day).atTime(minuteOfDay / 60, minuteOfDay % 60).atZone(zone).toInstant().toEpochMilli()
+
+fun latestDose(entries: List<JournalEntity>, zone: ZoneId): LastLog? =
+    entries.asSequence()
+        .filter { it.scope == SCOPE_DAY }
+        .mapNotNull { e -> parseDoseNote(e.text)?.let { d -> LastLog("${if (d.isShort) "▲" else "△"} ${d.units}u", instantOf(e.day, d.minuteOfDay, zone)) } }
+        .maxByOrNull { it.atMs }
+
+fun latestEvent(entries: List<JournalEntity>, zone: ZoneId): LastLog? =
+    entries.asSequence()
+        .filter { it.scope == SCOPE_DAY }
+        .mapNotNull { e -> parseEventNote(e.text)?.let { ev -> LastLog("◆ ${ev.name}", instantOf(e.day, ev.minuteOfDay, zone)) } }
+        .maxByOrNull { it.atMs }
+
+/** "now", "45m ago", "2h ago", "3d ago"; future instants clamp to "now". */
+fun relativeAge(atMs: Long, nowMs: Long): String {
+    val m = (nowMs - atMs) / 60_000
+    return when {
+        m < 1 -> "now"
+        m < 60 -> "${m}m ago"
+        m < 24 * 60 -> "${m / 60}h ago"
+        else -> "${m / (24 * 60)}d ago"
+    }
+}
 
 private val EVENT_RE = Regex("""^event: (.+) @ (\d{1,2}):(\d{2})$""")
 
 /**
- * Parse a derived event entry (`event: coffee @ 10:30`). These are written
- * by Claude Code extraction runs, not by hand; the app plots them and
- * hides them from the notes list.
+ * Parse a food/exercise log (`event: coffee @ 10:30`). Logged from the app's
+ * "Log food/exercise" dialog (older ones were written by Claude Code from
+ * free-text notes); plotted as diamonds on the chart.
  */
 fun parseEventNote(text: String): EventNote? {
     val m = EVENT_RE.find(text) ?: return null
@@ -77,8 +136,8 @@ fun parseEventNote(text: String): EventNote? {
     return EventNote(name.trim(), hh.toInt() * 60 + mm.toInt())
 }
 
-/** Entries the notes list hides: tags (chips) and derived events (chart). */
-fun isDerivedEntry(text: String): Boolean = isTagEntry(text) || parseEventNote(text) != null
+/** Entries the notes list hides: legacy tag chips only. Logs and doses are shown. */
+fun isDerivedEntry(text: String): Boolean = isTagEntry(text)
 
 /** Chart marker inputs (minute-of-range keyed) from day-scope journal entries. */
 fun markerData(

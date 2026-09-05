@@ -26,49 +26,46 @@ Schema:
   scope='week', `day` is the MONDAY of the ISO week (weeks run Mon–Sun).
   All local dates are the phone's timezone (America/Toronto).
 
-The journal text is the enrichment source: Geoff writes free-form food/
-activity/sleep notes at day and week level, and expects Claude Code to
-parse them into structured data (meals, activities, etc.) during
-analysis sessions — structure lives in the analysis, not the app.
-
-Two machine-friendly conventions ride inside ordinary day-scope entries:
-- **Day tags**: an entry whose whole text is `#sick`, `#stress`,
-  `#travel`, or `#cycle` (toggled via chips in the day view; the app
-  hides them from the notes list). Treat as boolean day flags.
+Day-scope entries are structured logs (since 2026-09-05); week-scope
+entries are free-text summaries. Conventions inside `journal.text`:
 - **Doses**: `dose: <type> <units>u @ HH:mm` where type is
   `short-acting` or `long-acting` and units is 1–100. Quick-entry
-  button; always logged to today at the tap time, e.g.
-  `dose: short-acting 4u @ 13:05`. Parse type/units/time from the
-  pattern. (Entries logged before 2026-09-02 may use the older
+  dialog; always logged to today, e.g. `dose: short-acting 4u @ 13:05`.
+  (Entries logged before 2026-09-02 may use the older
   `dose: <name> <amount> @ HH:mm` free-name form.)
+- **Food/exercise logs**: `event: <text> @ HH:mm`, e.g.
+  `event: lunch @ 12:40`, `event: 30 min walk @ 18:00`. Logged from the
+  "Log food/exercise" dialog to the day being viewed. Plotted as teal
+  diamonds on the chart; shown in the notes list as "12:40 PM · lunch".
+- **Legacy day tags**: an entry whose whole text is `#sick` etc. Hidden
+  from the list; treat as boolean day flags. Chips UI removed 2026-09-02.
+- Times are stored 24-hour; the UI shows 12-hour with AM/PM.
 
-## Journal → events extraction (Claude Code runs this)
-
-Parse day notes into `event: <name> @ HH:mm` entries (plotted as teal
-diamonds on the chart's top edge; hidden from the notes list). Insert
-via the ADB ingest receiver — NOT by editing the SQLite file (WAL):
+Free-text day notes exist only for 2026-09-01 … 2026-09-04 (before the
+log dialog). Those days were parsed into `event:` rows by Claude Code —
+see `analysis/parse-ledger.json`. No further parsing is expected; if a
+legacy day ever needs a backfill, insert via the ADB receiver — NOT by
+editing the SQLite file (WAL):
 
 ```bash
 adb shell am broadcast -n com.geoffchan.glucosewidget/.IngestReceiver \
-  --es op clear-events --es day 2026-09-01          # idempotent re-runs
-adb shell am broadcast -n com.geoffchan.glucosewidget/.IngestReceiver \
   --es op insert --es day 2026-09-01 --es text "'event: coffee @ 10:30'"
-# op=refresh also exists (manual data refresh)
+# op=refresh also exists (manual data refresh + widget redraw)
 ```
 
+There is deliberately no bulk-delete op: `event:` rows are user data now.
 Gotchas: add `</dev/null` when broadcasting inside a shell loop (adb
 eats stdin); the receiver is DUMP-guarded because Android skips shell
-broadcasts to non-exported receivers.
+broadcasts to non-exported receivers. With several ADB devices attached
+(phone, watch), pass the serial: `tools/pull-db.sh <ip:port>`.
 
-**Geoff's standing time rules** (use when a note gives no time):
-- coffee → 10:30
-- dinner → 17:15
-- Keep event names short (chart labels): coffee, snack, dinner,
-  ice cream, plus activities like "ikea trip".
+## Widget
 
-**Ledger**: `analysis/parse-ledger.json` records parsed days. Skip a
-day unless its notes' `updatedAtMs` is newer than its `parsedAt`; when
-re-parsing, `clear-events` first, and update the ledger.
+Three rows: reading + trend arrow with its age on the right; last dose
+(▲ short / △ long, units) with "Xm/Xh/Xd ago"; last food/exercise log
+likewise. Dose/log rows come straight from Room (last 3 days) at render
+time; the app calls `GlucoseWidget().updateAll()` after every journal
+save/delete, and the 5-min refresh keeps the relative ages current.
 
 ## Build & deploy
 

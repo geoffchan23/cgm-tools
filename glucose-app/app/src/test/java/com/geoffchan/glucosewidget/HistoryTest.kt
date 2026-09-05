@@ -172,3 +172,83 @@ class EventParseTest {
         assertNull(parseEventNote("regular note"))
     }
 }
+
+class LogEntryTest {
+    private fun entry(id: Long, day: String, text: String, created: Long = id) =
+        JournalEntity(id = id, day = day, text = text, createdAtMs = created, updatedAtMs = created)
+
+    @Test fun `event text round-trips through the log dialog`() {
+        val e = parseEventNote(eventNoteText("  lunch ", "12:40"))!!
+        assertEquals("lunch", e.name)
+        assertEquals(java.time.LocalTime.of(12, 40), e.time)
+    }
+
+    @Test fun `times display in 12-hour form with AM PM`() {
+        assertEquals("12:21 PM", time12(java.time.LocalTime.of(12, 21)))
+        assertEquals("12:05 AM", time12(java.time.LocalTime.of(0, 5)))
+        assertEquals("5:30 PM", time12(java.time.LocalTime.of(17, 30)))
+    }
+
+    @Test fun `list labels are friendly for doses and logs, raw otherwise`() {
+        assertEquals("12:21 PM · 1u short-acting", entryLabel("dose: short-acting 1u @ 12:21"))
+        assertEquals("9:00 PM · 25u long-acting", entryLabel("dose: long-acting 25u @ 21:00"))
+        assertEquals("12:40 PM · lunch", entryLabel("event: lunch @ 12:40"))
+        assertEquals("had pasta at noon", entryLabel("had pasta at noon"))
+    }
+
+    @Test fun `list order is by time, untimed notes last by creation`() {
+        val sorted = sortForList(
+            listOf(
+                entry(1, "2026-09-05", "free text", created = 50),
+                entry(2, "2026-09-05", "event: dinner @ 17:30"),
+                entry(3, "2026-09-05", "dose: short-acting 4u @ 11:00"),
+                entry(4, "2026-09-04", "event: coffee @ 23:00"),
+                entry(5, "2026-09-05", "older free text", created = 10),
+            ),
+        )
+        assertEquals(listOf(4L, 3L, 2L, 5L, 1L), sorted.map { it.id })
+    }
+
+    @Test fun `only tag entries are hidden from the list now`() {
+        assertTrue(isDerivedEntry("#sick"))
+        assertEquals(false, isDerivedEntry("event: lunch @ 12:40"))
+        assertEquals(false, isDerivedEntry("dose: short-acting 4u @ 11:00"))
+    }
+}
+
+class LatestMarkerTest {
+    private val zone = ZoneId.of("America/Toronto")
+    private fun entry(id: Long, day: String, text: String) =
+        JournalEntity(id = id, day = day, text = text, createdAtMs = id, updatedAtMs = id)
+
+    @Test fun `latest dose and log are chosen by day then time`() {
+        val entries = listOf(
+            entry(1, "2026-09-05", "dose: short-acting 4u @ 11:00"),
+            entry(2, "2026-09-04", "dose: long-acting 25u @ 22:00"),
+            entry(3, "2026-09-05", "event: lunch @ 12:40"),
+            entry(4, "2026-09-05", "event: coffee @ 09:00"),
+            entry(5, "2026-09-05", "free text"),
+        )
+        val dose = latestDose(entries, zone)!!
+        assertEquals("▲ 4u", dose.label)
+        assertEquals(LocalDate.of(2026, 9, 5).atTime(11, 0).atZone(zone).toInstant().toEpochMilli(), dose.atMs)
+        val log = latestEvent(entries, zone)!!
+        assertEquals("◆ lunch", log.label)
+        assertEquals(LocalDate.of(2026, 9, 5).atTime(12, 40).atZone(zone).toInstant().toEpochMilli(), log.atMs)
+    }
+
+    @Test fun `long-acting shows an outline triangle and nothing gives null`() {
+        assertEquals("△ 19u", latestDose(listOf(entry(1, "2026-09-05", "dose: long-acting 19u @ 11:00")), zone)!!.label)
+        assertNull(latestDose(emptyList(), zone))
+        assertNull(latestEvent(listOf(entry(1, "2026-09-05", "just a note")), zone))
+    }
+
+    @Test fun `relative age reads in minutes, hours, then days`() {
+        val now = 1_000_000_000_000L
+        assertEquals("now", relativeAge(now - 30_000, now))
+        assertEquals("45m ago", relativeAge(now - 45 * 60_000, now))
+        assertEquals("2h ago", relativeAge(now - 150 * 60_000, now))
+        assertEquals("3d ago", relativeAge(now - 3 * 24 * 3600_000L - 5 * 3600_000L, now))
+        assertEquals("now", relativeAge(now + 60_000, now)) // future-dated log: clamp
+    }
+}

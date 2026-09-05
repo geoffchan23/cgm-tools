@@ -74,6 +74,8 @@ class MainActivity : ComponentActivity() {
                 var deleting by remember { mutableStateOf<JournalEntity?>(null) }
                 var dosing by remember { mutableStateOf(false) }
                 var editingDose by remember { mutableStateOf<JournalEntity?>(null) } // set alongside dosing
+                var logging by remember { mutableStateOf(false) }
+                var editingLog by remember { mutableStateOf<JournalEntity?>(null) } // set alongside logging
                 val scope = rememberCoroutineScope()
 
                 val today = LocalDate.now(zone)
@@ -109,10 +111,17 @@ class MainActivity : ComponentActivity() {
                                     text = { Text("Log dose") },
                                     onClick = { showAddMenu = false; dosing = true },
                                 )
-                                androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text("Add journal entry") },
-                                    onClick = { showAddMenu = false; adding = true },
-                                )
+                                if (isWeek) {
+                                    androidx.compose.material3.DropdownMenuItem(
+                                        text = { Text("Add week note") },
+                                        onClick = { showAddMenu = false; adding = true },
+                                    )
+                                } else {
+                                    androidx.compose.material3.DropdownMenuItem(
+                                        text = { Text("Log food/exercise") },
+                                        onClick = { showAddMenu = false; logging = true },
+                                    )
+                                }
                             }
                         }
                     },
@@ -216,7 +225,7 @@ class MainActivity : ComponentActivity() {
                             Modifier.weight(1f).padding(horizontal = 12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            items(entries.filterNot { isDerivedEntry(it.text) }, key = { it.id }) { entry ->
+                            items(sortForList(entries.filterNot { isDerivedEntry(it.text) }), key = { it.id }) { entry ->
                                 Card(Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp)) {
                                         if (isWeek && entry.scope == SCOPE_DAY) {
@@ -230,13 +239,16 @@ class MainActivity : ComponentActivity() {
                                         }
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Text(
-                                                entry.text,
+                                                entryLabel(entry.text),
                                                 Modifier.weight(1f).padding(vertical = 8.dp),
                                                 style = MaterialTheme.typography.bodyMedium,
                                             )
                                             TextButton(onClick = {
-                                                if (parseDoseNote(entry.text) != null) { editingDose = entry; dosing = true }
-                                                else editing = entry
+                                                when {
+                                                    parseDoseNote(entry.text) != null -> { editingDose = entry; dosing = true }
+                                                    parseEventNote(entry.text) != null -> { editingLog = entry; logging = true }
+                                                    else -> editing = entry
+                                                }
                                             }) { Text("Edit") }
                                             IconButton(onClick = { deleting = entry }) {
                                                 Icon(Icons.Filled.Delete, "Delete note")
@@ -306,6 +318,7 @@ class MainActivity : ComponentActivity() {
                                         )
                                     scope.launch {
                                         if (editing != null) dao.updateJournal(toSave) else dao.insertJournal(toSave)
+                                        GlucoseWidget().updateAll(this@MainActivity)
                                         adding = false; editing = null
                                     }
                                 },
@@ -330,7 +343,6 @@ class MainActivity : ComponentActivity() {
                         unitsText = ((unitsText.toIntOrNull() ?: 0) + delta).coerceIn(1, 100).toString()
                     }
                     var doseTime by remember { mutableStateOf(existing?.time ?: java.time.LocalTime.now(zone).withSecond(0)) }
-                    var showTimePicker by remember { mutableStateOf(false) }
                     fun closeDose() { dosing = false; editingDose = null }
                     AlertDialog(
                         onDismissRequest = { closeDose() },
@@ -377,19 +389,7 @@ class MainActivity : ComponentActivity() {
                                         Text("+", style = MaterialTheme.typography.titleLarge)
                                     }
                                 }
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    TextButton(onClick = { doseTime = doseTime.minusMinutes(15) }) { Text("−15m") }
-                                    androidx.compose.material3.OutlinedButton(
-                                        onClick = { showTimePicker = true },
-                                        modifier = Modifier.weight(1f),
-                                    ) {
-                                        Text(doseTime.format(DateTimeFormatter.ofPattern("HH:mm")))
-                                    }
-                                    TextButton(onClick = { doseTime = doseTime.plusMinutes(15) }) { Text("+15m") }
-                                }
+                                TimeField(doseTime, { doseTime = it }, pickerTitle = "Dose time")
                             }
                         },
                         confirmButton = {
@@ -414,6 +414,7 @@ class MainActivity : ComponentActivity() {
                                             )
                                             Store.saveLastMedication(this@MainActivity, insulinType)
                                         }
+                                        GlucoseWidget().updateAll(this@MainActivity)
                                         closeDose()
                                     }
                                 },
@@ -421,28 +422,59 @@ class MainActivity : ComponentActivity() {
                         },
                         dismissButton = { TextButton(onClick = { closeDose() }) { Text("Cancel") } },
                     )
+                }
 
-                    if (showTimePicker) {
-                        val timeState = androidx.compose.material3.rememberTimePickerState(
-                            initialHour = doseTime.hour,
-                            initialMinute = doseTime.minute,
-                            is24Hour = true,
-                        )
-                        AlertDialog(
-                            onDismissRequest = { showTimePicker = false },
-                            title = { Text("Dose time") },
-                            text = { androidx.compose.material3.TimePicker(state = timeState) },
-                            confirmButton = {
-                                TextButton(onClick = {
-                                    doseTime = java.time.LocalTime.of(timeState.hour, timeState.minute)
-                                    showTimePicker = false
-                                }) { Text("OK") }
-                            },
-                            dismissButton = {
-                                TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
-                            },
-                        )
-                    }
+                if (logging) {
+                    val existing = editingLog?.let { parseEventNote(it.text) }
+                    var what by remember { mutableStateOf(existing?.name ?: "") }
+                    var logTime by remember { mutableStateOf(existing?.time ?: java.time.LocalTime.now(zone).withSecond(0)) }
+                    fun closeLog() { logging = false; editingLog = null }
+                    AlertDialog(
+                        onDismissRequest = { closeLog() },
+                        title = {
+                            Text(
+                                if (editingLog != null) "Edit log"
+                                else "Log food/exercise — ${day.format(DateTimeFormatter.ofPattern("MMM d", Locale.CANADA))}",
+                            )
+                        },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                OutlinedTextField(
+                                    what, { what = it },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    placeholder = { Text("lunch, 30 min walk, ice cream…") },
+                                    singleLine = true,
+                                )
+                                TimeField(logTime, { logTime = it }, pickerTitle = "Log time")
+                            }
+                        },
+                        confirmButton = {
+                            Button(
+                                enabled = what.isNotBlank(),
+                                onClick = {
+                                    val now = System.currentTimeMillis()
+                                    val text = eventNoteText(what, logTime.format(DateTimeFormatter.ofPattern("HH:mm")))
+                                    val toEdit = editingLog
+                                    scope.launch {
+                                        if (toEdit != null) {
+                                            dao.updateJournal(toEdit.copy(text = text, updatedAtMs = now))
+                                        } else {
+                                            // Logs go to the day being viewed, so yesterday can be backfilled.
+                                            dao.insertJournal(
+                                                JournalEntity(
+                                                    day = day.toString(), text = text,
+                                                    createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY,
+                                                ),
+                                            )
+                                        }
+                                        GlucoseWidget().updateAll(this@MainActivity)
+                                        closeLog()
+                                    }
+                                },
+                            ) { Text("Save") }
+                        },
+                        dismissButton = { TextButton(onClick = { closeLog() }) { Text("Cancel") } },
+                    )
                 }
 
                 deleting?.let { doomed ->
@@ -452,7 +484,11 @@ class MainActivity : ComponentActivity() {
                         text = { Text(doomed.text.take(120)) },
                         confirmButton = {
                             Button(onClick = {
-                                scope.launch { dao.deleteJournal(doomed); deleting = null }
+                                scope.launch {
+                                    dao.deleteJournal(doomed)
+                                    GlucoseWidget().updateAll(this@MainActivity)
+                                    deleting = null
+                                }
                             }) { Text("Delete") }
                         },
                         dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } },
@@ -460,5 +496,45 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+}
+
+/**
+ * −15m / [ 12:21 PM ] / +15m. Tapping the time opens Material's clock in
+ * 12-hour mode (AM/PM toggle). Storage stays 24-hour; only display is 12-hour.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@androidx.compose.runtime.Composable
+private fun TimeField(time: java.time.LocalTime, onChange: (java.time.LocalTime) -> Unit, pickerTitle: String) {
+    var showPicker by remember { mutableStateOf(false) }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        TextButton(onClick = { onChange(time.minusMinutes(15)) }) { Text("−15m") }
+        androidx.compose.material3.OutlinedButton(
+            onClick = { showPicker = true },
+            modifier = Modifier.weight(1f),
+        ) { Text(time12(time)) }
+        TextButton(onClick = { onChange(time.plusMinutes(15)) }) { Text("+15m") }
+    }
+    if (showPicker) {
+        val state = androidx.compose.material3.rememberTimePickerState(
+            initialHour = time.hour,
+            initialMinute = time.minute,
+            is24Hour = false,
+        )
+        AlertDialog(
+            onDismissRequest = { showPicker = false },
+            title = { Text(pickerTitle) },
+            text = { androidx.compose.material3.TimePicker(state = state) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onChange(java.time.LocalTime.of(state.hour, state.minute))
+                    showPicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { showPicker = false }) { Text("Cancel") } },
+        )
     }
 }

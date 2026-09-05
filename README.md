@@ -15,8 +15,9 @@ face exactly as-is and just renders the glucose reading big.
 
 The **phone app** is the start of a larger idea that I've had sitting in the back of my mind for years. It's a place to blend her
 glucose data with the real world context that affects it every day e.g. when she takes insulin, when and
-what she eats, stress, exercise etc. Doses are logged as structured entries, but everything else is
-kept as free-text **journal entries** on purpose. The unstructured data is then parsed by agents into data points that we plot on the chart against her glucose numbers.
+what she eats, stress, exercise etc. Doses and food/exercise events are logged as timestamped entries
+and plotted on the chart against her glucose numbers; the home-screen widget shows the current reading
+alongside the last dose and the last meal or activity.
 
 The long-term vision is to build a deeper,
 richer understanding of her diabetes management over time.

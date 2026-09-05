@@ -28,12 +28,13 @@ The 24-hour clock in the dose dialog was also confusing.
 4. **12-hour time everywhere the user sees it.** Material `TimePicker`
    in 12-hour mode (AM/PM toggle); buttons show `h:mm a` in `Locale.US`
    so it reads "PM" not "p.m.". Both dialogs share one `TimeField`.
-5. **Widget shows last dose and last log.** Left column unchanged
-   (reading, arrow, age). Right column: `▲ 1u · 2h ago` (△ for
-   long-acting) and `◆ lunch · 1h ago`, relative times, from the last 3
-   days of day-scope journal rows. Refreshes on the existing 5-minute
-   cycle and immediately after any journal save/delete. Default width
-   2 → 3 cells; existing placements keep their size.
+5. **Widget shows last dose and last log, three rows.** Row 1: reading +
+   arrow, age on the right. Row 2: `▲ 4u` (△ for long-acting) with
+   "45m ago" on the right. Row 3: `◆ lunch` with its age. Relative times,
+   from the last 3 days of day-scope journal rows. Refreshes on the
+   existing 5-minute cycle and immediately after any journal save/delete.
+   Default size 2×2 cells (was 2×1); existing placements keep their size.
+   (Revised from a two-column layout after Geoff saw the first cut.)
 6. **`clear-events` is removed** from `IngestReceiver` and `GlucoseDao`.
    It bulk-deleted `event:` rows, which are now user data. `insert` and
    `refresh` stay for backfilling legacy days.
