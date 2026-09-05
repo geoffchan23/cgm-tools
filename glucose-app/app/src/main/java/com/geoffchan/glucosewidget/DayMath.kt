@@ -56,7 +56,11 @@ fun defaultUnits(type: String, dayOfWeek: java.time.DayOfWeek): Int = when {
 fun doseNoteText(name: String, amount: String, time: String): String =
     "dose: ${name.trim()} ${amount.trim()} @ $time"
 
-data class DoseNote(val isShort: Boolean, val units: Int, val minuteOfDay: Int)
+data class DoseNote(val isShort: Boolean, val units: Int, val minuteOfDay: Int) {
+    /** Canonical type name, as the dose dialog's chips and [doseNoteText] use it. */
+    val insulinType: String get() = if (isShort) "short-acting" else "long-acting"
+    val time: java.time.LocalTime get() = java.time.LocalTime.of(minuteOfDay / 60, minuteOfDay % 60)
+}
 
 data class EventNote(val name: String, val minuteOfDay: Int)
 

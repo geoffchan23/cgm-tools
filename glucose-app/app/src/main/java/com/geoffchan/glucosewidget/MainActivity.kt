@@ -73,6 +73,7 @@ class MainActivity : ComponentActivity() {
                 var adding by remember { mutableStateOf(false) }
                 var deleting by remember { mutableStateOf<JournalEntity?>(null) }
                 var dosing by remember { mutableStateOf(false) }
+                var editingDose by remember { mutableStateOf<JournalEntity?>(null) } // set alongside dosing
                 val scope = rememberCoroutineScope()
 
                 val today = LocalDate.now(zone)
@@ -233,7 +234,10 @@ class MainActivity : ComponentActivity() {
                                                 Modifier.weight(1f).padding(vertical = 8.dp),
                                                 style = MaterialTheme.typography.bodyMedium,
                                             )
-                                            TextButton(onClick = { editing = entry }) { Text("Edit") }
+                                            TextButton(onClick = {
+                                                if (parseDoseNote(entry.text) != null) { editingDose = entry; dosing = true }
+                                                else editing = entry
+                                            }) { Text("Edit") }
                                             IconButton(onClick = { deleting = entry }) {
                                                 Icon(Icons.Filled.Delete, "Delete note")
                                             }
@@ -314,21 +318,23 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (dosing) {
+                    val existing = editingDose?.let { parseDoseNote(it.text) }
                     var insulinType by remember {
-                        mutableStateOf(runBlocking { Store.lastMedication(this@MainActivity) })
+                        mutableStateOf(existing?.insulinType ?: runBlocking { Store.lastMedication(this@MainActivity) })
                     }
                     var unitsText by remember {
-                        mutableStateOf(defaultUnits(insulinType, LocalDate.now(zone).dayOfWeek).toString())
+                        mutableStateOf((existing?.units ?: defaultUnits(insulinType, LocalDate.now(zone).dayOfWeek)).toString())
                     }
                     fun unitsOrNull() = unitsText.toIntOrNull()?.takeIf { it in 1..100 }
                     fun bump(delta: Int) {
                         unitsText = ((unitsText.toIntOrNull() ?: 0) + delta).coerceIn(1, 100).toString()
                     }
-                    var doseTime by remember { mutableStateOf(java.time.LocalTime.now(zone).withSecond(0)) }
+                    var doseTime by remember { mutableStateOf(existing?.time ?: java.time.LocalTime.now(zone).withSecond(0)) }
                     var showTimePicker by remember { mutableStateOf(false) }
+                    fun closeDose() { dosing = false; editingDose = null }
                     AlertDialog(
-                        onDismissRequest = { dosing = false },
-                        title = { Text("Log dose") },
+                        onDismissRequest = { closeDose() },
+                        title = { Text(if (editingDose != null) "Edit dose" else "Log dose") },
                         text = {
                             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -393,21 +399,27 @@ class MainActivity : ComponentActivity() {
                                     val units = unitsOrNull() ?: return@Button
                                     val now = System.currentTimeMillis()
                                     val time = doseTime.format(DateTimeFormatter.ofPattern("HH:mm"))
+                                    val text = doseNoteText(insulinType, "${units}u", time)
+                                    val toEdit = editingDose
                                     scope.launch {
-                                        dao.insertJournal(
-                                            JournalEntity(
-                                                day = LocalDate.now(zone).toString(),
-                                                text = doseNoteText(insulinType, "${units}u", time),
-                                                createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY,
-                                            ),
-                                        )
-                                        Store.saveLastMedication(this@MainActivity, insulinType)
-                                        dosing = false
+                                        if (toEdit != null) {
+                                            // Edit keeps the entry's day and creation time; only the note changes.
+                                            dao.updateJournal(toEdit.copy(text = text, updatedAtMs = now))
+                                        } else {
+                                            dao.insertJournal(
+                                                JournalEntity(
+                                                    day = LocalDate.now(zone).toString(), text = text,
+                                                    createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY,
+                                                ),
+                                            )
+                                            Store.saveLastMedication(this@MainActivity, insulinType)
+                                        }
+                                        closeDose()
                                     }
                                 },
                             ) { Text("Save") }
                         },
-                        dismissButton = { TextButton(onClick = { dosing = false }) { Text("Cancel") } },
+                        dismissButton = { TextButton(onClick = { closeDose() }) { Text("Cancel") } },
                     )
 
                     if (showTimePicker) {

@@ -144,6 +144,19 @@ class DoseParseTest {
         assertNull(parseDoseNote("#sick"))
         assertNull(parseDoseNote("dose: gibberish"))
     }
+
+    @Test fun `parsed dose prefills the edit dialog and round-trips`() {
+        val d = parseDoseNote("dose: long-acting 25u @ 21:30")!!
+        assertEquals("long-acting", d.insulinType)
+        assertEquals(java.time.LocalTime.of(21, 30), d.time)
+        assertEquals("dose: long-acting 25u @ 21:30", doseNoteText(d.insulinType, "${d.units}u", d.time.toString()))
+    }
+
+    @Test fun `legacy free-name dose normalises to canonical on edit`() {
+        val d = parseDoseNote("dose: insulin 4u @ 08:00")!!
+        assertEquals("short-acting", d.insulinType)
+        assertEquals("dose: short-acting 4u @ 08:00", doseNoteText(d.insulinType, "${d.units}u", d.time.toString()))
+    }
 }
 
 class EventParseTest {
