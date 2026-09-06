@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,7 +37,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.collectAsState
@@ -64,6 +64,11 @@ class MainActivity : ComponentActivity() {
         val dao = GlucoseDb.get(this).dao()
         val zone = ZoneId.systemDefault()
         Refresh.enqueue(this) // opening the app freshens the data
+        // Android 13+: notifications need a runtime grant (used for "report ready").
+        if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) {}
+                .launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
 
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
@@ -137,7 +142,9 @@ class MainActivity : ComponentActivity() {
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous")
                             }
                             Column(
-                                Modifier.weight(1f),
+                                Modifier.weight(1f)
+                                    .clickable { showPicker = true } // the date itself is the picker button
+                                    .padding(vertical = 4.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
                                 val fmt = DateTimeFormatter.ofPattern("MMM d", Locale.CANADA)
@@ -161,9 +168,6 @@ class MainActivity : ComponentActivity() {
                                 onClick = { day = day.plusDays(spanDays.toLong()) },
                                 enabled = firstDay.plusDays(spanDays.toLong()) <= today,
                             ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next") }
-                            IconButton(onClick = { showPicker = true }) {
-                                Icon(Icons.Filled.DateRange, "Pick date")
-                            }
                             IconButton(onClick = {
                                 startActivity(Intent(this@MainActivity, ReportsActivity::class.java))
                             }) { Icon(Icons.AutoMirrored.Filled.List, "Reports") }

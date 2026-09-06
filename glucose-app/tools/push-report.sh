@@ -19,4 +19,5 @@ rm -rf "$(dirname "$STAGE")"
 adb -s "$SERIAL" shell run-as $PKG mkdir -p files/reports
 adb -s "$SERIAL" shell run-as $PKG cp /data/local/tmp/"$NAME" files/reports/"$NAME"
 adb -s "$SERIAL" shell rm /data/local/tmp/"$NAME"
-echo "pushed $NAME → app reports"
+adb -s "$SERIAL" shell am broadcast -n $PKG/.IngestReceiver --es op report-ready --es day x --es name "$NAME" </dev/null >/dev/null
+echo "pushed $NAME → app reports (notified)"

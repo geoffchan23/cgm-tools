@@ -44,13 +44,16 @@ import java.util.Locale
  * the web fonts, which fall back to system faces offline.
  */
 class ReportsActivity : ComponentActivity() {
+    companion object { const val EXTRA_OPEN = "open" } // file name to open straight away
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val dir = reportsDir(this)
+        val openFirst = intent.getStringExtra(EXTRA_OPEN)?.let { File(dir, it) }?.takeIf { it.isFile }
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 var files by remember { mutableStateOf(listReports(dir)) }
-                var open by remember { mutableStateOf<File?>(null) }
+                var open by remember { mutableStateOf(openFirst) }
                 BackHandler(enabled = open != null) { open = null }
                 val idx = open?.let { f -> files.indexOfFirst { it.name == f.name } } ?: -1
                 val newer = if (idx > 0) files[idx - 1] else null          // list is newest-first

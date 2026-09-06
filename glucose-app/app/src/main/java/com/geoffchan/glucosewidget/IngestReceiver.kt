@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
  *     --es op insert --es day 2026-09-01 --es text "event: coffee @ 10:30"
  *
  *   adb shell am broadcast -n .../.IngestReceiver --es op delete --es day 2026-09-01 --el id 42
+ *   adb shell am broadcast -n .../.IngestReceiver --es op report-ready --es day x --es name report-...html
  *
  * Delete is by single row id only; there is deliberately no bulk delete,
  * since `event:` rows are user-logged data.
@@ -43,6 +44,7 @@ class IngestReceiver : BroadcastReceiver() {
                         dao.journalById(id)?.let { dao.deleteJournal(it) }
                         GlucoseWidget().updateAll(context)
                     }
+                    "report-ready" -> intent.getStringExtra("name")?.let { ReportNotification.show(context, it) }
                     "refresh" -> Refresh.enqueue(context)
                 }
             } finally {

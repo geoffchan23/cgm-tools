@@ -52,6 +52,9 @@ adb shell am broadcast -n com.geoffchan.glucosewidget/.IngestReceiver \
 adb shell am broadcast -n com.geoffchan.glucosewidget/.IngestReceiver \
   --es op delete --es day x --el id 42                # one row, by journal.id
 # op=refresh also exists (manual data refresh + widget redraw)
+# op=report-ready --es name <file> posts the "report ready" notification
+#   (tools/push-report.sh sends it; needs POST_NOTIFICATIONS, granted via
+#   `pm grant` on 2026-09-06 and requested on launch as a fallback)
 ```
 
 There is deliberately no bulk-delete op: `event:` rows are user data now.
@@ -86,7 +89,8 @@ report (consensus metrics, 24 h overlay, day strips, every low with its
 preceding 3 h, observations for the endo). `tools/weekly-report.sh` runs
 the whole cycle: find phone via mDNS → pull DB → generate → push into the
 app's **Reports** screen (`files/reports/report-<first>_<last>.html`,
-list icon in the header, WebView). The `weekly-report` skill (repo
+list icon in the header, WebView; a notification is posted when a new
+report arrives and opens it directly). The `weekly-report` skill (repo
 `.claude/skills/`) wraps that plus republishing the artifact
 (`https://claude.ai/code/artifact/42522e03-0809-4e84-b7cb-7ff7eebf974a`).
 A launchd job (`tools/install-weekly-job.sh`, Sundays 20:00) runs the
