@@ -22,8 +22,6 @@ import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.padding
-import androidx.glance.layout.Spacer
-import androidx.glance.layout.fillMaxWidth
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -84,9 +82,9 @@ class GlucoseWidget : GlanceAppWidget() {
                 .padding(horizontal = 14.dp, vertical = 8.dp)
                 .clickable(actionStartActivity<MainActivity>()),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalAlignment = Alignment.Start,
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Row 1: big reading + arrow, with its age on the right.
+            // Row 1: big reading + arrow, age right after it. Every row is centered.
             when {
                 !hasCreds -> Text("Set up", style = TextStyle(color = ColorProvider(Color.Gray), fontSize = 16.sp))
                 reading == null -> Text("…", style = TextStyle(color = ColorProvider(Color.Gray), fontSize = 24.sp))
@@ -98,7 +96,7 @@ class GlucoseWidget : GlanceAppWidget() {
                         GlucoseState.IN_RANGE -> Color.White
                         GlucoseState.STALE -> Color(0xFF9E9E9E)
                     }
-                    Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             mmolText(reading.mgdl),
                             style = TextStyle(color = ColorProvider(color), fontSize = 40.sp, fontWeight = FontWeight.Bold),
@@ -109,27 +107,25 @@ class GlucoseWidget : GlanceAppWidget() {
                             style = TextStyle(color = ColorProvider(color), fontSize = 26.sp),
                             maxLines = 1,
                         )
-                        Spacer(GlanceModifier.defaultWeight())
                         Text(
-                            ageText(reading.timestampMs, now),
+                            "  " + ageText(reading.timestampMs, now),
                             style = TextStyle(color = ColorProvider(if (state == GlucoseState.STALE) color else dim), fontSize = 13.sp),
                             maxLines = 1,
                         )
                     }
                 }
             }
-            // Rows 2 and 3: last dose, last food/exercise log — label left, age right.
+            // Rows 2 and 3: last dose, last food/exercise log — value, then its age.
             for (item in listOf(lastDose, lastLog)) {
                 if (item == null) continue
-                Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(modifier = GlanceModifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         item.label,
                         style = TextStyle(color = ColorProvider(Color(0xFFDDDDDD)), fontSize = 14.sp),
                         maxLines = 1,
-                        modifier = GlanceModifier.defaultWeight(),
                     )
                     Text(
-                        relativeAge(item.atMs, now),
+                        "  " + relativeAge(item.atMs, now),
                         style = TextStyle(color = ColorProvider(dim), fontSize = 13.sp),
                         maxLines = 1,
                     )
