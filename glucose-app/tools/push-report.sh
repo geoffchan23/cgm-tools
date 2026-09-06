@@ -11,7 +11,11 @@ SERIAL=$1; FILE=$2; FIRST=$3; LAST=$4
 PKG=com.geoffchan.glucosewidget
 NAME="report-${FIRST}_${LAST}.html"
 
-adb -s "$SERIAL" push "$FILE" /data/local/tmp/"$NAME" >/dev/null 2>&1
+# Stage outside ~/Desktop: under launchd, adb reading a Desktop file trips
+# macOS folder protection (TCC) and hangs; /bin/cp is exempt.
+STAGE="$(mktemp -d)/$NAME"; cp "$FILE" "$STAGE"
+adb -s "$SERIAL" push "$STAGE" /data/local/tmp/"$NAME" >/dev/null 2>&1
+rm -rf "$(dirname "$STAGE")"
 adb -s "$SERIAL" shell run-as $PKG mkdir -p files/reports
 adb -s "$SERIAL" shell run-as $PKG cp /data/local/tmp/"$NAME" files/reports/"$NAME"
 adb -s "$SERIAL" shell rm /data/local/tmp/"$NAME"

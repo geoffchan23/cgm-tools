@@ -1,6 +1,6 @@
 ---
 name: weekly-report
-description: End-of-week CGM report — pull the phone database, generate the report, push it into the app's Reports screen, republish the artifact. Use when asked for the weekly report, to run/refresh the report, or from the Sunday launchd job.
+description: End-of-week CGM report — pull the phone database, generate the report, push it into the app's Reports screen, republish the artifact, summarize. Use when asked for the weekly report or to run/refresh the report. (The Sunday launchd job runs only the shell pipeline; this skill is the interactive follow-up.)
 ---
 
 # Weekly glucose report
@@ -25,7 +25,10 @@ one script; this skill adds the artifact republish and the summary.
    run catches up because the report always covers the trailing 7 days.
 
 2. Republish the report to the existing artifact so the link Geoff has stays
-   current. Use the Artifact tool with:
+   current. **Only if the Artifact tool is available** — it is not in
+   headless (`claude -p`) runs; in that case skip this step silently, the
+   app's Reports screen is the delivery.
+   Use the Artifact tool with:
    - `file_path`: `glucose-app/analysis/report.html`
    - `url`: `https://claude.ai/code/artifact/42522e03-0809-4e84-b7cb-7ff7eebf974a`
    - `label`: the date range printed by the script, e.g. `Sep 1 – Sep 6`

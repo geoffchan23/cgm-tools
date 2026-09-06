@@ -89,9 +89,13 @@ app's **Reports** screen (`files/reports/report-<first>_<last>.html`,
 list icon in the header, WebView). The `weekly-report` skill (repo
 `.claude/skills/`) wraps that plus republishing the artifact
 (`https://claude.ai/code/artifact/42522e03-0809-4e84-b7cb-7ff7eebf974a`).
-A launchd job (`tools/install-weekly-job.sh`, Sundays 20:00) runs the skill
-headlessly via `claude -p`; log in `data/weekly-report.log`. The generated
-report is gitignored (health data).
+A launchd job (`tools/install-weekly-job.sh`, Sundays 20:00) runs the
+shell pipeline only — not Claude: under launchd `claude` (and Homebrew
+python3) hang on macOS Desktop-folder protection (TCC) while the repo
+lives under `~/Desktop`; Apple's `/usr/bin/python3`, bash, adb, sqlite3
+are exempt (verified 2026-09-06; a repo outside Desktop avoids all of
+it). Log:
+`data/weekly-report.log`. The generated report is gitignored (health data).
 
 ## Build & deploy
 

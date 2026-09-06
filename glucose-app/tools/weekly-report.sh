@@ -29,7 +29,9 @@ adb connect "$SERIAL" | grep -q connected || { echo "adb connect $SERIAL failed"
 
 tools/pull-db.sh "$SERIAL"
 cp data/glucose.db "data/glucose-backup-$(date +%F).db"
-python3 analysis/report.py --days "$DAYS"
+# Apple's python3 is TCC-exempt for ~/Desktop under launchd; Homebrew's hangs there.
+PY=/usr/bin/python3; [ -x "$PY" ] || PY=python3
+"$PY" analysis/report.py --days "$DAYS"
 read -r FIRST LAST < analysis/report.range
 tools/push-report.sh "$SERIAL" analysis/report.html "$FIRST" "$LAST"
 echo "done: $FIRST → $LAST. Now publish analysis/report.html to the existing artifact URL."

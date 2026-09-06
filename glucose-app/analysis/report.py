@@ -214,6 +214,10 @@ def build(db, days_wanted, out):
     html = TEMPLATE.replace("__DATA__", json.dumps(data, default=float))
     Path(out).write_text(html)
     print(f"wrote {out}: {len(readings)} readings, {first_day} → {last_day}, {len(lows)} low episodes")
+    print(f"  in range {overall['tir']:.0%} · below 3.9 {overall['tbr']:.0%} · below 3.0 {overall['tbr2']:.0%} "
+          f"· CV {overall['cv']:.0%} · mean {overall['mean']:.1f}")
+    if obs:
+        print(f"  {obs[0][0]}: {obs[0][1]}")
     Path(out).with_suffix(".range").write_text(f"{first_day} {last_day}\n")  # for tools/weekly-report.sh
 
 
