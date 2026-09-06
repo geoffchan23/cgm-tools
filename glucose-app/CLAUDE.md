@@ -112,7 +112,7 @@ list icon in the header, WebView; a notification is posted when a new
 report arrives and opens it directly). The `weekly-report` skill (repo
 `.claude/skills/`) wraps that plus republishing the artifact
 (`https://claude.ai/code/artifact/42522e03-0809-4e84-b7cb-7ff7eebf974a`).
-A launchd job (`tools/install-weekly-job.sh`, Sundays 20:00) runs the
+A launchd job (`tools/install-weekly-job.sh`, Sundays 22:00) runs the
 shell pipeline only — not Claude: under launchd `claude` (and Homebrew
 python3) hang on macOS Desktop-folder protection (TCC) while the repo
 lives under `~/Desktop`; Apple's `/usr/bin/python3`, bash, adb, sqlite3

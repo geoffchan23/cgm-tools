@@ -1,6 +1,6 @@
 ---
 name: weekly-report
-description: End-of-week CGM report — pull the phone database, generate the report, push it into the app's Reports screen, republish the artifact, summarize. Use when asked for the weekly report or to run/refresh the report. (The Sunday launchd job runs only the shell pipeline; this skill is the interactive follow-up.)
+description: End-of-week CGM report — pull the phone database, generate the report, push it into the app's Reports screen, republish the artifact, summarize. Use when asked for the weekly report or to run/refresh the report. (The Sunday 10 PM launchd job runs only the shell pipeline; this skill is the interactive follow-up.)
 ---
 
 # Weekly glucose report

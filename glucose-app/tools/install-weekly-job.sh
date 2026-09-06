@@ -1,5 +1,5 @@
 #!/bin/bash
-# Install (or reinstall) the Sunday 8 PM launchd job that runs the weekly
+# Install (or reinstall) the Sunday 10 PM launchd job that runs the weekly
 # report through Claude Code on this Mac. Run once; re-run after moving the repo.
 #
 #   tools/install-weekly-job.sh            # install / update
@@ -26,7 +26,7 @@ cat > "$PLIST" <<EOF
   </array>
   <key>StartCalendarInterval</key><dict>
     <key>Weekday</key><integer>0</integer>
-    <key>Hour</key><integer>20</integer>
+    <key>Hour</key><integer>22</integer>
     <key>Minute</key><integer>0</integer>
   </dict>
   <key>StandardOutPath</key><string>$REPO/glucose-app/data/weekly-report.launchd.log</string>
@@ -35,4 +35,4 @@ cat > "$PLIST" <<EOF
 EOF
 launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$PLIST"
-echo "installed $LABEL: Sundays 20:00 → $REPO/glucose-app/data/weekly-report.log"
+echo "installed $LABEL: Sundays 22:00 → $REPO/glucose-app/data/weekly-report.log"
