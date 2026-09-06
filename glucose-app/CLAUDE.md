@@ -93,7 +93,9 @@ activities (MET, minutes, kcal). Claude in a session does the parsing —
 Open Food Facts (`search --off`, brands; flaky 503s), USDA FoodData
 Central (`search --usda`, DEMO_KEY ≈10 req/h). Non-CNF hits are cached in
 `nutrition/food-cache.json`. Activities use `nutrition/met.json` (2024
-Compendium) × `config.json` weightKg (65.8 kg ≈ 145 lb). All committed;
+Compendium) × `config.json` weightKg (65.8 kg ≈ 145 lb). Standing recipes
+in `nutrition/recipes.json` — `coffee` is always creamer + 1 cup 2% milk +
+3 Sweet'N Low + Pike Place (~30 g carbs), never black. All committed;
 they are part of the dataset. `report.py` shows carbs on meal markers, a
 per-day line and weekly averages, labelled as estimates; unparsed days say
 so. `weekly-report.sh` prints which days are unparsed; the weekly-report

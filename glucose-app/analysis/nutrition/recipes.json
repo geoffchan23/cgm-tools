@@ -1,0 +1,45 @@
+{
+  "_comment": "Standing recipes. A day draft can use {\"recipe\": \"coffee\"} as an item; resolve expands it. Edit here, not in day files.",
+  "coffee": {
+    "note": "Her daily coffee, per Geoff 2026-09-06: 3.25 tbsp Starbucks Cinnamon Dolce creamer, 1 cup 2% milk, 3 Sweet'N Low, 2 scoops Pike Place. ~30 g carbs.",
+    "items": [
+      {
+        "name": "Starbucks Cinnamon Dolce creamer",
+        "qty": "3.25 tbsp (~49 ml)",
+        "grams": 50,
+        "source": {
+          "db": "off",
+          "code": "0050000372041"
+        }
+      },
+      {
+        "name": "2% milk",
+        "qty": "1 cup (250 ml)",
+        "grams": 258,
+        "source": {
+          "db": "cnf",
+          "code": 61
+        }
+      },
+      {
+        "name": "Sweet'N Low",
+        "qty": "3 packets",
+        "grams": 3,
+        "source": {
+          "db": "cnf",
+          "code": 5977
+        },
+        "note": "saccharin packet ≈ 1 g dextrose carrier"
+      },
+      {
+        "name": "brewed coffee (2 scoops Pike Place)",
+        "qty": "~250 ml",
+        "grams": 250,
+        "source": {
+          "db": "cnf",
+          "code": 2873
+        }
+      }
+    ]
+  }
+}

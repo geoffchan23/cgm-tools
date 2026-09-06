@@ -21,6 +21,7 @@ Subcommands:
   activities "query"           candidate MET entries
   resolve --day D              fill macros/kcal/totals into nutrition/<day>.json
   summary --day D              one-line summary
+  recipes                      standing recipes (an item may be {"recipe": "coffee"})
 
 Day-file schema (Claude writes name/qty/grams/source + activities; resolve fills the rest):
 {
@@ -208,9 +209,19 @@ def resolve(day):
     weight = d.get("weightKg") or load_json(CONFIG)["weightKg"]
     d["weightKg"] = weight
     day_tot = {k: 0.0 for k in MACROS}
+    recipes = load_json(NUT / "recipes.json", {})
     for ev in d.get("events", []):
         tot = {k: 0.0 for k in MACROS}
+        # expand {"recipe": "coffee"} into the standing recipe's items (fresh copy each time)
+        expanded = []
         for it in ev.get("items", []):
+            if "recipe" in it:
+                r = recipes.get(it["recipe"]) or (_ for _ in ()).throw(SystemExit(f"unknown recipe {it['recipe']}"))
+                expanded.extend({**json.loads(json.dumps(x)), "recipe": it["recipe"]} for x in r["items"])
+            else:
+                expanded.append(it)
+        ev["items"] = expanded
+        for it in ev["items"]:
             rec = record(it["source"])
             it["match"] = rec["name"]
             g = float(it["grams"])
@@ -254,6 +265,7 @@ def main():
     s = sub.add_parser("activities"); s.add_argument("query")
     s = sub.add_parser("resolve"); s.add_argument("--day", required=True)
     s = sub.add_parser("summary"); s.add_argument("--day", required=True)
+    sub.add_parser("recipes")
     a = ap.parse_args()
 
     if a.cmd == "status":
@@ -279,6 +291,13 @@ def main():
             print(f"met:{m['code']}  {m['met']:>4} MET  {m['heading']} · {m['activity'][:80]}")
     elif a.cmd == "resolve":
         print(summary(resolve(a.day)))
+    elif a.cmd == "recipes":
+        for name, r in load_json(NUT / "recipes.json", {}).items():
+            if name.startswith("_"):
+                continue
+            print(f"{name}: {r.get('note','')}")
+            for it in r["items"]:
+                print(f"   - {it['name']} — {it['qty']} ({it['grams']} g)")
     elif a.cmd == "summary":
         d = load_json(day_file(a.day))
         print(summary(d) if d and d.get("totals") else f"{a.day}: not parsed")

@@ -81,5 +81,54 @@
     },
     "measures": [],
     "cachedAt": "2026-09-06"
+  },
+  "off:0050000372041": {
+    "name": "Cinnamon dolce latte coffee creamer (Starbucks)",
+    "per100g": {
+      "kcal": 266.67,
+      "carb": 40,
+      "protein": 0,
+      "fat": 6.67,
+      "fibre": null,
+      "sugar": 40
+    },
+    "measures": [
+      [
+        "20 g",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-06"
+  },
+  "off:16031214": {
+    "name": "Cinnamon Dolce Latte Creamer (Starbucks)",
+    "per100g": {
+      "kcal": 40,
+      "carb": 6,
+      "protein": null,
+      "fat": 1.5,
+      "fibre": null,
+      "sugar": 6
+    },
+    "measures": [
+      [
+        "15.0g",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-06"
+  },
+  "off:2056604372041": {
+    "name": "Cinnamon Dolce Latte Creamer (Starbucks)",
+    "per100g": {
+      "kcal": 266.67,
+      "carb": 40,
+      "protein": 0,
+      "fat": 10,
+      "fibre": null,
+      "sugar": 40
+    },
+    "measures": [],
+    "cachedAt": "2026-09-06"
   }
 }

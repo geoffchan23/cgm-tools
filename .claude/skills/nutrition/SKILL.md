@@ -32,9 +32,12 @@ For each event, split the text into items and decide a portion in grams.
 Rules of thumb:
 - Use the person's words as the item `name`; put the assumed portion in
   `qty` ("3 cookies", "half medium pizza", "1 mug") and the number in `grams`.
-- Typical portions when unstated: coffee with milk ≈ 250 g (carbs come from
-  milk/sugar — if the log just says "coffee", assume 1 tbsp 2% milk, no
-  sugar, unless a standing rule says otherwise); a "snack" of chips ≈ 30 g;
+- **Standing recipes** (`python3 analysis/nutrition.py recipes`): a log of
+  just `coffee` is ALWAYS her fixed drink (creamer + 1 cup 2% milk + 3
+  Sweet'N Low + Pike Place, ~30 g carbs) — write the item as
+  `{"recipe": "coffee"}` and the script expands it. Add new recipes to
+  `analysis/nutrition/recipes.json` when Geoff states a fixed one.
+- Typical portions when unstated: a "snack" of chips ≈ 30 g;
   a cookie ≈ 11 g; a donut ≈ 60 g; a fast-food burger ≈ 150 g; a side salad
   ≈ 100 g; "half a medium pizza" ≈ 4 slices ≈ 400 g; a curry puff ≈ 80 g;
   ice cream "107g" is literal — always prefer a stated weight.
