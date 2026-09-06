@@ -112,6 +112,15 @@ fun latestEvent(entries: List<JournalEntity>, zone: ZoneId): LastLog? =
         .mapNotNull { e -> parseEventNote(e.text)?.let { ev -> LastLog("◆ ${ev.name}", instantOf(e.day, ev.minuteOfDay, zone)) } }
         .maxByOrNull { it.atMs }
 
+/** Widget time for a dose/log: "10:30 AM" today, "Thu 10:30 PM" on an earlier day. */
+fun whenText(atMs: Long, nowMs: Long, zone: ZoneId): String {
+    val at = Instant.ofEpochMilli(atMs).atZone(zone)
+    val today = Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate()
+    val t = time12(at.toLocalTime())
+    return if (at.toLocalDate() == today) t
+    else at.format(java.time.format.DateTimeFormatter.ofPattern("EEE", java.util.Locale.US)) + " " + t
+}
+
 /** "now", "45m ago", "2h ago", "3d ago"; future instants clamp to "now". */
 fun relativeAge(atMs: Long, nowMs: Long): String {
     val m = (nowMs - atMs) / 60_000

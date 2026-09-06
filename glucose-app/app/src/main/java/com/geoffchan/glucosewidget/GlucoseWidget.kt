@@ -115,7 +115,7 @@ class GlucoseWidget : GlanceAppWidget() {
                     }
                 }
             }
-            // Rows 2 and 3: last dose, last food/exercise log — value, then its age.
+            // Rows 2 and 3: last dose, last food/exercise log — value, then its clock time.
             for (item in listOf(lastDose, lastLog)) {
                 if (item == null) continue
                 Row(modifier = GlanceModifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -125,7 +125,7 @@ class GlucoseWidget : GlanceAppWidget() {
                         maxLines = 1,
                     )
                     Text(
-                        "  " + relativeAge(item.atMs, now),
+                        "  " + whenText(item.atMs, now, java.time.ZoneId.systemDefault()),
                         style = TextStyle(color = ColorProvider(dim), fontSize = 15.sp),
                         maxLines = 1,
                     )

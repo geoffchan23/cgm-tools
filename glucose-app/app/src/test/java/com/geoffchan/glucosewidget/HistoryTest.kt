@@ -243,6 +243,14 @@ class LatestMarkerTest {
         assertNull(latestEvent(listOf(entry(1, "2026-09-05", "just a note")), zone))
     }
 
+    @Test fun `widget time is clock time today, weekday-prefixed otherwise`() {
+        val now = LocalDate.of(2026, 9, 5).atTime(11, 0).atZone(zone).toInstant().toEpochMilli()
+        val today = LocalDate.of(2026, 9, 5).atTime(10, 30).atZone(zone).toInstant().toEpochMilli()
+        val thu = LocalDate.of(2026, 9, 3).atTime(22, 30).atZone(zone).toInstant().toEpochMilli()
+        assertEquals("10:30 AM", whenText(today, now, zone))
+        assertEquals("Thu 10:30 PM", whenText(thu, now, zone))
+    }
+
     @Test fun `relative age reads in minutes, hours, then days`() {
         val now = 1_000_000_000_000L
         assertEquals("now", relativeAge(now - 30_000, now))
