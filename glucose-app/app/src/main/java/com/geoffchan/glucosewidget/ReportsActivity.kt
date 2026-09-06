@@ -15,11 +15,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.getValue
@@ -50,47 +52,63 @@ class ReportsActivity : ComponentActivity() {
                 var files by remember { mutableStateOf(listReports(dir)) }
                 var open by remember { mutableStateOf<File?>(null) }
                 BackHandler(enabled = open != null) { open = null }
-                Column(Modifier.fillMaxSize()) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        IconButton(onClick = { if (open != null) open = null else finish() }) {
-                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Back")
+                val idx = open?.let { f -> files.indexOfFirst { it.name == f.name } } ?: -1
+                val newer = if (idx > 0) files[idx - 1] else null          // list is newest-first
+                val older = if (idx >= 0 && idx < files.size - 1) files[idx + 1] else null
+                // Scaffold supplies the status-bar inset and the theme's content colours,
+                // same as MainActivity, so the header never sits under the camera cutout.
+                Scaffold { padding ->
+                    Column(Modifier.fillMaxSize().padding(padding)) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            IconButton(onClick = { if (open != null) open = null else finish() }) {
+                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Back")
+                            }
+                            Text(
+                                open?.let { reportTitle(it.name) } ?: "Reports",
+                                style = MaterialTheme.typography.titleLarge,
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (open != null) {
+                                // Step between weeks without going back to the list.
+                                IconButton(onClick = { open = older }, enabled = older != null) {
+                                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous week")
+                                }
+                                IconButton(onClick = { open = newer }, enabled = newer != null) {
+                                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next week")
+                                }
+                            }
                         }
-                        Text(
-                            open?.let { reportTitle(it.name) } ?: "Reports",
-                            style = MaterialTheme.typography.titleLarge,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                    val current = open
-                    if (current != null) {
-                        ReportWebView(current)
-                    } else if (files.isEmpty()) {
-                        Text(
-                            "No reports yet. Run the weekly report on the Mac and it will appear here.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(24.dp),
-                        )
-                    } else {
-                        LazyColumn(Modifier.padding(horizontal = 12.dp)) {
-                            items(files, key = { it.name }) { f ->
-                                Card(
-                                    onClick = { open = f },
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                ) {
-                                    Row(
-                                        Modifier.padding(start = 16.dp, top = 4.dp, bottom = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
+                        val current = open
+                        if (current != null) {
+                            ReportWebView(current)
+                        } else if (files.isEmpty()) {
+                            Text(
+                                "No reports yet. Run the weekly report on the Mac and it will appear here.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(24.dp),
+                            )
+                        } else {
+                            LazyColumn(Modifier.padding(horizontal = 12.dp)) {
+                                items(files, key = { it.name }) { f ->
+                                    Card(
+                                        onClick = { open = f },
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                     ) {
-                                        Text(
-                                            reportTitle(f.name),
-                                            Modifier.weight(1f).padding(vertical = 12.dp),
-                                            style = MaterialTheme.typography.bodyLarge,
-                                        )
-                                        IconButton(onClick = { f.delete(); files = listReports(dir) }) {
-                                            Icon(Icons.Filled.Delete, "Delete report")
+                                        Row(
+                                            Modifier.padding(start = 16.dp, top = 4.dp, bottom = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Text(
+                                                reportTitle(f.name),
+                                                Modifier.weight(1f).padding(vertical = 12.dp),
+                                                style = MaterialTheme.typography.bodyLarge,
+                                            )
+                                            IconButton(onClick = { f.delete(); files = listReports(dir) }) {
+                                                Icon(Icons.Filled.Delete, "Delete report")
+                                            }
                                         }
                                     }
                                 }
