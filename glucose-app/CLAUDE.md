@@ -63,7 +63,7 @@ broadcasts to non-exported receivers. With several ADB devices attached
 ## Widget
 
 Three rows: reading + trend arrow with its age on the right; last dose
-(▲ short / △ long, units) with its clock time ("10:30 AM", or "Thu 10:30 PM" if not today); last food/exercise log
+(▲ short / △ long, units) with its clock time ("10:30 AM"); last food/exercise log
 likewise. Dose/log rows come straight from Room (last 3 days) at render
 time; the app calls `GlucoseWidget().updateAll()` after every journal
 save/delete, and the 5-min refresh keeps the reading age current.

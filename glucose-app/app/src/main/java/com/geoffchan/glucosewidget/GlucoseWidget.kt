@@ -125,7 +125,7 @@ class GlucoseWidget : GlanceAppWidget() {
                         maxLines = 1,
                     )
                     Text(
-                        "  " + whenText(item.atMs, now, java.time.ZoneId.systemDefault()),
+                        "  " + whenText(item.atMs, java.time.ZoneId.systemDefault()),
                         style = TextStyle(color = ColorProvider(dim), fontSize = 15.sp),
                         maxLines = 1,
                     )
