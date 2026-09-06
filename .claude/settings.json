@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(glucose-app/tools/weekly-report.sh*)",
+      "Bash(glucose-app/tools/pull-db.sh*)",
+      "Bash(glucose-app/tools/push-report.sh*)",
+      "Bash(python3 glucose-app/analysis/report.py*)",
+      "Bash(adb connect *)",
+      "Bash(adb mdns services*)",
+      "Bash(adb devices*)",
+      "Read(glucose-app/analysis/report.html)",
+      "Artifact"
+    ]
+  }
+}

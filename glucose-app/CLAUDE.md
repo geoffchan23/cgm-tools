@@ -79,6 +79,20 @@ likewise. Dose/log rows come straight from Room (last 3 days) at render
 time; the app calls `GlucoseWidget().updateAll()` after every journal
 save/delete, and the 5-min refresh keeps the reading age current.
 
+## Weekly report
+
+`analysis/report.py` turns `data/glucose.db` into a self-contained HTML
+report (consensus metrics, 24 h overlay, day strips, every low with its
+preceding 3 h, observations for the endo). `tools/weekly-report.sh` runs
+the whole cycle: find phone via mDNS → pull DB → generate → push into the
+app's **Reports** screen (`files/reports/report-<first>_<last>.html`,
+list icon in the header, WebView). The `weekly-report` skill (repo
+`.claude/skills/`) wraps that plus republishing the artifact
+(`https://claude.ai/code/artifact/42522e03-0809-4e84-b7cb-7ff7eebf974a`).
+A launchd job (`tools/install-weekly-job.sh`, Sundays 20:00) runs the skill
+headlessly via `claude -p`; log in `data/weekly-report.log`. The generated
+report is gitignored (health data).
+
 ## Build & deploy
 
 ```bash

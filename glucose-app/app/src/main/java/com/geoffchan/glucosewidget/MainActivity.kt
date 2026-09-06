@@ -34,6 +34,7 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
@@ -163,6 +164,9 @@ class MainActivity : ComponentActivity() {
                             IconButton(onClick = { showPicker = true }) {
                                 Icon(Icons.Filled.DateRange, "Pick date")
                             }
+                            IconButton(onClick = {
+                                startActivity(Intent(this@MainActivity, ReportsActivity::class.java))
+                            }) { Icon(Icons.AutoMirrored.Filled.List, "Reports") }
                             IconButton(onClick = {
                                 startActivity(Intent(this@MainActivity, SetupActivity::class.java))
                             }) { Icon(Icons.Filled.Settings, "Settings") }

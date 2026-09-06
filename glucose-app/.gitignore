@@ -1,7 +1,8 @@
-.gradle/
-build/
-local.properties
 *.iml
 .DS_Store
-data/
+.gradle/
 analysis/report.html
+analysis/report.range
+build/
+data/
+local.properties

@@ -214,6 +214,7 @@ def build(db, days_wanted, out):
     html = TEMPLATE.replace("__DATA__", json.dumps(data, default=float))
     Path(out).write_text(html)
     print(f"wrote {out}: {len(readings)} readings, {first_day} → {last_day}, {len(lows)} low episodes")
+    Path(out).with_suffix(".range").write_text(f"{first_day} {last_day}\n")  # for tools/weekly-report.sh
 
 
 TEMPLATE = r"""<meta charset="utf-8"><title>Her Glucose Week</title>

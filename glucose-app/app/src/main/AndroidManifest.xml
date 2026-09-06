@@ -29,6 +29,11 @@
             android:theme="@android:style/Theme.Material.NoActionBar" />
 
         <activity
+            android:name=".ReportsActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+
+        <activity
             android:name=".ChartActivity"
             android:exported="false"
             android:screenOrientation="userLandscape"
