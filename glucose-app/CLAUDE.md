@@ -82,6 +82,23 @@ likewise. Dose/log rows come straight from Room (last 3 days) at render
 time; the app calls `GlucoseWidget().updateAll()` after every journal
 save/delete, and the 5-min refresh keeps the reading age current.
 
+## Nutrition & activity estimates (analysis/nutrition/)
+
+Per-day JSON (`analysis/nutrition/<day>.json`) with each logged event
+broken into items (grams, kcal, carb, protein, fat, fibre, sugar) and
+activities (MET, minutes, kcal). Claude in a session does the parsing —
+**never the Claude API** (Geoff's rule) — via the `nutrition` skill;
+`analysis/nutrition.py` does search/lookup/arithmetic. Sources, in order:
+`nutrition/cnf.json` (Canadian Nutrient File, offline, primary),
+Open Food Facts (`search --off`, brands; flaky 503s), USDA FoodData
+Central (`search --usda`, DEMO_KEY ≈10 req/h). Non-CNF hits are cached in
+`nutrition/food-cache.json`. Activities use `nutrition/met.json` (2024
+Compendium) × `config.json` weightKg (65.8 kg ≈ 145 lb). All committed;
+they are part of the dataset. `report.py` shows carbs on meal markers, a
+per-day line and weekly averages, labelled as estimates; unparsed days say
+so. `weekly-report.sh` prints which days are unparsed; the weekly-report
+skill fills them in.
+
 ## Weekly report
 
 `analysis/report.py` turns `data/glucose.db` into a self-contained HTML

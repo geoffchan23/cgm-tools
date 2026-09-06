@@ -193,6 +193,16 @@ def observations(days, overall, lows, journal, readings):
     return obs
 
 
+def nutrition_for(day):
+    """analysis/nutrition/<day>.json if that day has been parsed, else None."""
+    p = Path(__file__).resolve().parent / "nutrition" / f"{day}.json"
+    try:
+        d = json.loads(p.read_text())
+        return d if d.get("totals") else None
+    except FileNotFoundError:
+        return None
+
+
 def build(db, days_wanted, out):
     readings, journal, first_day, last_day = load(db, days_wanted)
     days = []
@@ -200,16 +210,29 @@ def build(db, days_wanted, out):
     while d <= last_day:
         vals = [v for t, v in readings if t.date() == d]
         series = [(t.hour * 60 + t.minute + t.second / 60, round(v, 1)) for t, v in readings if t.date() == d]
+        nut = nutrition_for(d.isoformat())
+        markers = [dict(j) for j in journal if j["day"] == d.isoformat()]
+        if nut:  # carbs on each meal marker: match by minute
+            by_min = {e["minute"]: e for e in nut.get("events", [])}
+            for m in markers:
+                if m["kind"] == "event" and m["minute"] in by_min and by_min[m["minute"]].get("items"):
+                    m["carb"] = by_min[m["minute"]]["totals"]["carb"]
         days.append(dict(day=d.isoformat(), weekday=d.strftime("%a"), m=metrics(vals), series=series,
-                         markers=[j for j in journal if j["day"] == d.isoformat()]))
+                         markers=markers, nutrition=nut and nut["totals"]))
         d += dt.timedelta(days=1)
     overall = metrics([v for _, v in readings])
     lows = low_episodes(readings, journal)
     obs = observations(days, overall, lows, journal, readings)
+    parsed = [d for d in days if d["nutrition"]]
+    week_nut = None
+    if parsed:
+        keys = ("kcal", "carb", "protein", "fat", "fibre", "activityKcal", "activityMinutes")
+        week_nut = {k: round(sum(d["nutrition"][k] for d in parsed) / len(parsed)) for k in keys}
+        week_nut["daysParsed"], week_nut["daysTotal"] = len(parsed), len(days)
     data = dict(
         first=first_day.isoformat(), last=last_day.isoformat(), generated=dt.datetime.now(ZONE).isoformat(timespec="minutes"),
         low=LOW, high=HIGH, overall=overall, days=days, overlay=overlay(readings), lows=lows,
-        observations=obs,
+        observations=obs, nutrition=week_nut,
     )
     html = TEMPLATE.replace("__DATA__", json.dumps(data, default=float))
     Path(out).write_text(html)
@@ -288,6 +311,9 @@ td.num,th.num{text-align:right}
 .obs div{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--trace);border-radius:8px;padding:12px 16px;max-width:70ch}
 .obs b{font:500 14px var(--head);display:block;margin-bottom:3px}
 .foot{color:var(--ink-3);font-size:12.5px;margin-top:40px;max-width:70ch}
+.est{font:500 11px/1 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--high);vertical-align:middle;margin-left:6px}
+.nut{display:flex;gap:10px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-3);margin-top:8px;padding-top:6px;border-top:1px dashed var(--line)}
+.strip .side .nut b{display:inline;font:inherit;font-weight:500;color:var(--ink-2);margin:0}
 </style>
 <main>
   <p class="eyebrow" id="period"></p>
@@ -295,12 +321,18 @@ td.num,th.num{text-align:right}
   <p class="sub">Dexcom G7 readings with logged doses, food and activity. mmol/L, target 3.9–10.0.</p>
   <div class="tiles" id="tiles"></div>
 
+  <div id="nutwrap" hidden>
+    <h2>Food and activity, estimated <span class="est">from the logs</span></h2>
+    <p class="sub" id="nutnote"></p>
+    <div class="tiles" id="nuttiles"></div>
+  </div>
+
   <h2>All days, laid over one clock</h2>
   <div class="legend"><span><i class="sw"></i>median</span><span><i class="sw band"></i>25–75%</span><span><i class="sw band" style="opacity:.5"></i>10–90%</span><span><i class="sw" style="background:var(--band-line)"></i>target range</span></div>
   <div class="chart" id="agp"></div>
 
   <h2>Day by day</h2>
-  <div class="legend"><span><i class="sw"></i>glucose</span><span><i class="sw tri"></i>short-acting (outlined = long-acting)</span><span><i class="sw dia"></i>food / activity</span></div>
+  <div class="legend"><span><i class="sw"></i>glucose</span><span><i class="sw tri"></i>short-acting (outlined = long-acting)</span><span><i class="sw dia"></i>food / activity (· grams of carbs, estimated, when parsed)</span></div>
   <div id="days"></div>
 
   <h2>Every low, and what came before it</h2>
@@ -334,6 +366,21 @@ const tiles = [
   ['GMI', o.gmi.toFixed(1) + '%', 'A1c estimate', ''],
 ];
 $('#tiles').innerHTML = tiles.map(([t,v,s,c]) => `<div class="tile ${c}"><div class="t">${t}</div><div class="v">${v}</div><div class="t">${s}</div></div>`).join('');
+
+// ---- nutrition (estimated)
+if (D.nutrition) {
+  const n = D.nutrition;
+  $('#nutwrap').hidden = false;
+  $('#nutnote').textContent = `Daily averages over the ${n.daysParsed} of ${n.daysTotal} days parsed. Portions are guessed from free-text logs and looked up per 100 g (Canadian Nutrient File, Open Food Facts, USDA); activity uses Compendium MET values × ${''}body weight. Treat as ±30%.`;
+  $('#nuttiles').innerHTML = [
+    ['Carbs / day', n.carb + ' g', 'the number that moves glucose'],
+    ['Calories / day', n.kcal, 'kcal eaten'],
+    ['Protein / day', n.protein + ' g', ''],
+    ['Fat / day', n.fat + ' g', ''],
+    ['Fibre / day', n.fibre + ' g', ''],
+    ['Activity / day', n.activityMinutes + ' min', '≈ ' + n.activityKcal + ' kcal'],
+  ].map(([t,v,s]) => `<div class="tile"><div class="t">${t}</div><div class="v">${v}</div><div class="t">${s}</div></div>`).join('');
+}
 
 // ---- shared scales
 const YMAX = 20, YMIN = 2;
@@ -410,13 +457,15 @@ $('#days').innerHTML = D.days.map((d, i) => {
   s += `<path d="${path(d.series, x, y)}" fill="none" stroke="var(--trace)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
   // markers: doses below the axis line, events above the plot
   const doses = d.markers.filter(k => k.kind === 'dose'), events = d.markers.filter(k => k.kind === 'event');
-  doses.forEach((k, j) => { const xx = x(k.minute), yy = h - B + 24;
+  let lastDx = -1e9, drow = 0;
+  doses.forEach(k => { const xx = x(k.minute); drow = (xx - lastDx < 40) ? 1 - drow : 0; lastDx = xx; const yy = h - B + 24 + drow * 13;
     s += `<path d="M${xx-5} ${yy+9} L${xx} ${yy} L${xx+5} ${yy+9} Z" fill="${k.short ? 'var(--dose)' : 'none'}" stroke="var(--dose)" stroke-width="1.5"/>`;
     s += `<text x="${xx+7}" y="${yy+8}" font-size="10.5" fill="var(--ink-2)" font-family="var(--mono)">${k.label}</text>`; });
   // Stagger a label onto the upper row when it would collide with the previous one.
   let lastX = -1e9, row = 0;
   events.forEach(k => { const xx = x(k.minute); row = (xx - lastX < 110) ? 1 - row : 0; lastX = xx;
-    const yy = T - 12 - row * 15, label = k.label.length > 22 ? k.label.slice(0, 21) + '…' : k.label;
+    const base = k.label.length > 22 ? k.label.slice(0, 21) + '…' : k.label;
+    const yy = T - 12 - row * 15, label = k.carb != null ? `${base} · ${Math.round(k.carb)} g` : base;
     s += `<rect x="${xx-4}" y="${yy-4}" width="8" height="8" transform="rotate(45 ${xx} ${yy})" fill="var(--event)"/>`;
     s += `<text x="${xx+7}" y="${yy+4}" font-size="10.5" fill="var(--ink-2)" font-family="var(--sans)">${label}</text>`; });
   const side = m ? `<b>${fmtDay(d.day)}</b>
@@ -426,7 +475,8 @@ $('#days').innerHTML = D.days.map((d, i) => {
       <div class="row"><span>Mean</span><span class="num">${f1(m.mean)}</span></div>
       <div class="row"><span>Low · high</span><span class="num">${f1(m.min)} · ${f1(m.max)}</span></div>
       <div class="row"><span>Coverage</span><span class="num">${pc(Math.min(1, m.coverage))}</span></div>` : `<b>${fmtDay(d.day)}</b>No readings`;
-  return `<div class="strip"><div class="side">${side}</div><div class="chart" id="day${i}"><svg viewBox="0 0 ${w} ${h}">${s}</svg></div></div>`;
+  const nut = d.nutrition ? `<div class="nut"><span><b>${d.nutrition.carb} g</b> carb</span><span><b>${d.nutrition.kcal}</b> kcal</span><span><b>${d.nutrition.protein} g</b> protein</span><span><b>${d.nutrition.fat} g</b> fat</span><span><b>${d.nutrition.activityMinutes} min</b> active ≈ ${d.nutrition.activityKcal} kcal</span></div>` : `<div class="nut"><span>food/activity not parsed yet</span></div>`;
+  return `<div class="strip"><div class="side">${side}${nut}</div><div class="chart" id="day${i}"><svg viewBox="0 0 ${w} ${h}">${s}</svg></div></div>`;
 }).join('');
 D.days.forEach((d, i) => { const w = 900, L = 34, R = 10; hover($('#day'+i), w, L, R, d.series, xScale(w, L, R)); });
 

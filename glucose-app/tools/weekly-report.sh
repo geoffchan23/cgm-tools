@@ -33,5 +33,6 @@ cp data/glucose.db "data/glucose-backup-$(date +%F).db"
 PY=/usr/bin/python3; [ -x "$PY" ] || PY=python3
 "$PY" analysis/report.py --days "$DAYS"
 read -r FIRST LAST < analysis/report.range
+"$PY" analysis/nutrition.py status --days "$DAYS" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); m=d["missing"]; print(f"nutrition: {len(d[\"loggedDays\"])-len(m)}/{len(d[\"loggedDays\"])} logged days parsed" + (f"; missing: {\", \".join(m)} (run the nutrition skill)" if m else ""))'
 tools/push-report.sh "$SERIAL" analysis/report.html "$FIRST" "$LAST"
 echo "done: $FIRST → $LAST. Now publish analysis/report.html to the existing artifact URL."

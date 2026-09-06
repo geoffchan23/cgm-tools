@@ -1,0 +1,85 @@
+{
+  "off:0065633189645": {
+    "name": "Dunk aroos (Dunkaroos)",
+    "per100g": {
+      "kcal": 428.57,
+      "carb": 67.86,
+      "protein": 3.57,
+      "fat": 17.86,
+      "fibre": 0,
+      "sugar": 42.86
+    },
+    "measures": [],
+    "cachedAt": "2026-09-06"
+  },
+  "off:0016000288010": {
+    "name": "Dunkaroos Vanilla (Dunkaroos)",
+    "per100g": {
+      "kcal": 452,
+      "carb": 69.05,
+      "protein": 2.38,
+      "fat": 19.05,
+      "fibre": 0,
+      "sugar": 42.86
+    },
+    "measures": [],
+    "cachedAt": "2026-09-06"
+  },
+  "off:9310060006296": {
+    "name": "DunkaRoos Choc Hazelnut Dip With DunKaroos Biscuits ()",
+    "per100g": {
+      "kcal": 499.11,
+      "carb": 67.11,
+      "protein": 5.78,
+      "fat": 23.11,
+      "fibre": null,
+      "sugar": 46.67
+    },
+    "measures": [],
+    "cachedAt": "2026-09-06"
+  },
+  "off:0016000178069": {
+    "name": "Dunkaroos Vanilla Frosting with Rainbow Sprinkles ()",
+    "per100g": {
+      "kcal": 411.76,
+      "carb": 67.65,
+      "protein": 0,
+      "fat": 14.71,
+      "fibre": 0,
+      "sugar": 58.82
+    },
+    "measures": [],
+    "cachedAt": "2026-09-06"
+  },
+  "off:0016000171268": {
+    "name": "Dunkaroos (General Mills)",
+    "per100g": {
+      "kcal": 384.62,
+      "carb": 89.74,
+      "protein": 5.13,
+      "fat": 2.56,
+      "fibre": 2.56,
+      "sugar": 35.9
+    },
+    "measures": [
+      [
+        "39.0g",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-06"
+  },
+  "off:0016000296176": {
+    "name": "Dunkaroos vanilla cookies & Chocolate Frosting (General Mills)",
+    "per100g": {
+      "kcal": 428.57,
+      "carb": 64.29,
+      "protein": 2.38,
+      "fat": 16.67,
+      "fibre": null,
+      "sugar": 38.1
+    },
+    "measures": [],
+    "cachedAt": "2026-09-06"
+  }
+}

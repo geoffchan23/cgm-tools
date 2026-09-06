@@ -1,0 +1,218 @@
+{
+  "day": "2026-09-05",
+  "parsedAt": "2026-09-06T14:13-04:00",
+  "events": [
+    {
+      "text": "coffee",
+      "minute": 655,
+      "items": [
+        {
+          "name": "coffee, brewed",
+          "qty": "1 mug (250 ml)",
+          "grams": 250,
+          "source": {
+            "db": "cnf",
+            "code": 2873
+          },
+          "match": "Coffee, brewed, prepared with tap water",
+          "kcal": 0.0,
+          "carb": 0.0,
+          "protein": 0.3,
+          "fat": 0.1,
+          "fibre": 0.0,
+          "sugar": 0.0
+        },
+        {
+          "name": "2% milk in coffee",
+          "qty": "splash (2 tbsp)",
+          "grams": 30,
+          "source": {
+            "db": "cnf",
+            "code": 61
+          },
+          "note": "assumed splash of 2% milk, no sugar — confirm the usual coffee",
+          "match": "Milk, fluid, partly skimmed, 2% M.F.",
+          "kcal": 15.0,
+          "carb": 1.4,
+          "protein": 1.0,
+          "fat": 0.6,
+          "fibre": 0.0,
+          "sugar": 1.5
+        }
+      ],
+      "totals": {
+        "kcal": 15.0,
+        "carb": 1.4,
+        "protein": 1.3,
+        "fat": 0.7,
+        "fibre": 0.0,
+        "sugar": 1.5
+      }
+    },
+    {
+      "text": "chips, dunkaroos, 3 oreos",
+      "minute": 900,
+      "items": [
+        {
+          "name": "potato chips",
+          "qty": "small handful bowl",
+          "grams": 30,
+          "source": {
+            "db": "cnf",
+            "code": 4407
+          },
+          "note": "portion guessed",
+          "match": "Snacks, potato chips, plain, salted",
+          "kcal": 159.6,
+          "carb": 16.1,
+          "protein": 1.9,
+          "fat": 10.2,
+          "fibre": 0.9,
+          "sugar": 0.1
+        },
+        {
+          "name": "Dunkaroos",
+          "qty": "1 snack pack",
+          "grams": 28,
+          "source": {
+            "db": "manual",
+            "name": "Dunkaroos (Open Food Facts 0065633189645, entered by hand while OFF was down)",
+            "per100g": {
+              "kcal": 428.57,
+              "carb": 67.86,
+              "protein": 3.57,
+              "fat": 17.86,
+              "fibre": 0,
+              "sugar": 42.86
+            }
+          },
+          "note": "one pack assumed",
+          "match": "Dunkaroos (Open Food Facts 0065633189645, entered by hand while OFF was down)",
+          "kcal": 120.0,
+          "carb": 19.0,
+          "protein": 1.0,
+          "fat": 5.0,
+          "fibre": 0.0,
+          "sugar": 12.0
+        },
+        {
+          "name": "Oreo cookies",
+          "qty": "3 cookies",
+          "grams": 36,
+          "source": {
+            "db": "cnf",
+            "code": 3819
+          },
+          "match": "Cookie, chocolate sandwich, cream filling, regular",
+          "kcal": 167.0,
+          "carb": 25.6,
+          "protein": 1.9,
+          "fat": 6.9,
+          "fibre": 1.0,
+          "sugar": 14.6
+        }
+      ],
+      "totals": {
+        "kcal": 446.6,
+        "carb": 60.7,
+        "protein": 4.8,
+        "fat": 22.1,
+        "fibre": 1.9,
+        "sugar": 26.7
+      }
+    },
+    {
+      "text": "burger and salad",
+      "minute": 1080,
+      "items": [
+        {
+          "name": "hamburger",
+          "qty": "1 burger, large single patty",
+          "grams": 137,
+          "source": {
+            "db": "cnf",
+            "code": 4639
+          },
+          "note": "bun+patty assumed; no toppings known",
+          "match": "Fast foods, sandwiches and burgers, hamburger, large, single patty, plain",
+          "kcal": 426.1,
+          "carb": 31.7,
+          "protein": 22.6,
+          "fat": 22.9,
+          "fibre": null,
+          "sugar": null
+        },
+        {
+          "name": "side salad",
+          "qty": "~1.5 cups, Italian dressing",
+          "grams": 100,
+          "source": {
+            "db": "cnf",
+            "code": 6737
+          },
+          "note": "dressing assumed",
+          "match": "Salad, garden, with Italian dressing, homemade",
+          "kcal": 57.0,
+          "carb": 4.8,
+          "protein": 0.8,
+          "fat": 4.3,
+          "fibre": 1.1,
+          "sugar": 3.2
+        }
+      ],
+      "totals": {
+        "kcal": 483.1,
+        "carb": 36.5,
+        "protein": 23.4,
+        "fat": 27.2,
+        "fibre": 1.1,
+        "sugar": 3.2
+      }
+    },
+    {
+      "text": "donut",
+      "minute": 1367,
+      "items": [
+        {
+          "name": "donut, glazed",
+          "qty": "1 regular",
+          "grams": 60,
+          "source": {
+            "db": "cnf",
+            "code": 3897
+          },
+          "note": "type unknown; glazed yeast assumed",
+          "match": "Doughnut (donut), yeast-leavened (honey bun), glazed",
+          "kcal": 252.6,
+          "carb": 28.8,
+          "protein": 3.7,
+          "fat": 13.6,
+          "fibre": 1.3,
+          "sugar": 13.7
+        }
+      ],
+      "totals": {
+        "kcal": 252.6,
+        "carb": 28.8,
+        "protein": 3.7,
+        "fat": 13.6,
+        "fibre": 1.3,
+        "sugar": 13.7
+      }
+    }
+  ],
+  "activities": [],
+  "weightKg": 65.8,
+  "totals": {
+    "kcal": 1197,
+    "carb": 127,
+    "protein": 33,
+    "fat": 64,
+    "fibre": 4,
+    "sugar": 45,
+    "activityKcal": 0,
+    "activityMinutes": 0
+  },
+  "resolvedAt": "2026-09-06T14:13-04:00",
+  "estimate": "Portions estimated from free-text logs; database values per 100 g; activity kcal = MET × kg × h."
+}
