@@ -79,12 +79,12 @@ class GlucoseWidget : GlanceAppWidget() {
                 .fillMaxSize()
                 .background(bg)
                 .cornerRadius(24.dp)
-                .padding(horizontal = 14.dp, vertical = 8.dp)
+                .padding(start = 22.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)
                 .clickable(actionStartActivity<MainActivity>()),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalAlignment = Alignment.CenterHorizontally,
+            horizontalAlignment = Alignment.Start,
         ) {
-            // Row 1: big reading + arrow, age right after it. Every row is centered.
+            // Row 1: big reading + arrow, age right after it. Rows are left-aligned.
             when {
                 !hasCreds -> Text("Set up", style = TextStyle(color = ColorProvider(Color.Gray), fontSize = 16.sp))
                 reading == null -> Text("…", style = TextStyle(color = ColorProvider(Color.Gray), fontSize = 24.sp))
@@ -121,12 +121,12 @@ class GlucoseWidget : GlanceAppWidget() {
                 Row(modifier = GlanceModifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         item.label,
-                        style = TextStyle(color = ColorProvider(Color(0xFFDDDDDD)), fontSize = 14.sp),
+                        style = TextStyle(color = ColorProvider(Color(0xFFDDDDDD)), fontSize = 16.sp),
                         maxLines = 1,
                     )
                     Text(
                         "  " + relativeAge(item.atMs, now),
-                        style = TextStyle(color = ColorProvider(dim), fontSize = 13.sp),
+                        style = TextStyle(color = ColorProvider(dim), fontSize = 15.sp),
                         maxLines = 1,
                     )
                 }
