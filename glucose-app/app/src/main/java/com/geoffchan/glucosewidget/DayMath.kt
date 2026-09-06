@@ -52,6 +52,30 @@ fun defaultUnits(type: String, dayOfWeek: java.time.DayOfWeek): Int = when {
     else -> 4
 }
 
+/** Geoff's fixed morning routine, auto-logged daily (see [MorningRoutine]). */
+const val ROUTINE_TIME = "10:30"
+
+fun morningRoutine(dayOfWeek: java.time.DayOfWeek): List<String> = listOf(
+    doseNoteText("short-acting", "${defaultUnits("short-acting", dayOfWeek)}u", ROUTINE_TIME),
+    doseNoteText("long-acting", "${defaultUnits("long-acting", dayOfWeek)}u", ROUTINE_TIME),
+    eventNoteText("coffee", ROUTINE_TIME),
+)
+
+/**
+ * Routine entries not yet covered by what's logged today. A dose of the same
+ * type, or an event with the same name, counts as covered regardless of its
+ * time or units, so a hand-logged 10:25 dose doesn't get a 10:30 twin.
+ */
+fun routineMissing(routine: List<String>, todayTexts: List<String>): List<String> {
+    val doseTypes = todayTexts.mapNotNull { parseDoseNote(it)?.isShort }.toSet()
+    val events = todayTexts.mapNotNull { parseEventNote(it)?.name?.lowercase() }.toSet()
+    return routine.filter { r ->
+        parseDoseNote(r)?.let { it.isShort !in doseTypes }
+            ?: parseEventNote(r)?.let { it.name.lowercase() !in events }
+            ?: true
+    }
+}
+
 /** Canonical dose-note format; the analysis parser relies on it. */
 fun doseNoteText(name: String, amount: String, time: String): String =
     "dose: ${name.trim()} ${amount.trim()} @ $time"

@@ -80,6 +80,8 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
                 history.map { ReadingEntity(it.timestampMs, it.mgdl, it.trend) },
             )
         }.onFailure { android.util.Log.w("GlucoseWidget", "refresh failed", it) }
+        runCatching { MorningRoutine.ensure(ctx) }
+            .onFailure { android.util.Log.w("GlucoseWidget", "routine failed", it) }
         // Always repaint: even on failure the age line must keep counting up.
         GlucoseWidget().updateAll(ctx)
         return Result.success()

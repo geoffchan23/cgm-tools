@@ -61,6 +61,16 @@ object Store {
         context.dataStore.edit { it[KEY_LAST_MED] = name }
     }
 
+    private val KEY_ROUTINE_DAY = stringPreferencesKey("routineLoggedDay")
+
+    /** Local date ("YYYY-MM-DD") the morning routine was last auto-logged for. */
+    suspend fun routineLoggedDay(context: Context): String? =
+        context.dataStore.data.first()[KEY_ROUTINE_DAY]
+
+    suspend fun saveRoutineLoggedDay(context: Context, day: String) {
+        context.dataStore.edit { it[KEY_ROUTINE_DAY] = day }
+    }
+
     // --- credentials + session ---
 
     private fun securePrefs(context: Context) = EncryptedSharedPreferences.create(

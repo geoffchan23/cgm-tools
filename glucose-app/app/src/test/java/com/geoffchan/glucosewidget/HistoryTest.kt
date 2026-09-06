@@ -257,3 +257,23 @@ class LatestMarkerTest {
         assertEquals("now", relativeAge(now + 60_000, now)) // future-dated log: clamp
     }
 }
+
+class MorningRoutineTest {
+    @Test fun `routine is 4u short, 19 or 25u long, coffee, all at 10 30`() {
+        assertEquals(
+            listOf("dose: short-acting 4u @ 10:30", "dose: long-acting 19u @ 10:30", "event: coffee @ 10:30"),
+            morningRoutine(java.time.DayOfWeek.WEDNESDAY),
+        )
+        assertEquals("dose: long-acting 25u @ 10:30", morningRoutine(java.time.DayOfWeek.SATURDAY)[1])
+    }
+
+    @Test fun `hand-logged entries of the same kind suppress their routine twin`() {
+        val routine = morningRoutine(java.time.DayOfWeek.MONDAY)
+        assertEquals(routine, routineMissing(routine, emptyList()))
+        assertEquals(
+            listOf("dose: long-acting 19u @ 10:30"),
+            routineMissing(routine, listOf("dose: short-acting 3u @ 10:25", "event: Coffee @ 11:00")),
+        )
+        assertTrue(routineMissing(routine, routine).isEmpty())
+    }
+}

@@ -60,6 +60,17 @@ eats stdin); the receiver is DUMP-guarded because Android skips shell
 broadcasts to non-exported receivers. With several ADB devices attached
 (phone, watch), pass the serial: `tools/pull-db.sh <ip:port>`.
 
+## Morning routine (auto-logged)
+
+Every day at 10:30 the app logs `dose: short-acting 4u @ 10:30`,
+`dose: long-acting <19|25>u @ 10:30` (19 weekdays, 25 Fri–Sun) and
+`event: coffee @ 10:30`. `MorningRoutine.ensure()` runs inside the
+5-minute refresh worker: first run after 10:30 local inserts whatever is
+missing and stamps `routineLoggedDay` in DataStore. A hand-logged dose of
+the same type or an event named coffee that day suppresses its routine
+twin (any time/units), so a 10:25 hand entry doesn't get a 10:30 double.
+Wrong-day entries are just deleted in the app like any other row.
+
 ## Widget
 
 Three rows: reading + trend arrow with its age on the right; last dose
