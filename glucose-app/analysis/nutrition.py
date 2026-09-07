@@ -259,7 +259,7 @@ def summary(d):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
-    s = sub.add_parser("status"); s.add_argument("--days", type=int, default=14)
+    s = sub.add_parser("status"); s.add_argument("--days", type=int, default=14); s.add_argument("--brief", action="store_true")
     s = sub.add_parser("events"); s.add_argument("--day", required=True)
     s = sub.add_parser("search"); s.add_argument("query"); s.add_argument("--off", action="store_true"); s.add_argument("--usda", action="store_true")
     s = sub.add_parser("activities"); s.add_argument("query")
@@ -272,7 +272,13 @@ def main():
         cutoff = (dt.date.today() - dt.timedelta(days=a.days)).isoformat()
         days = [d for d in logged_days() if d >= cutoff]
         missing = [d for d in days if not day_file(d).exists()]
-        print(json.dumps(dict(loggedDays=days, missing=missing, today=dt.date.today().isoformat())))
+        if a.brief:
+            line = f"nutrition: {len(days) - len(missing)}/{len(days)} logged days parsed"
+            if missing:
+                line += "; missing: " + ", ".join(missing) + " (run the nutrition skill)"
+            print(line)
+        else:
+            print(json.dumps(dict(loggedDays=days, missing=missing, today=dt.date.today().isoformat())))
     elif a.cmd == "events":
         print(json.dumps(dict(day=a.day, events=events_for(a.day)), indent=2))
     elif a.cmd == "search":
