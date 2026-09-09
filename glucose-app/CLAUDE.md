@@ -30,7 +30,8 @@ Day-scope entries are structured logs (since 2026-09-05); week-scope
 entries are free-text summaries. Conventions inside `journal.text`:
 - **Doses**: `dose: <type> <units>u @ HH:mm` where type is
   `short-acting` or `long-acting` and units is 1–100. Quick-entry
-  dialog; always logged to today, e.g. `dose: short-acting 4u @ 13:05`.
+  dialog; logged to the day being viewed (today in week mode), e.g.
+  `dose: short-acting 4u @ 13:05`.
   (Entries logged before 2026-09-02 may use the older
   `dose: <name> <amount> @ HH:mm` free-name form.)
 - **Food/exercise logs**: `event: <text> @ HH:mm`, e.g.

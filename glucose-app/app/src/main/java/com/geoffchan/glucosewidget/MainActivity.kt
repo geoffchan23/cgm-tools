@@ -354,7 +354,12 @@ class MainActivity : ComponentActivity() {
                     fun closeDose() { dosing = false; editingDose = null }
                     AlertDialog(
                         onDismissRequest = { closeDose() },
-                        title = { Text(if (editingDose != null) "Edit dose" else "Log dose") },
+                        title = {
+                            Text(
+                                if (editingDose != null) "Edit dose"
+                                else "Log dose — ${(if (isWeek) LocalDate.now(zone) else day).format(DateTimeFormatter.ofPattern("MMM d", Locale.CANADA))}",
+                            )
+                        },
                         text = {
                             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -414,9 +419,11 @@ class MainActivity : ComponentActivity() {
                                             // Edit keeps the entry's day and creation time; only the note changes.
                                             dao.updateJournal(toEdit.copy(text = text, updatedAtMs = now))
                                         } else {
+                                            // Like food logs: the day being viewed (day mode), so
+                                            // yesterday's dose can be backfilled; today in week mode.
                                             dao.insertJournal(
                                                 JournalEntity(
-                                                    day = LocalDate.now(zone).toString(), text = text,
+                                                    day = (if (isWeek) LocalDate.now(zone) else day).toString(), text = text,
                                                     createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY,
                                                 ),
                                             )
@@ -470,7 +477,7 @@ class MainActivity : ComponentActivity() {
                                             // Logs go to the day being viewed, so yesterday can be backfilled.
                                             dao.insertJournal(
                                                 JournalEntity(
-                                                    day = day.toString(), text = text,
+                                                    day = (if (isWeek) LocalDate.now(zone) else day).toString(), text = text,
                                                     createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY,
                                                 ),
                                             )

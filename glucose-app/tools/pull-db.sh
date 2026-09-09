@@ -15,11 +15,18 @@ mkdir -p "$DIR"
 ADB="adb"
 [ $# -ge 1 ] && ADB="adb -s $1"
 
-for f in glucose.db glucose.db-wal glucose.db-shm; do
-  $ADB exec-out run-as $PKG cat "databases/$f" > "$DIR/$f" 2>/dev/null || rm -f "$DIR/$f"
-done
+# Refuse to touch the local copy unless the device is actually there; a failed
+# `adb exec-out` can write its error text into the file and clobber a good DB.
+$ADB get-state >/dev/null 2>&1 || { echo "pull failed — phone not connected (adb devices)"; exit 1; }
 
-[ -s "$DIR/glucose.db" ] || { echo "pull failed — is the phone connected? (adb devices)"; exit 1; }
+TMP="$(mktemp -d)"
+for f in glucose.db glucose.db-wal glucose.db-shm; do
+  $ADB exec-out run-as $PKG cat "databases/$f" > "$TMP/$f" 2>/dev/null || rm -f "$TMP/$f"
+done
+head -c 16 "$TMP/glucose.db" 2>/dev/null | grep -q "SQLite format 3" \
+  || { echo "pull failed — did not get a SQLite file (is the app installed?)"; rm -rf "$TMP"; exit 1; }
+rm -f "$DIR"/glucose.db "$DIR"/glucose.db-wal "$DIR"/glucose.db-shm
+mv "$TMP"/glucose.db* "$DIR"/ ; rm -rf "$TMP"
 
 sqlite3 "$DIR/glucose.db" \
   "PRAGMA wal_checkpoint(TRUNCATE);
