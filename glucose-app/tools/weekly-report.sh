@@ -17,15 +17,20 @@ DAYS=7
 PHONE_IP=10.0.0.216
 export PATH="$PATH:/opt/homebrew/bin:$HOME/Library/Android/sdk/platform-tools"
 
-# The wireless-debugging port rotates; mDNS advertises the current one.
+# Finding the phone, in order of preference:
+#   1. a device adb already has (it may be listed under its mDNS service name
+#      rather than ip:port — that name is a perfectly good serial)
+#   2. the ip:port that mDNS is advertising right now (the port rotates)
 # (`adb mdns services` never exits on its own; perl's alarm is macOS's `timeout`.)
-PORT=$( (perl -e 'alarm 5; exec @ARGV' adb mdns services 2>/dev/null || true) \
-        | awk -v ip="$PHONE_IP" '$3 ~ ip":" {split($3,a,":"); print a[2]; exit}')
-if [ -z "$PORT" ]; then
-  echo "phone not found on the network (is wireless debugging on and the Mac on the same Wi-Fi?)"; exit 3
+SERIAL=$(adb devices | awk '$2 == "device" && $1 ~ /(:|_adb-tls-connect)/ {print $1; exit}')
+if [ -z "$SERIAL" ]; then
+  PORT=$( (perl -e 'alarm 5; exec @ARGV' adb mdns services 2>/dev/null || true) \
+          | awk -v ip="$PHONE_IP" '$3 ~ ip":" {split($3,a,":"); print a[2]; exit}')
+  [ -n "$PORT" ] || { echo "phone not found (is wireless debugging on and the Mac on the same Wi-Fi?)"; exit 3; }
+  SERIAL="$PHONE_IP:$PORT"
+  adb connect "$SERIAL" | grep -q connected || { echo "adb connect $SERIAL failed"; exit 3; }
 fi
-SERIAL="$PHONE_IP:$PORT"
-adb connect "$SERIAL" | grep -q connected || { echo "adb connect $SERIAL failed"; exit 3; }
+echo "phone: $SERIAL"
 
 tools/pull-db.sh "$SERIAL"
 cp data/glucose.db "data/glucose-backup-$(date +%F).db"

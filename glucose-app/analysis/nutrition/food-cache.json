@@ -130,5 +130,404 @@
     },
     "measures": [],
     "cachedAt": "2026-09-06"
+  },
+  "off:8851019010007": {
+    "name": "Pocky Chocolate (Glico)",
+    "per100g": {
+      "kcal": 488,
+      "carb": 71.11,
+      "protein": 8.89,
+      "fat": 17.78,
+      "fibre": 8.89,
+      "sugar": 37.78
+    },
+    "measures": [
+      [
+        "45 g",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-11"
+  },
+  "off:6901845043594": {
+    "name": "Pocky 百奇 (Glico)",
+    "per100g": {
+      "kcal": 502,
+      "carb": 66.4,
+      "protein": 7.8,
+      "fat": 22.6,
+      "fibre": 0,
+      "sugar": 13.3
+    },
+    "measures": [],
+    "cachedAt": "2026-09-11"
+  },
+  "off:8990044000000": {
+    "name": "Pocky chocolate (Glico)",
+    "per100g": {
+      "kcal": 499.37,
+      "carb": 72.77,
+      "protein": 8.94,
+      "fat": 18.3,
+      "fibre": 0,
+      "sugar": 31.91
+    },
+    "measures": [
+      [
+        "2",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-11"
+  },
+  "off:4901005512436": {
+    "name": "Pocky Almond Crush (Pocky)",
+    "per100g": {
+      "kcal": 512,
+      "carb": 48.92,
+      "protein": 11.26,
+      "fat": 32.9,
+      "fibre": 4.33,
+      "sugar": 45.1
+    },
+    "measures": [
+      [
+        "1袋(標準23.1g)",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-11"
+  },
+  "off:0073141153423": {
+    "name": "Pocky (Pocky, Ezaki Glico Usa Corporation, Glico)",
+    "per100g": {
+      "kcal": 500,
+      "carb": 69.23,
+      "protein": 7.69,
+      "fat": 19.23,
+      "fibre": 3.85,
+      "sugar": 30.77
+    },
+    "measures": [
+      [
+        "2 packs (26 g)",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-11"
+  },
+  "off:8851019010274": {
+    "name": "Pocky Stick - Choco Banana 25G (AsRopa)",
+    "per100g": {
+      "kcal": 480,
+      "carb": 68,
+      "protein": 8,
+      "fat": 20,
+      "fibre": null,
+      "sugar": 36
+    },
+    "measures": [
+      [
+        "25 g",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-11"
+  },
+  "off:0066721026514": {
+    "name": "Salt & Vinegar Crispers (Christie)",
+    "per100g": {
+      "kcal": 466.67,
+      "carb": 66.67,
+      "protein": 6.67,
+      "fat": 20,
+      "fibre": 3.33,
+      "sugar": 3.33
+    },
+    "measures": [
+      [
+        "1 serving (30 g)",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-11"
+  },
+  "off:0066721026521": {
+    "name": "Crispers (All Dressed) (Christie)",
+    "per100g": {
+      "kcal": 500,
+      "carb": 66.67,
+      "protein": 6.67,
+      "fat": 20,
+      "fibre": 3.33,
+      "sugar": 3.33
+    },
+    "measures": [
+      [
+        "30 g",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-11"
+  },
+  "off:0066721028907": {
+    "name": "Crispers-Smokey Bacon (Christie Crispers)",
+    "per100g": {
+      "kcal": 466.67,
+      "carb": 66.67,
+      "protein": 6.67,
+      "fat": 20,
+      "fibre": 3.33,
+      "sugar": 6.67
+    },
+    "measures": [
+      [
+        "1 serving (30 g)",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-11"
+  },
+  "off:0066721026538": {
+    "name": "Crispers Ketchup (Christie)",
+    "per100g": {
+      "kcal": 466.67,
+      "carb": 66.67,
+      "protein": 6.67,
+      "fat": 20,
+      "fibre": null,
+      "sugar": 6.67
+    },
+    "measures": [],
+    "cachedAt": "2026-09-11"
+  },
+  "off:0066721026507": {
+    "name": "Crispers (Christie)",
+    "per100g": {
+      "kcal": 500,
+      "carb": 66.67,
+      "protein": 6.67,
+      "fat": 20,
+      "fibre": 3.33,
+      "sugar": 3.33
+    },
+    "measures": [
+      [
+        "0.5 tasse (30 g)",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-11"
+  },
+  "off:0066721026439": {
+    "name": "Craquelins Crispers (Christie)",
+    "per100g": {
+      "kcal": 466.67,
+      "carb": 66.67,
+      "protein": 6.67,
+      "fat": 20,
+      "fibre": 3.33,
+      "sugar": 6.67
+    },
+    "measures": [
+      [
+        "1 serving (30 g)",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-11"
+  },
+  "off:0014100075233": {
+    "name": "Goldfish Baked Snack Crackers Cheddar (Pepperidge Farm)",
+    "per100g": {
+      "kcal": 464.29,
+      "carb": 67.9,
+      "protein": 10.7,
+      "fat": 16.1,
+      "fibre": 3.57,
+      "sugar": 0
+    },
+    "measures": [
+      [
+        "1 pack (28 g)",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-11"
+  },
+  "off:0014100085478": {
+    "name": "Goldfish Cheddar (Goldfish)",
+    "per100g": {
+      "kcal": 466.67,
+      "carb": 66.67,
+      "protein": 10,
+      "fat": 16.67,
+      "fibre": 3.33,
+      "sugar": 0
+    },
+    "measures": [
+      [
+        "55 pieces (30 g)",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-11"
+  },
+  "off:0014100170952": {
+    "name": "CHEDDAR (Goldfish)",
+    "per100g": {
+      "kcal": 466.67,
+      "carb": 66.67,
+      "protein": 10,
+      "fat": 16.67,
+      "fibre": 3.33,
+      "sugar": 0
+    },
+    "measures": [
+      [
+        "0.25 cup (30 g)",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-11"
+  },
+  "off:5996253001237": {
+    "name": "Gold fischli susan (Goldfish)",
+    "per100g": {
+      "kcal": 479,
+      "carb": 65,
+      "protein": 10,
+      "fat": 19,
+      "fibre": 4.2,
+      "sugar": 6.8
+    },
+    "measures": [
+      [
+        "30 g",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-11"
+  },
+  "off:0014100085485": {
+    "name": "Flavor Blasted Xtra Cheddar Baked Snack Crackers (Goldfish)",
+    "per100g": {
+      "kcal": 500,
+      "carb": 63.33,
+      "protein": 13.33,
+      "fat": 16.67,
+      "fibre": 3.33,
+      "sugar": 0
+    },
+    "measures": [
+      [
+        "51 pieces (30 g)",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-11"
+  },
+  "off:0014100087151": {
+    "name": "Goldfish Cheddar Baked Snack Crackers (Pepperidge Farm)",
+    "per100g": {
+      "kcal": 466.67,
+      "carb": 66.67,
+      "protein": 10,
+      "fat": 16.67,
+      "fibre": 3.33,
+      "sugar": 0
+    },
+    "measures": [
+      [
+        "55 pieces (30 g)",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-11"
+  },
+  "off:0873983000028": {
+    "name": "hi-chew (Morinaga)",
+    "per100g": {
+      "kcal": 420,
+      "carb": 82,
+      "protein": 2,
+      "fat": 9,
+      "fibre": 0,
+      "sugar": 62
+    },
+    "measures": [
+      [
+        "1 PACK, 10 PIECES (50 g)",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-11"
+  },
+  "off:0873983005047": {
+    "name": "Original Mix (Hi-Chew)",
+    "per100g": {
+      "kcal": 419.35,
+      "carb": 80.65,
+      "protein": 0,
+      "fat": 9.68,
+      "fibre": 0,
+      "sugar": 61.29
+    },
+    "measures": [
+      [
+        "6 Pieces (31 g)",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-11"
+  },
+  "off:0873983005054": {
+    "name": "HI-CHEW Tropical Mix (HI-CHEW)",
+    "per100g": {
+      "kcal": 419.35,
+      "carb": 81.7,
+      "protein": 1.3,
+      "fat": 9.1,
+      "fibre": null,
+      "sugar": 61.5
+    },
+    "measures": [
+      [
+        "1 piece (5.2 g)",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-11"
+  },
+  "off:0857983004736": {
+    "name": "hi-chew ()",
+    "per100g": {
+      "kcal": 420,
+      "carb": 82,
+      "protein": 2,
+      "fat": 9,
+      "fibre": null,
+      "sugar": 62
+    },
+    "measures": [],
+    "cachedAt": "2026-09-11"
+  },
+  "off:0850017589865": {
+    "name": "Hi-chew Bites (Hi-chew)",
+    "per100g": {
+      "kcal": 416.67,
+      "carb": 81.67,
+      "protein": 1.67,
+      "fat": 10,
+      "fibre": 0,
+      "sugar": 60
+    },
+    "measures": [
+      [
+        "1 package (60 g)",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-11"
   }
 }

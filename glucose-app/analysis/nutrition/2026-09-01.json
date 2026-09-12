@@ -1,0 +1,223 @@
+{
+  "day": "2026-09-01",
+  "parsedAt": "2026-09-11T22:18-04:00",
+  "events": [
+    {
+      "text": "coffee",
+      "minute": 630,
+      "items": [
+        {
+          "name": "Starbucks Cinnamon Dolce creamer",
+          "qty": "3.25 tbsp (~49 ml)",
+          "grams": 50,
+          "source": {
+            "db": "off",
+            "code": "0050000372041"
+          },
+          "recipe": "coffee",
+          "match": "Cinnamon dolce latte coffee creamer (Starbucks)",
+          "kcal": 133.3,
+          "carb": 20.0,
+          "protein": 0.0,
+          "fat": 3.3,
+          "fibre": null,
+          "sugar": 20.0
+        },
+        {
+          "name": "2% milk",
+          "qty": "1 cup (250 ml)",
+          "grams": 258,
+          "source": {
+            "db": "cnf",
+            "code": 61
+          },
+          "recipe": "coffee",
+          "match": "Milk, fluid, partly skimmed, 2% M.F.",
+          "kcal": 129.0,
+          "carb": 12.4,
+          "protein": 8.5,
+          "fat": 5.1,
+          "fibre": 0.0,
+          "sugar": 13.1
+        },
+        {
+          "name": "Sweet'N Low",
+          "qty": "3 packets",
+          "grams": 3,
+          "source": {
+            "db": "cnf",
+            "code": 5977
+          },
+          "note": "saccharin packet ≈ 1 g dextrose carrier",
+          "recipe": "coffee",
+          "match": "Sweetener, saccharin",
+          "kcal": 10.8,
+          "carb": 2.7,
+          "protein": 0.0,
+          "fat": 0.0,
+          "fibre": 0.0,
+          "sugar": 2.6
+        },
+        {
+          "name": "brewed coffee (2 scoops Pike Place)",
+          "qty": "~250 ml",
+          "grams": 250,
+          "source": {
+            "db": "cnf",
+            "code": 2873
+          },
+          "recipe": "coffee",
+          "match": "Coffee, brewed, prepared with tap water",
+          "kcal": 0.0,
+          "carb": 0.0,
+          "protein": 0.3,
+          "fat": 0.1,
+          "fibre": 0.0,
+          "sugar": 0.0
+        }
+      ],
+      "totals": {
+        "kcal": 273.1,
+        "carb": 35.1,
+        "protein": 8.8,
+        "fat": 8.5,
+        "fibre": 0.0,
+        "sugar": 35.7
+      }
+    },
+    {
+      "text": "dinner",
+      "minute": 1035,
+      "items": [
+        {
+          "name": "poutine",
+          "qty": "small",
+          "grams": 150,
+          "source": {
+            "db": "cnf",
+            "code": 6772
+          },
+          "note": "'a little poutine' — small portion assumed",
+          "match": "Poutine",
+          "kcal": 339.0,
+          "carb": 22.9,
+          "protein": 11.2,
+          "fat": 23.0,
+          "fibre": 1.7,
+          "sugar": null
+        },
+        {
+          "name": "potato medallion",
+          "qty": "1-2 pieces",
+          "grams": 60,
+          "source": {
+            "db": "cnf",
+            "code": 2431
+          },
+          "note": "IKEA potato medallion ≈ hash-brown patty",
+          "match": "Potato, hashed brown, frozen, plain, prepared",
+          "kcal": 131.4,
+          "carb": 17.1,
+          "protein": 1.6,
+          "fat": 7.0,
+          "fibre": 1.3,
+          "sugar": 0.2
+        },
+        {
+          "name": "samosa",
+          "qty": "1",
+          "grams": 80,
+          "source": {
+            "db": "cnf",
+            "code": 6751
+          },
+          "match": "Indien, samosa, vegetarian",
+          "kcal": 240.8,
+          "carb": 24.3,
+          "protein": 4.3,
+          "fat": 14.3,
+          "fibre": 1.5,
+          "sugar": null
+        },
+        {
+          "name": "Bingz Peking duck crispy sandwich",
+          "qty": "couple of bites",
+          "grams": 50,
+          "source": {
+            "db": "manual",
+            "name": "Bingz Peking duck crispy sandwich (crispy flatbread + duck; typical)",
+            "per100g": {
+              "kcal": 280,
+              "carb": 28,
+              "protein": 12,
+              "fat": 13,
+              "fibre": 1.5,
+              "sugar": 3
+            }
+          },
+          "note": "'couple bites' — ~1/4 of a sandwich",
+          "match": "Bingz Peking duck crispy sandwich (crispy flatbread + duck; typical)",
+          "kcal": 140.0,
+          "carb": 14.0,
+          "protein": 6.0,
+          "fat": 6.5,
+          "fibre": 0.8,
+          "sugar": 1.5
+        },
+        {
+          "name": "unicorn rainbow ice cream",
+          "qty": "3/4 cup (180 ml)",
+          "grams": 100,
+          "source": {
+            "db": "cnf",
+            "code": 4163
+          },
+          "note": "stated 3/4 cup",
+          "match": "Dessert, frozen, ice cream, vanilla, 11% M.F.",
+          "kcal": 208.0,
+          "carb": 23.6,
+          "protein": 3.5,
+          "fat": 11.0,
+          "fibre": 0.7,
+          "sugar": 21.2
+        }
+      ],
+      "totals": {
+        "kcal": 1059.2,
+        "carb": 101.9,
+        "protein": 26.6,
+        "fat": 61.8,
+        "fibre": 6.0,
+        "sugar": 22.9
+      }
+    }
+  ],
+  "activities": [
+    {
+      "text": "ikea trip",
+      "minute": 900,
+      "minutes": 180,
+      "source": {
+        "db": "met",
+        "code": "05065"
+      },
+      "note": "at IKEA 3-9pm; ~3 h of it counted as walking/standing shopping, the rest sitting/eating",
+      "match": "Non-food shopping, with or without cart, standing or walking",
+      "met": 2.3,
+      "kcal": 454
+    }
+  ],
+  "weightKg": 65.8,
+  "totals": {
+    "kcal": 1332,
+    "carb": 137,
+    "protein": 35,
+    "fat": 70,
+    "fibre": 6,
+    "sugar": 59,
+    "activityKcal": 454,
+    "activityMinutes": 180
+  },
+  "resolvedAt": "2026-09-11T22:18-04:00",
+  "estimate": "Portions estimated from free-text logs; database values per 100 g; activity kcal = MET × kg × h."
+}

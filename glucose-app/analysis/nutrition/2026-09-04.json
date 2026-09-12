@@ -1,0 +1,227 @@
+{
+  "day": "2026-09-04",
+  "parsedAt": "2026-09-11T22:18-04:00",
+  "events": [
+    {
+      "text": "candy",
+      "minute": 30,
+      "items": [
+        {
+          "name": "Hi-Chew",
+          "qty": "2 pieces",
+          "grams": 9,
+          "source": {
+            "db": "off",
+            "code": "0873983000028"
+          },
+          "note": "stated 2 candies",
+          "match": "hi-chew (Morinaga)",
+          "kcal": 37.8,
+          "carb": 7.4,
+          "protein": 0.2,
+          "fat": 0.8,
+          "fibre": 0.0,
+          "sugar": 5.6
+        }
+      ],
+      "totals": {
+        "kcal": 37.8,
+        "carb": 7.4,
+        "protein": 0.2,
+        "fat": 0.8,
+        "fibre": 0.0,
+        "sugar": 5.6
+      }
+    },
+    {
+      "text": "candy",
+      "minute": 360,
+      "items": [
+        {
+          "name": "Hi-Chew",
+          "qty": "2 pieces",
+          "grams": 9,
+          "source": {
+            "db": "off",
+            "code": "0873983000028"
+          },
+          "note": "stated 2 candies",
+          "match": "hi-chew (Morinaga)",
+          "kcal": 37.8,
+          "carb": 7.4,
+          "protein": 0.2,
+          "fat": 0.8,
+          "fibre": 0.0,
+          "sugar": 5.6
+        }
+      ],
+      "totals": {
+        "kcal": 37.8,
+        "carb": 7.4,
+        "protein": 0.2,
+        "fat": 0.8,
+        "fibre": 0.0,
+        "sugar": 5.6
+      }
+    },
+    {
+      "text": "coffee",
+      "minute": 630,
+      "items": [
+        {
+          "name": "Starbucks Cinnamon Dolce creamer",
+          "qty": "3.25 tbsp (~49 ml)",
+          "grams": 50,
+          "source": {
+            "db": "off",
+            "code": "0050000372041"
+          },
+          "recipe": "coffee",
+          "match": "Cinnamon dolce latte coffee creamer (Starbucks)",
+          "kcal": 133.3,
+          "carb": 20.0,
+          "protein": 0.0,
+          "fat": 3.3,
+          "fibre": null,
+          "sugar": 20.0
+        },
+        {
+          "name": "2% milk",
+          "qty": "1 cup (250 ml)",
+          "grams": 258,
+          "source": {
+            "db": "cnf",
+            "code": 61
+          },
+          "recipe": "coffee",
+          "match": "Milk, fluid, partly skimmed, 2% M.F.",
+          "kcal": 129.0,
+          "carb": 12.4,
+          "protein": 8.5,
+          "fat": 5.1,
+          "fibre": 0.0,
+          "sugar": 13.1
+        },
+        {
+          "name": "Sweet'N Low",
+          "qty": "3 packets",
+          "grams": 3,
+          "source": {
+            "db": "cnf",
+            "code": 5977
+          },
+          "note": "saccharin packet ≈ 1 g dextrose carrier",
+          "recipe": "coffee",
+          "match": "Sweetener, saccharin",
+          "kcal": 10.8,
+          "carb": 2.7,
+          "protein": 0.0,
+          "fat": 0.0,
+          "fibre": 0.0,
+          "sugar": 2.6
+        },
+        {
+          "name": "brewed coffee (2 scoops Pike Place)",
+          "qty": "~250 ml",
+          "grams": 250,
+          "source": {
+            "db": "cnf",
+            "code": 2873
+          },
+          "recipe": "coffee",
+          "match": "Coffee, brewed, prepared with tap water",
+          "kcal": 0.0,
+          "carb": 0.0,
+          "protein": 0.3,
+          "fat": 0.1,
+          "fibre": 0.0,
+          "sugar": 0.0
+        }
+      ],
+      "totals": {
+        "kcal": 273.1,
+        "carb": 35.1,
+        "protein": 8.8,
+        "fat": 8.5,
+        "fibre": 0.0,
+        "sugar": 35.7
+      }
+    },
+    {
+      "text": "pizza",
+      "minute": 1080,
+      "items": [
+        {
+          "name": "Pizza Hut pizza",
+          "qty": "half medium = 4 slices",
+          "grams": 380,
+          "source": {
+            "db": "cnf",
+            "code": 6426
+          },
+          "note": "medium slice ≈ 95 g; pan/thick crust assumed",
+          "match": "Fast foods, pizza, cheese, thick crust",
+          "kcal": 1029.8,
+          "carb": 126.0,
+          "protein": 41.1,
+          "fat": 40.1,
+          "fibre": 8.4,
+          "sugar": 12.7
+        }
+      ],
+      "totals": {
+        "kcal": 1029.8,
+        "carb": 126.0,
+        "protein": 41.1,
+        "fat": 40.1,
+        "fibre": 8.4,
+        "sugar": 12.7
+      }
+    },
+    {
+      "text": "donut",
+      "minute": 1280,
+      "items": [
+        {
+          "name": "tres leches donut",
+          "qty": "1",
+          "grams": 70,
+          "source": {
+            "db": "cnf",
+            "code": 3896
+          },
+          "note": "filled/soaked donut — heavier than plain",
+          "match": "Doughnut (donut), yeast-leavened, with cream filling",
+          "kcal": 252.7,
+          "carb": 21.0,
+          "protein": 4.5,
+          "fat": 17.1,
+          "fibre": 0.6,
+          "sugar": 10.2
+        }
+      ],
+      "totals": {
+        "kcal": 252.7,
+        "carb": 21.0,
+        "protein": 4.5,
+        "fat": 17.1,
+        "fibre": 0.6,
+        "sugar": 10.2
+      }
+    }
+  ],
+  "activities": [],
+  "weightKg": 65.8,
+  "totals": {
+    "kcal": 1631,
+    "carb": 197,
+    "protein": 55,
+    "fat": 67,
+    "fibre": 9,
+    "sugar": 70,
+    "activityKcal": 0,
+    "activityMinutes": 0
+  },
+  "resolvedAt": "2026-09-11T22:18-04:00",
+  "estimate": "Portions estimated from free-text logs; database values per 100 g; activity kcal = MET × kg × h."
+}

@@ -1,0 +1,213 @@
+{
+  "day": "2026-09-07",
+  "parsedAt": "2026-09-11T22:18-04:00",
+  "events": [
+    {
+      "text": "coffee",
+      "minute": 720,
+      "items": [
+        {
+          "name": "Starbucks Cinnamon Dolce creamer",
+          "qty": "3.25 tbsp (~49 ml)",
+          "grams": 50,
+          "source": {
+            "db": "off",
+            "code": "0050000372041"
+          },
+          "recipe": "coffee",
+          "match": "Cinnamon dolce latte coffee creamer (Starbucks)",
+          "kcal": 133.3,
+          "carb": 20.0,
+          "protein": 0.0,
+          "fat": 3.3,
+          "fibre": null,
+          "sugar": 20.0
+        },
+        {
+          "name": "2% milk",
+          "qty": "1 cup (250 ml)",
+          "grams": 258,
+          "source": {
+            "db": "cnf",
+            "code": 61
+          },
+          "recipe": "coffee",
+          "match": "Milk, fluid, partly skimmed, 2% M.F.",
+          "kcal": 129.0,
+          "carb": 12.4,
+          "protein": 8.5,
+          "fat": 5.1,
+          "fibre": 0.0,
+          "sugar": 13.1
+        },
+        {
+          "name": "Sweet'N Low",
+          "qty": "3 packets",
+          "grams": 3,
+          "source": {
+            "db": "cnf",
+            "code": 5977
+          },
+          "note": "saccharin packet ≈ 1 g dextrose carrier",
+          "recipe": "coffee",
+          "match": "Sweetener, saccharin",
+          "kcal": 10.8,
+          "carb": 2.7,
+          "protein": 0.0,
+          "fat": 0.0,
+          "fibre": 0.0,
+          "sugar": 2.6
+        },
+        {
+          "name": "brewed coffee (2 scoops Pike Place)",
+          "qty": "~250 ml",
+          "grams": 250,
+          "source": {
+            "db": "cnf",
+            "code": 2873
+          },
+          "recipe": "coffee",
+          "match": "Coffee, brewed, prepared with tap water",
+          "kcal": 0.0,
+          "carb": 0.0,
+          "protein": 0.3,
+          "fat": 0.1,
+          "fibre": 0.0,
+          "sugar": 0.0
+        }
+      ],
+      "totals": {
+        "kcal": 273.1,
+        "carb": 35.1,
+        "protein": 8.8,
+        "fat": 8.5,
+        "fibre": 0.0,
+        "sugar": 35.7
+      }
+    },
+    {
+      "text": "snacks and junk",
+      "minute": 807,
+      "items": [
+        {
+          "name": "assorted snacks",
+          "qty": "unspecified",
+          "grams": 40,
+          "source": {
+            "db": "cnf",
+            "code": 4407
+          },
+          "note": "LOW CONFIDENCE: 'snacks and junk' with no detail — treated as ~40 g of chips",
+          "match": "Snacks, potato chips, plain, salted",
+          "kcal": 212.8,
+          "carb": 21.5,
+          "protein": 2.6,
+          "fat": 13.6,
+          "fibre": 1.2,
+          "sugar": 0.1
+        }
+      ],
+      "totals": {
+        "kcal": 212.8,
+        "carb": 21.5,
+        "protein": 2.6,
+        "fat": 13.6,
+        "fibre": 1.2,
+        "sugar": 0.1
+      }
+    },
+    {
+      "text": "Popeyes chicken burger",
+      "minute": 1110,
+      "items": [
+        {
+          "name": "Popeyes chicken sandwich",
+          "qty": "1",
+          "grams": 220,
+          "source": {
+            "db": "cnf",
+            "code": 6339
+          },
+          "note": "crispy chicken fillet sandwich with mayo",
+          "match": "Fast foods, sandwiches and burgers, crispy chicken fillet sandwich, with lettuce tomato and mayonnaise",
+          "kcal": 607.2,
+          "carb": 60.3,
+          "protein": 24.1,
+          "fat": 29.9,
+          "fibre": 3.1,
+          "sugar": 7.5
+        }
+      ],
+      "totals": {
+        "kcal": 607.2,
+        "carb": 60.3,
+        "protein": 24.1,
+        "fat": 29.9,
+        "fibre": 3.1,
+        "sugar": 7.5
+      }
+    },
+    {
+      "text": "carrot cake and a bite of cookie",
+      "minute": 1414,
+      "items": [
+        {
+          "name": "carrot cake with cream cheese icing",
+          "qty": "1 slice",
+          "grams": 100,
+          "source": {
+            "db": "cnf",
+            "code": 6629
+          },
+          "note": "slice size guessed",
+          "match": "Cake, carrot, homemade, with cream cheese icing",
+          "kcal": 407.0,
+          "carb": 52.9,
+          "protein": 3.8,
+          "fat": 20.9,
+          "fibre": 1.1,
+          "sugar": 39.0
+        },
+        {
+          "name": "chocolate chip cookie",
+          "qty": "a bite",
+          "grams": 12,
+          "source": {
+            "db": "cnf",
+            "code": 4559
+          },
+          "note": "stated 'a bite'",
+          "match": "Fast foods, dessert, cookies, chocolate chip",
+          "kcal": 50.8,
+          "carb": 7.9,
+          "protein": 0.6,
+          "fat": 2.6,
+          "fibre": 0.3,
+          "sugar": null
+        }
+      ],
+      "totals": {
+        "kcal": 457.8,
+        "carb": 60.8,
+        "protein": 4.4,
+        "fat": 23.5,
+        "fibre": 1.4,
+        "sugar": 39.0
+      }
+    }
+  ],
+  "activities": [],
+  "weightKg": 65.8,
+  "totals": {
+    "kcal": 1551,
+    "carb": 178,
+    "protein": 40,
+    "fat": 76,
+    "fibre": 6,
+    "sugar": 82,
+    "activityKcal": 0,
+    "activityMinutes": 0
+  },
+  "resolvedAt": "2026-09-11T22:18-04:00",
+  "estimate": "Portions estimated from free-text logs; database values per 100 g; activity kcal = MET × kg × h."
+}

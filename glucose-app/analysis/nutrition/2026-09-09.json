@@ -1,0 +1,268 @@
+{
+  "day": "2026-09-09",
+  "parsedAt": "2026-09-11T22:18-04:00",
+  "events": [
+    {
+      "text": "coffee",
+      "minute": 630,
+      "items": [
+        {
+          "name": "Starbucks Cinnamon Dolce creamer",
+          "qty": "3.25 tbsp (~49 ml)",
+          "grams": 50,
+          "source": {
+            "db": "off",
+            "code": "0050000372041"
+          },
+          "recipe": "coffee",
+          "match": "Cinnamon dolce latte coffee creamer (Starbucks)",
+          "kcal": 133.3,
+          "carb": 20.0,
+          "protein": 0.0,
+          "fat": 3.3,
+          "fibre": null,
+          "sugar": 20.0
+        },
+        {
+          "name": "2% milk",
+          "qty": "1 cup (250 ml)",
+          "grams": 258,
+          "source": {
+            "db": "cnf",
+            "code": 61
+          },
+          "recipe": "coffee",
+          "match": "Milk, fluid, partly skimmed, 2% M.F.",
+          "kcal": 129.0,
+          "carb": 12.4,
+          "protein": 8.5,
+          "fat": 5.1,
+          "fibre": 0.0,
+          "sugar": 13.1
+        },
+        {
+          "name": "Sweet'N Low",
+          "qty": "3 packets",
+          "grams": 3,
+          "source": {
+            "db": "cnf",
+            "code": 5977
+          },
+          "note": "saccharin packet ≈ 1 g dextrose carrier",
+          "recipe": "coffee",
+          "match": "Sweetener, saccharin",
+          "kcal": 10.8,
+          "carb": 2.7,
+          "protein": 0.0,
+          "fat": 0.0,
+          "fibre": 0.0,
+          "sugar": 2.6
+        },
+        {
+          "name": "brewed coffee (2 scoops Pike Place)",
+          "qty": "~250 ml",
+          "grams": 250,
+          "source": {
+            "db": "cnf",
+            "code": 2873
+          },
+          "recipe": "coffee",
+          "match": "Coffee, brewed, prepared with tap water",
+          "kcal": 0.0,
+          "carb": 0.0,
+          "protein": 0.3,
+          "fat": 0.1,
+          "fibre": 0.0,
+          "sugar": 0.0
+        }
+      ],
+      "totals": {
+        "kcal": 273.1,
+        "carb": 35.1,
+        "protein": 8.8,
+        "fat": 8.5,
+        "fibre": 0.0,
+        "sugar": 35.7
+      }
+    },
+    {
+      "text": "20 crispers, celery, lemon juice",
+      "minute": 900,
+      "items": [
+        {
+          "name": "Crispers",
+          "qty": "20 pieces",
+          "grams": 50,
+          "source": {
+            "db": "off",
+            "code": "0066721026514"
+          },
+          "note": "stated 20; ≈ 2.5 g each",
+          "match": "Salt & Vinegar Crispers (Christie)",
+          "kcal": 233.3,
+          "carb": 33.3,
+          "protein": 3.3,
+          "fat": 10.0,
+          "fibre": 1.7,
+          "sugar": 1.7
+        },
+        {
+          "name": "celery",
+          "qty": "a few sticks",
+          "grams": 40,
+          "source": {
+            "db": "cnf",
+            "code": 2386
+          },
+          "note": "amount not stated",
+          "match": "Celery, raw",
+          "kcal": 6.4,
+          "carb": 1.2,
+          "protein": 0.3,
+          "fat": 0.1,
+          "fibre": 0.6,
+          "sugar": 0.5
+        },
+        {
+          "name": "lemon juice",
+          "qty": "a squeeze",
+          "grams": 10,
+          "source": {
+            "db": "cnf",
+            "code": 1589
+          },
+          "match": "Lemon juice, raw",
+          "kcal": 2.2,
+          "carb": 0.7,
+          "protein": 0.0,
+          "fat": 0.0,
+          "fibre": 0.0,
+          "sugar": 0.3
+        }
+      ],
+      "totals": {
+        "kcal": 241.9,
+        "carb": 35.2,
+        "protein": 3.6,
+        "fat": 10.1,
+        "fibre": 2.3,
+        "sugar": 2.5
+      }
+    },
+    {
+      "text": "chicken burger",
+      "minute": 1050,
+      "items": [
+        {
+          "name": "chicken burger",
+          "qty": "1",
+          "grams": 200,
+          "source": {
+            "db": "cnf",
+            "code": 6339
+          },
+          "note": "crispy chicken sandwich assumed",
+          "match": "Fast foods, sandwiches and burgers, crispy chicken fillet sandwich, with lettuce tomato and mayonnaise",
+          "kcal": 552.0,
+          "carb": 54.8,
+          "protein": 21.9,
+          "fat": 27.2,
+          "fibre": 2.8,
+          "sugar": 6.8
+        }
+      ],
+      "totals": {
+        "kcal": 552.0,
+        "carb": 54.8,
+        "protein": 21.9,
+        "fat": 27.2,
+        "fibre": 2.8,
+        "sugar": 6.8
+      }
+    },
+    {
+      "text": "Priscilla's chocolate chip cookie",
+      "minute": 1140,
+      "items": [
+        {
+          "name": "chocolate chip cookie (bakery)",
+          "qty": "1 large",
+          "grams": 60,
+          "source": {
+            "db": "cnf",
+            "code": 4559
+          },
+          "note": "bakery cookie — larger than a packaged one",
+          "match": "Fast foods, dessert, cookies, chocolate chip",
+          "kcal": 253.8,
+          "carb": 39.5,
+          "protein": 3.1,
+          "fat": 13.2,
+          "fibre": 1.7,
+          "sugar": null
+        }
+      ],
+      "totals": {
+        "kcal": 253.8,
+        "carb": 39.5,
+        "protein": 3.1,
+        "fat": 13.2,
+        "fibre": 1.7,
+        "sugar": 0.0
+      }
+    },
+    {
+      "text": "54g great value sour cream onion rings",
+      "minute": 1340,
+      "items": [
+        {
+          "name": "Great Value sour cream & onion rings",
+          "qty": "54 g (weighed)",
+          "grams": 54,
+          "source": {
+            "db": "manual",
+            "name": "Great Value sour cream & onion rings, corn snack (typical; OFF unavailable)",
+            "per100g": {
+              "kcal": 520,
+              "carb": 60,
+              "protein": 4,
+              "fat": 29,
+              "fibre": 2,
+              "sugar": 3
+            }
+          },
+          "note": "stated weight",
+          "match": "Great Value sour cream & onion rings, corn snack (typical; OFF unavailable)",
+          "kcal": 280.8,
+          "carb": 32.4,
+          "protein": 2.2,
+          "fat": 15.7,
+          "fibre": 1.1,
+          "sugar": 1.6
+        }
+      ],
+      "totals": {
+        "kcal": 280.8,
+        "carb": 32.4,
+        "protein": 2.2,
+        "fat": 15.7,
+        "fibre": 1.1,
+        "sugar": 1.6
+      }
+    }
+  ],
+  "activities": [],
+  "weightKg": 65.8,
+  "totals": {
+    "kcal": 1602,
+    "carb": 197,
+    "protein": 40,
+    "fat": 75,
+    "fibre": 8,
+    "sugar": 47,
+    "activityKcal": 0,
+    "activityMinutes": 0
+  },
+  "resolvedAt": "2026-09-11T22:18-04:00",
+  "estimate": "Portions estimated from free-text logs; database values per 100 g; activity kcal = MET × kg × h."
+}

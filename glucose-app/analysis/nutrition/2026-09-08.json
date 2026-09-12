@@ -1,0 +1,255 @@
+{
+  "day": "2026-09-08",
+  "parsedAt": "2026-09-11T22:18-04:00",
+  "events": [
+    {
+      "text": "coffee",
+      "minute": 630,
+      "items": [
+        {
+          "name": "Starbucks Cinnamon Dolce creamer",
+          "qty": "3.25 tbsp (~49 ml)",
+          "grams": 50,
+          "source": {
+            "db": "off",
+            "code": "0050000372041"
+          },
+          "recipe": "coffee",
+          "match": "Cinnamon dolce latte coffee creamer (Starbucks)",
+          "kcal": 133.3,
+          "carb": 20.0,
+          "protein": 0.0,
+          "fat": 3.3,
+          "fibre": null,
+          "sugar": 20.0
+        },
+        {
+          "name": "2% milk",
+          "qty": "1 cup (250 ml)",
+          "grams": 258,
+          "source": {
+            "db": "cnf",
+            "code": 61
+          },
+          "recipe": "coffee",
+          "match": "Milk, fluid, partly skimmed, 2% M.F.",
+          "kcal": 129.0,
+          "carb": 12.4,
+          "protein": 8.5,
+          "fat": 5.1,
+          "fibre": 0.0,
+          "sugar": 13.1
+        },
+        {
+          "name": "Sweet'N Low",
+          "qty": "3 packets",
+          "grams": 3,
+          "source": {
+            "db": "cnf",
+            "code": 5977
+          },
+          "note": "saccharin packet ≈ 1 g dextrose carrier",
+          "recipe": "coffee",
+          "match": "Sweetener, saccharin",
+          "kcal": 10.8,
+          "carb": 2.7,
+          "protein": 0.0,
+          "fat": 0.0,
+          "fibre": 0.0,
+          "sugar": 2.6
+        },
+        {
+          "name": "brewed coffee (2 scoops Pike Place)",
+          "qty": "~250 ml",
+          "grams": 250,
+          "source": {
+            "db": "cnf",
+            "code": 2873
+          },
+          "recipe": "coffee",
+          "match": "Coffee, brewed, prepared with tap water",
+          "kcal": 0.0,
+          "carb": 0.0,
+          "protein": 0.3,
+          "fat": 0.1,
+          "fibre": 0.0,
+          "sugar": 0.0
+        }
+      ],
+      "totals": {
+        "kcal": 273.1,
+        "carb": 35.1,
+        "protein": 8.8,
+        "fat": 8.5,
+        "fibre": 0.0,
+        "sugar": 35.7
+      }
+    },
+    {
+      "text": "226g of sourdough bread with butter and jam and 20g of cheddar cheese",
+      "minute": 1065,
+      "items": [
+        {
+          "name": "sourdough bread",
+          "qty": "226 g (weighed)",
+          "grams": 226,
+          "source": {
+            "db": "cnf",
+            "code": 4063
+          },
+          "note": "stated weight",
+          "match": "Bread, French or Vienna (also sourdough)",
+          "kcal": 614.7,
+          "carb": 117.2,
+          "protein": 24.3,
+          "fat": 5.5,
+          "fibre": 5.0,
+          "sugar": 10.4
+        },
+        {
+          "name": "butter",
+          "qty": "~1 tbsp spread",
+          "grams": 15,
+          "source": {
+            "db": "cnf",
+            "code": 118
+          },
+          "note": "amount not stated",
+          "match": "Butter, regular",
+          "kcal": 107.5,
+          "carb": 0.0,
+          "protein": 0.1,
+          "fat": 12.2,
+          "fibre": 0.0,
+          "sugar": 0.0
+        },
+        {
+          "name": "jam",
+          "qty": "~1 tbsp",
+          "grams": 20,
+          "source": {
+            "db": "cnf",
+            "code": 4295
+          },
+          "note": "amount not stated",
+          "match": "Sweets, jams and preserves",
+          "kcal": 55.6,
+          "carb": 13.8,
+          "protein": 0.1,
+          "fat": 0.0,
+          "fibre": 0.2,
+          "sugar": 9.7
+        },
+        {
+          "name": "cheddar cheese",
+          "qty": "20 g (weighed)",
+          "grams": 20,
+          "source": {
+            "db": "cnf",
+            "code": 119
+          },
+          "note": "stated weight",
+          "match": "Cheese, cheddar",
+          "kcal": 81.2,
+          "carb": 0.3,
+          "protein": 4.8,
+          "fat": 6.8,
+          "fibre": 0.0,
+          "sugar": 0.1
+        }
+      ],
+      "totals": {
+        "kcal": 859.0,
+        "carb": 131.3,
+        "protein": 29.3,
+        "fat": 24.5,
+        "fibre": 5.2,
+        "sugar": 20.2
+      }
+    },
+    {
+      "text": "1/3 chocolate chip cookie",
+      "minute": 1150,
+      "items": [
+        {
+          "name": "chocolate chip cookie",
+          "qty": "1/3 of a bakery cookie",
+          "grams": 20,
+          "source": {
+            "db": "cnf",
+            "code": 4559
+          },
+          "note": "bakery-size cookie ≈ 60 g assumed",
+          "match": "Fast foods, dessert, cookies, chocolate chip",
+          "kcal": 84.6,
+          "carb": 13.2,
+          "protein": 1.1,
+          "fat": 4.4,
+          "fibre": 0.6,
+          "sugar": null
+        }
+      ],
+      "totals": {
+        "kcal": 84.6,
+        "carb": 13.2,
+        "protein": 1.1,
+        "fat": 4.4,
+        "fibre": 0.6,
+        "sugar": 0.0
+      }
+    },
+    {
+      "text": "half of raspberry and white chocolate scone",
+      "minute": 1325,
+      "items": [
+        {
+          "name": "raspberry & white chocolate scone",
+          "qty": "half",
+          "grams": 55,
+          "source": {
+            "db": "manual",
+            "name": "Bakery scone, raspberry & white chocolate (typical)",
+            "per100g": {
+              "kcal": 395,
+              "carb": 50,
+              "protein": 6,
+              "fat": 18,
+              "fibre": 1.8,
+              "sugar": 20
+            }
+          },
+          "note": "full scone ≈ 110 g assumed",
+          "match": "Bakery scone, raspberry & white chocolate (typical)",
+          "kcal": 217.2,
+          "carb": 27.5,
+          "protein": 3.3,
+          "fat": 9.9,
+          "fibre": 1.0,
+          "sugar": 11.0
+        }
+      ],
+      "totals": {
+        "kcal": 217.2,
+        "carb": 27.5,
+        "protein": 3.3,
+        "fat": 9.9,
+        "fibre": 1.0,
+        "sugar": 11.0
+      }
+    }
+  ],
+  "activities": [],
+  "weightKg": 65.8,
+  "totals": {
+    "kcal": 1434,
+    "carb": 207,
+    "protein": 43,
+    "fat": 47,
+    "fibre": 7,
+    "sugar": 67,
+    "activityKcal": 0,
+    "activityMinutes": 0
+  },
+  "resolvedAt": "2026-09-11T22:18-04:00",
+  "estimate": "Portions estimated from free-text logs; database values per 100 g; activity kcal = MET × kg × h."
+}

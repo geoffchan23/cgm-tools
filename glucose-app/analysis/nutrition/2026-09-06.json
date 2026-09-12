@@ -1,0 +1,268 @@
+{
+  "day": "2026-09-06",
+  "parsedAt": "2026-09-11T22:18-04:00",
+  "events": [
+    {
+      "text": "coffee",
+      "minute": 670,
+      "items": [
+        {
+          "name": "Starbucks Cinnamon Dolce creamer",
+          "qty": "3.25 tbsp (~49 ml)",
+          "grams": 50,
+          "source": {
+            "db": "off",
+            "code": "0050000372041"
+          },
+          "recipe": "coffee",
+          "match": "Cinnamon dolce latte coffee creamer (Starbucks)",
+          "kcal": 133.3,
+          "carb": 20.0,
+          "protein": 0.0,
+          "fat": 3.3,
+          "fibre": null,
+          "sugar": 20.0
+        },
+        {
+          "name": "2% milk",
+          "qty": "1 cup (250 ml)",
+          "grams": 258,
+          "source": {
+            "db": "cnf",
+            "code": 61
+          },
+          "recipe": "coffee",
+          "match": "Milk, fluid, partly skimmed, 2% M.F.",
+          "kcal": 129.0,
+          "carb": 12.4,
+          "protein": 8.5,
+          "fat": 5.1,
+          "fibre": 0.0,
+          "sugar": 13.1
+        },
+        {
+          "name": "Sweet'N Low",
+          "qty": "3 packets",
+          "grams": 3,
+          "source": {
+            "db": "cnf",
+            "code": 5977
+          },
+          "note": "saccharin packet ≈ 1 g dextrose carrier",
+          "recipe": "coffee",
+          "match": "Sweetener, saccharin",
+          "kcal": 10.8,
+          "carb": 2.7,
+          "protein": 0.0,
+          "fat": 0.0,
+          "fibre": 0.0,
+          "sugar": 2.6
+        },
+        {
+          "name": "brewed coffee (2 scoops Pike Place)",
+          "qty": "~250 ml",
+          "grams": 250,
+          "source": {
+            "db": "cnf",
+            "code": 2873
+          },
+          "recipe": "coffee",
+          "match": "Coffee, brewed, prepared with tap water",
+          "kcal": 0.0,
+          "carb": 0.0,
+          "protein": 0.3,
+          "fat": 0.1,
+          "fibre": 0.0,
+          "sugar": 0.0
+        }
+      ],
+      "totals": {
+        "kcal": 273.1,
+        "carb": 35.1,
+        "protein": 8.8,
+        "fat": 8.5,
+        "fibre": 0.0,
+        "sugar": 35.7
+      }
+    },
+    {
+      "text": "Popcorn coke zero and goldfishes.",
+      "minute": 960,
+      "items": [
+        {
+          "name": "popcorn",
+          "qty": "~1 bowl",
+          "grams": 25,
+          "source": {
+            "db": "cnf",
+            "code": 4110
+          },
+          "note": "air-popped assumed; portion guessed",
+          "match": "Snacks, popcorn, air-popped",
+          "kcal": 96.8,
+          "carb": 19.4,
+          "protein": 3.2,
+          "fat": 1.1,
+          "fibre": 3.6,
+          "sugar": 0.2
+        },
+        {
+          "name": "Coke Zero",
+          "qty": "1 can",
+          "grams": 355,
+          "source": {
+            "db": "manual",
+            "name": "Coke Zero (no calories)",
+            "per100g": {
+              "kcal": 0.3,
+              "carb": 0,
+              "protein": 0,
+              "fat": 0,
+              "fibre": 0,
+              "sugar": 0
+            }
+          },
+          "match": "Coke Zero (no calories)",
+          "kcal": 1.1,
+          "carb": 0.0,
+          "protein": 0.0,
+          "fat": 0.0,
+          "fibre": 0.0,
+          "sugar": 0.0
+        },
+        {
+          "name": "Goldfish crackers",
+          "qty": "~1 handful",
+          "grams": 30,
+          "source": {
+            "db": "off",
+            "code": "0014100075233"
+          },
+          "note": "portion guessed",
+          "match": "Goldfish Baked Snack Crackers Cheddar (Pepperidge Farm)",
+          "kcal": 139.3,
+          "carb": 20.4,
+          "protein": 3.2,
+          "fat": 4.8,
+          "fibre": 1.1,
+          "sugar": 0.0
+        }
+      ],
+      "totals": {
+        "kcal": 237.2,
+        "carb": 39.8,
+        "protein": 6.4,
+        "fat": 5.9,
+        "fibre": 4.7,
+        "sugar": 0.2
+      }
+    },
+    {
+      "text": "4 slices of a medium pizza from Pizza hut",
+      "minute": 1151,
+      "items": [
+        {
+          "name": "Pizza Hut pizza",
+          "qty": "4 slices of a medium",
+          "grams": 380,
+          "source": {
+            "db": "cnf",
+            "code": 6426
+          },
+          "note": "stated 4 slices; medium slice ≈ 95 g",
+          "match": "Fast foods, pizza, cheese, thick crust",
+          "kcal": 1029.8,
+          "carb": 126.0,
+          "protein": 41.1,
+          "fat": 40.1,
+          "fibre": 8.4,
+          "sugar": 12.7
+        }
+      ],
+      "totals": {
+        "kcal": 1029.8,
+        "carb": 126.0,
+        "protein": 41.1,
+        "fat": 40.1,
+        "fibre": 8.4,
+        "sugar": 12.7
+      }
+    },
+    {
+      "text": "1 small pack of pockey",
+      "minute": 1261,
+      "items": [
+        {
+          "name": "Pocky",
+          "qty": "1 small pack",
+          "grams": 25,
+          "source": {
+            "db": "off",
+            "code": "8851019010007"
+          },
+          "note": "small sleeve ≈ 25 g",
+          "match": "Pocky Chocolate (Glico)",
+          "kcal": 122.0,
+          "carb": 17.8,
+          "protein": 2.2,
+          "fat": 4.4,
+          "fibre": 2.2,
+          "sugar": 9.4
+        }
+      ],
+      "totals": {
+        "kcal": 122.0,
+        "carb": 17.8,
+        "protein": 2.2,
+        "fat": 4.4,
+        "fibre": 2.2,
+        "sugar": 9.4
+      }
+    },
+    {
+      "text": "donut",
+      "minute": 1345,
+      "items": [
+        {
+          "name": "donut",
+          "qty": "1",
+          "grams": 60,
+          "source": {
+            "db": "cnf",
+            "code": 3897
+          },
+          "note": "type unknown; glazed yeast assumed",
+          "match": "Doughnut (donut), yeast-leavened (honey bun), glazed",
+          "kcal": 252.6,
+          "carb": 28.8,
+          "protein": 3.7,
+          "fat": 13.6,
+          "fibre": 1.3,
+          "sugar": 13.7
+        }
+      ],
+      "totals": {
+        "kcal": 252.6,
+        "carb": 28.8,
+        "protein": 3.7,
+        "fat": 13.6,
+        "fibre": 1.3,
+        "sugar": 13.7
+      }
+    }
+  ],
+  "activities": [],
+  "weightKg": 65.8,
+  "totals": {
+    "kcal": 1915,
+    "carb": 248,
+    "protein": 62,
+    "fat": 72,
+    "fibre": 17,
+    "sugar": 72,
+    "activityKcal": 0,
+    "activityMinutes": 0
+  },
+  "resolvedAt": "2026-09-11T22:18-04:00",
+  "estimate": "Portions estimated from free-text logs; database values per 100 g; activity kcal = MET × kg × h."
+}
