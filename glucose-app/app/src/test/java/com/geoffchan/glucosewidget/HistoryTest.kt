@@ -113,12 +113,8 @@ class DoseDefaultTest {
         for (d in java.time.DayOfWeek.entries) assertEquals(4, defaultUnits("short-acting", d))
     }
 
-    @Test fun `long acting is 19 on weekdays and 25 Fri through Sun`() {
-        assertEquals(19, defaultUnits("long-acting", java.time.DayOfWeek.MONDAY))
-        assertEquals(19, defaultUnits("long-acting", java.time.DayOfWeek.THURSDAY))
-        assertEquals(25, defaultUnits("long-acting", java.time.DayOfWeek.FRIDAY))
-        assertEquals(25, defaultUnits("long-acting", java.time.DayOfWeek.SATURDAY))
-        assertEquals(25, defaultUnits("long-acting", java.time.DayOfWeek.SUNDAY))
+    @Test fun `long acting is 19 every day, weekends included`() {
+        for (d in java.time.DayOfWeek.entries) assertEquals(19, defaultUnits("long-acting", d))
     }
 }
 
@@ -259,12 +255,10 @@ class LatestMarkerTest {
 }
 
 class MorningRoutineTest {
-    @Test fun `routine is 4u short, 19 or 25u long, coffee, all at 10 30`() {
-        assertEquals(
-            listOf("dose: short-acting 4u @ 10:30", "dose: long-acting 19u @ 10:30", "event: coffee @ 10:30"),
-            morningRoutine(java.time.DayOfWeek.WEDNESDAY),
-        )
-        assertEquals("dose: long-acting 25u @ 10:30", morningRoutine(java.time.DayOfWeek.SATURDAY)[1])
+    @Test fun `routine is 4u short, 19u long, coffee, all at 10 30, any day`() {
+        val expected = listOf("dose: short-acting 4u @ 10:30", "dose: long-acting 19u @ 10:30", "event: coffee @ 10:30")
+        assertEquals(expected, morningRoutine(java.time.DayOfWeek.WEDNESDAY))
+        assertEquals(expected, morningRoutine(java.time.DayOfWeek.SATURDAY))
     }
 
     @Test fun `hand-logged entries of the same kind suppress their routine twin`() {

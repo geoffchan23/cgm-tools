@@ -41,16 +41,13 @@ fun weekStartOf(date: LocalDate): LocalDate =
 fun isTagEntry(text: String): Boolean = text.startsWith("#") && !text.contains(" ")
 
 /**
- * Geoff's dosing routine: short-acting is 4u; long-acting is 19u on
- * weekdays and 25u Friday through Sunday. Prefills the dose dialog.
+ * Geoff's dosing routine: short-acting is 4u; long-acting is 19u every day
+ * (the 25u Friday-to-Sunday variant was dropped 2026-09-12). Prefills the
+ * dose dialog. [dayOfWeek] is kept so a day-dependent rule can return.
  */
-fun defaultUnits(type: String, dayOfWeek: java.time.DayOfWeek): Int = when {
-    type == "long-acting" && dayOfWeek in listOf(
-        java.time.DayOfWeek.FRIDAY, java.time.DayOfWeek.SATURDAY, java.time.DayOfWeek.SUNDAY,
-    ) -> 25
-    type == "long-acting" -> 19
-    else -> 4
-}
+@Suppress("UNUSED_PARAMETER")
+fun defaultUnits(type: String, dayOfWeek: java.time.DayOfWeek): Int =
+    if (type == "long-acting") 19 else 4
 
 /** Geoff's fixed morning routine, auto-logged daily (see [MorningRoutine]). */
 const val ROUTINE_TIME = "10:30"

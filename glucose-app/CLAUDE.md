@@ -67,7 +67,7 @@ broadcasts to non-exported receivers. With several ADB devices attached
 ## Morning routine (auto-logged)
 
 Every day at 10:30 the app logs `dose: short-acting 4u @ 10:30`,
-`dose: long-acting <19|25>u @ 10:30` (19 weekdays, 25 Fri–Sun) and
+`dose: long-acting 19u @ 10:30` (19 every day since 2026-09-12) and
 `event: coffee @ 10:30`. `MorningRoutine.ensure()` runs inside the
 5-minute refresh worker: first run after 10:30 local inserts whatever is
 missing and stamps `routineLoggedDay` in DataStore. A hand-logged dose of
