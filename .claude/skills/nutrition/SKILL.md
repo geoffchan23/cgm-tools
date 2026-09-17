@@ -34,9 +34,12 @@ Rules of thumb:
   `qty` ("3 cookies", "half medium pizza", "1 mug") and the number in `grams`.
 - **Standing recipes** (`python3 analysis/nutrition.py recipes`): a log of
   just `coffee` is ALWAYS her fixed drink (creamer + 1 cup 2% milk + 3
-  Sweet'N Low + Pike Place, ~30 g carbs) — write the item as
-  `{"recipe": "coffee"}` and the script expands it. Add new recipes to
-  `analysis/nutrition/recipes.json` when Geoff states a fixed one.
+  Sweet'N Low + Pike Place, ~30 g carbs) and a bare `chicken burger` is
+  ALWAYS the GV bun + Janes patty + 2 tbsp Chick-fil-A sauce + 20 g cheddar
+  build (~45 g carbs) — write the item as `{"recipe": "coffee"}` /
+  `{"recipe": "chicken burger"}` and the script expands it. A *named*
+  restaurant burger ("Popeyes chicken burger") is NOT the recipe. Add new
+  recipes to `analysis/nutrition/recipes.json` when Geoff states a fixed one.
 - Typical portions when unstated: a "snack" of chips ≈ 30 g;
   a cookie ≈ 11 g; a donut ≈ 60 g; a fast-food burger ≈ 150 g; a side salad
   ≈ 100 g; "half a medium pizza" ≈ 4 slices ≈ 400 g; a curry puff ≈ 80 g;

@@ -49,8 +49,15 @@ fun isTagEntry(text: String): Boolean = text.startsWith("#") && !text.contains("
 fun defaultUnits(type: String, dayOfWeek: java.time.DayOfWeek): Int =
     if (type == "long-acting") 19 else 4
 
-/** Geoff's fixed morning routine, auto-logged daily (see [MorningRoutine]). */
+/** Geoff's fixed morning routine, auto-logged daily (see [Routines]). */
 const val ROUTINE_TIME = "10:30"
+
+/** Monday-to-Thursday dinner, auto-logged (see [Routines]). */
+const val EVENING_ROUTINE_TIME = "17:30"
+const val EVENING_ROUTINE_UNITS = 6
+
+/** Minute of day splitting the morning routine's window from the evening's. */
+const val ROUTINE_SPLIT_MINUTE = 15 * 60
 
 fun morningRoutine(dayOfWeek: java.time.DayOfWeek): List<String> = listOf(
     doseNoteText("short-acting", "${defaultUnits("short-acting", dayOfWeek)}u", ROUTINE_TIME),
@@ -59,16 +66,46 @@ fun morningRoutine(dayOfWeek: java.time.DayOfWeek): List<String> = listOf(
 )
 
 /**
- * Routine entries not yet covered by what's logged today. A dose of the same
- * type, or an event with the same name, counts as covered regardless of its
- * time or units, so a hand-logged 10:25 dose doesn't get a 10:30 twin.
+ * Mon-Thu only: 6u short-acting and a chicken burger at 17:30. Friday
+ * through Sunday dinner varies too much to guess, so nothing is logged.
  */
-fun routineMissing(routine: List<String>, todayTexts: List<String>): List<String> {
-    val doseTypes = todayTexts.mapNotNull { parseDoseNote(it)?.isShort }.toSet()
-    val events = todayTexts.mapNotNull { parseEventNote(it)?.name?.lowercase() }.toSet()
+fun eveningRoutine(dayOfWeek: java.time.DayOfWeek): List<String> = when (dayOfWeek) {
+    java.time.DayOfWeek.MONDAY, java.time.DayOfWeek.TUESDAY,
+    java.time.DayOfWeek.WEDNESDAY, java.time.DayOfWeek.THURSDAY -> listOf(
+        doseNoteText("short-acting", "${EVENING_ROUTINE_UNITS}u", EVENING_ROUTINE_TIME),
+        eventNoteText("chicken burger", EVENING_ROUTINE_TIME),
+    )
+    else -> emptyList()
+}
+
+/**
+ * Routine entries not yet covered by what's already logged in [fromMinute]
+ * until [toMinute]. A dose of the same type counts as covered regardless of
+ * its units, so a hand-logged 10:25 dose doesn't get a 10:30 twin. The window
+ * matters: without it the morning's short-acting would suppress the evening's.
+ *
+ * [anyEventCovers] decides how food is matched. The morning routine matches by
+ * name (coffee is near-certain, so add it even if toast was logged); the
+ * evening routine sets it true, so any dinner already logged — pizza, takeout —
+ * suppresses the default chicken burger instead of double-logging a meal.
+ */
+fun routineMissing(
+    routine: List<String>,
+    todayTexts: List<String>,
+    fromMinute: Int = 0,
+    toMinute: Int = 24 * 60,
+    anyEventCovers: Boolean = false,
+): List<String> {
+    fun inWindow(minute: Int) = minute >= fromMinute && minute < toMinute
+    val doseTypes = todayTexts.mapNotNull { parseDoseNote(it) }
+        .filter { inWindow(it.minuteOfDay) }.map { it.isShort }.toSet()
+    val events = todayTexts.mapNotNull { parseEventNote(it) }
+        .filter { inWindow(it.minuteOfDay) }.map { it.name.lowercase() }
     return routine.filter { r ->
         parseDoseNote(r)?.let { it.isShort !in doseTypes }
-            ?: parseEventNote(r)?.let { it.name.lowercase() !in events }
+            ?: parseEventNote(r)?.let {
+                if (anyEventCovers) events.isEmpty() else it.name.lowercase() !in events
+            }
             ?: true
     }
 }

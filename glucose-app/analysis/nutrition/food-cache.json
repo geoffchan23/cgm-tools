@@ -529,5 +529,113 @@
       ]
     ],
     "cachedAt": "2026-09-11"
+  },
+  "off:0070200790148": {
+    "name": "Sauce (Chick-fil-A)",
+    "per100g": {
+      "kcal": 516.13,
+      "carb": 22.58,
+      "protein": 0,
+      "fat": 45.16,
+      "fibre": 0,
+      "sugar": 22.58
+    },
+    "measures": [
+      [
+        "1 Serving (31 g)",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-17"
+  },
+  "off:0070200870383": {
+    "name": "Sweet & Spicy Sriracha Sauce (Chick-fil-A)",
+    "per100g": {
+      "kcal": 166.67,
+      "carb": 38.89,
+      "protein": 0,
+      "fat": 0,
+      "fibre": 0,
+      "sugar": 36.11
+    },
+    "measures": [
+      [
+        "36g",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-17"
+  },
+  "off:0070200790261": {
+    "name": "Barbeque Sauce (Chick-fil-A)",
+    "per100g": {
+      "kcal": 166.67,
+      "carb": 38.9,
+      "protein": 0,
+      "fat": 0,
+      "fibre": null,
+      "sugar": 30.6
+    },
+    "measures": [
+      [
+        "1 portion (36 g)",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-17"
+  },
+  "off:0070200790063": {
+    "name": "Polynesian Sauce (Chick-fil-A)",
+    "per100g": {
+      "kcal": 388.89,
+      "carb": 47.22,
+      "protein": 0,
+      "fat": 22.22,
+      "fibre": 0,
+      "sugar": 44.44
+    },
+    "measures": [
+      [
+        "36g",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-17"
+  },
+  "off:0070200856141": {
+    "name": "Chick-fil-A garden herb ranch (Chick fil a garden herb ranch)",
+    "per100g": {
+      "kcal": 482.76,
+      "carb": 3.45,
+      "protein": 0,
+      "fat": 51.72,
+      "fibre": 0,
+      "sugar": 0
+    },
+    "measures": [
+      [
+        "29g",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-17"
+  },
+  "off:0070200790056": {
+    "name": "Sauce (Chick-fil-A)",
+    "per100g": {
+      "kcal": 516.13,
+      "carb": 22.58,
+      "protein": 0,
+      "fat": 45.16,
+      "fibre": 0,
+      "sugar": 22.58
+    },
+    "measures": [
+      [
+        "1 portion (31 g)",
+        null
+      ]
+    ],
+    "cachedAt": "2026-09-17"
   }
 }

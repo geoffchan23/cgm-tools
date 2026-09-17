@@ -64,7 +64,7 @@ eats stdin); the receiver is DUMP-guarded because Android skips shell
 broadcasts to non-exported receivers. With several ADB devices attached
 (phone, watch), pass the serial: `tools/pull-db.sh <ip:port>`.
 
-## Morning routine (auto-logged)
+## Auto-logged routines
 
 Every day at 10:30 the app logs `dose: short-acting 4u @ 10:30`,
 `dose: long-acting 19u @ 10:30` (19 every day since 2026-09-12) and
@@ -74,6 +74,14 @@ missing and stamps `routineLoggedDay` in DataStore. A hand-logged dose of
 the same type or an event named coffee that day suppresses its routine
 twin (any time/units), so a 10:25 hand entry doesn't get a 10:30 double.
 Wrong-day entries are just deleted in the app like any other row.
+
+Mon-Thu also gets an **evening routine** at 17:30: `dose: short-acting 6u`
+and `event: chicken burger` (added 2026-09-17). Fri-Sun dinner varies, so
+nothing is logged. Dedupe is windowed at `ROUTINE_SPLIT_MINUTE` (15:00) so
+the morning's short-acting doesn't suppress the evening's, and the evening
+meal is suppressed by *any* food already logged after 15:00 rather than by
+name — a logged pizza means no phantom burger. Both live in `Routines.kt`
+with their own DataStore day-marker.
 
 ## Widget
 
@@ -96,7 +104,8 @@ Central (`search --usda`, DEMO_KEY ≈10 req/h). Non-CNF hits are cached in
 `nutrition/food-cache.json`. Activities use `nutrition/met.json` (2024
 Compendium) × `config.json` weightKg (65.8 kg ≈ 145 lb). Standing recipes
 in `nutrition/recipes.json` — `coffee` is always creamer + 1 cup 2% milk +
-3 Sweet'N Low + Pike Place (~30 g carbs), never black. All committed;
+3 Sweet'N Low + Pike Place (~30 g carbs), never black; `chicken burger` is
+always GV bun + Janes patty + 2 tbsp Chick-fil-A sauce + 20 g cheddar. All committed;
 they are part of the dataset. `report.py` shows carbs on meal markers, a
 per-day line and weekly averages, labelled as estimates; unparsed days say
 so. `weekly-report.sh` prints which days are unparsed; the weekly-report

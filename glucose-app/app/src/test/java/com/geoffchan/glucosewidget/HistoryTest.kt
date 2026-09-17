@@ -270,4 +270,49 @@ class MorningRoutineTest {
         )
         assertTrue(routineMissing(routine, routine).isEmpty())
     }
+
+    @Test fun `evening routine is 6u and a chicken burger, Mon-Thu only`() {
+        val expected = listOf("dose: short-acting 6u @ 17:30", "event: chicken burger @ 17:30")
+        for (d in listOf(
+            java.time.DayOfWeek.MONDAY, java.time.DayOfWeek.TUESDAY,
+            java.time.DayOfWeek.WEDNESDAY, java.time.DayOfWeek.THURSDAY,
+        )) assertEquals(expected, eveningRoutine(d))
+        for (d in listOf(
+            java.time.DayOfWeek.FRIDAY, java.time.DayOfWeek.SATURDAY, java.time.DayOfWeek.SUNDAY,
+        )) assertTrue(eveningRoutine(d).isEmpty())
+    }
+
+    @Test fun `the morning dose does not suppress the evening one`() {
+        val evening = eveningRoutine(java.time.DayOfWeek.TUESDAY)
+        val morningLogged = morningRoutine(java.time.DayOfWeek.TUESDAY)
+        assertEquals(
+            evening,
+            routineMissing(evening, morningLogged, ROUTINE_SPLIT_MINUTE, 24 * 60, anyEventCovers = true),
+        )
+    }
+
+    @Test fun `any dinner already logged suppresses the default chicken burger`() {
+        val evening = eveningRoutine(java.time.DayOfWeek.WEDNESDAY)
+        // A different dinner: the meal is covered, the dose is still due.
+        assertEquals(
+            listOf("dose: short-acting 6u @ 17:30"),
+            routineMissing(evening, listOf("event: pizza @ 18:00"), ROUTINE_SPLIT_MINUTE, 24 * 60, anyEventCovers = true),
+        )
+        // Both logged by hand: nothing to add.
+        assertTrue(
+            routineMissing(
+                evening, listOf("event: pizza @ 18:00", "dose: short-acting 5u @ 17:45"),
+                ROUTINE_SPLIT_MINUTE, 24 * 60, anyEventCovers = true,
+            ).isEmpty(),
+        )
+    }
+
+    @Test fun `an evening entry does not suppress the morning routine`() {
+        val morning = morningRoutine(java.time.DayOfWeek.MONDAY)
+        assertEquals(
+            morning,
+            routineMissing(morning, listOf("dose: short-acting 6u @ 17:30", "event: chicken burger @ 17:30"),
+                0, ROUTINE_SPLIT_MINUTE),
+        )
+    }
 }

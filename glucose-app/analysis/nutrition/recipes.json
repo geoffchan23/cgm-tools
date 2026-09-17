@@ -41,5 +41,56 @@
         }
       }
     ]
+  },
+  "chicken burger": {
+    "note": "Her standing chicken burger, per Geoff 2026-09-17: Great Value burger bun, 1 Janes breaded chicken burger patty, 2 tbsp Chick-fil-A sauce, 20 g cheddar. ~45 g carbs.",
+    "items": [
+      {
+        "name": "Great Value burger bun",
+        "qty": "1 bun",
+        "grams": 52,
+        "source": {
+          "db": "cnf",
+          "code": 3985
+        },
+        "note": "CNF plain hamburger roll; GV bun ≈ 52 g"
+      },
+      {
+        "name": "Janes chicken burger patty",
+        "qty": "1 patty",
+        "grams": 100,
+        "source": {
+          "db": "manual",
+          "name": "Janes breaded chicken burger patty (typical frozen breaded chicken burger)",
+          "per100g": {
+            "kcal": 250,
+            "carb": 16,
+            "protein": 14,
+            "fat": 14,
+            "fibre": 1.2,
+            "sugar": 0.8
+          }
+        }
+      },
+      {
+        "name": "Chick-fil-A sauce",
+        "qty": "2 tbsp",
+        "grams": 31,
+        "source": {
+          "db": "off",
+          "code": "0070200790148"
+        },
+        "note": "OFF serving is 31 g ≈ 2 tbsp"
+      },
+      {
+        "name": "cheddar cheese",
+        "qty": "20 g",
+        "grams": 20,
+        "source": {
+          "db": "cnf",
+          "code": 119
+        }
+      }
+    ]
   }
 }
