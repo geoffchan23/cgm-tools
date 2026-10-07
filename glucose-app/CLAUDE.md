@@ -146,6 +146,37 @@ likewise. Dose/log rows come straight from Room (last 3 days) at render
 time; the app calls `GlucoseWidget().updateAll()` after every journal
 save/delete, and the 5-min refresh keeps the reading age current.
 
+## Watch (voice log from her Pixel Watch 2)
+
+`wear/` is a Wear OS module: launcher app **Glucose Log** plus a tile
+with one big mic button. She speaks ("took 6 units and a chicken
+burger"); the watch sends the transcript to her phone (the main phone)
+over the Wearable Data Layer; the phone replies with rows; she unticks
+anything wrong and taps Save; the phone writes them to today via
+`Journal` and the watch buzzes ✓. Paths and JSON are in
+`WatchProtocol.kt` (phone) and `wear/…/Protocol.kt` (watch) — change
+both together. The wear APK must keep applicationId
+`com.geoffchan.glucosewidget` and the same debug key as the phone app,
+or the phone never hears it. Only a phone with `isMainPhone` answers.
+
+Parsing: `WatchListenerService` tries Gemini Nano first (5 s), but
+AICore refuses background use (error 30) — the usual case with the
+phone in a pocket — so `parseSpoken` (`SpokenEntry.kt`, deterministic,
+unit-tested) does most of the work: number words, "19 and 4" (19/20 →
+long), insulin brand/slang words, "at 5:30" / "an hour ago" /
+"this morning", "walked 20 minutes" → `20 min walk`; anything without a
+time is stamped now. Rows matching an existing entry come back
+"already logged" (unticked); a match on a guess confirms it. Logcat tag
+`WatchLog` shows which parser ran and the rows.
+
+```bash
+adb -s <watch-ip:port> install -r wear/build/outputs/apk/debug/wear-debug.apk
+```
+
+Then on the watch: swipe to the end of the tiles → **+ Add tile** →
+**Glucose log**. (Watch ADB: Settings → Developer options → Wireless
+debugging → pair once; it drops when the watch sleeps off-charger.)
+
 ## Nutrition & activity estimates (analysis/nutrition/)
 
 Per-day JSON (`analysis/nutrition/<day>.json`) with each logged event

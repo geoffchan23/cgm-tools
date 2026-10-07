@@ -60,6 +60,17 @@
             android:exported="true"
             android:permission="android.permission.DUMP" />
 
+        <!-- Her watch's voice log (wear module, same applicationId). Messages
+             only arrive from paired nodes signed with the same key. -->
+        <service
+            android:name=".WatchListenerService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/log/" />
+            </intent-filter>
+        </service>
+
         <receiver
             android:name=".BootReceiver"
             android:exported="true">

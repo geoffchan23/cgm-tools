@@ -61,6 +61,10 @@ dependencies {
     // On-device Gemini Nano (AICore) for "Describe in words"; no network model.
     implementation("com.google.mlkit:genai-prompt:1.0.0-beta2") // beta3+ pulls Kotlin 2.3 stdlib; beta2 needs Kotlin >= 2.1 (2.2 metadata)
 
+    // Her watch's voice log talks to this app over the Wearable Data Layer (WatchListenerService).
+    implementation("com.google.android.gms:play-services-wearable:19.0.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
+
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
 }
