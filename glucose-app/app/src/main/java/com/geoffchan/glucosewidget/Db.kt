@@ -21,7 +21,7 @@ data class ReadingEntity(
     val trend: String,
 )
 
-@Entity(tableName = "journal")
+@Entity(tableName = "journal", indices = [androidx.room.Index(value = ["uid"], unique = true)])
 data class JournalEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     // For scope "day": the local date "YYYY-MM-DD".
@@ -31,6 +31,18 @@ data class JournalEntity(
     val createdAtMs: Long,
     val updatedAtMs: Long,
     @androidx.room.ColumnInfo(defaultValue = "day") val scope: String = SCOPE_DAY,
+    // Same on every phone: how her phone and Geoff's match a row when syncing.
+    // [id] is local only (autoincrement differs per device).
+    @androidx.room.ColumnInfo(defaultValue = "") val uid: String = newUid(),
+)
+
+fun newUid(): String = java.util.UUID.randomUUID().toString().replace("-", "")
+
+/** A deleted row, remembered so the delete can sync to the other phone. */
+@Entity(tableName = "journal_tombstones")
+data class JournalTombstone(
+    @PrimaryKey val uid: String,
+    val deletedAtMs: Long,
 )
 
 const val SCOPE_DAY = "day"
@@ -59,9 +71,28 @@ interface GlucoseDao {
     @Query("SELECT * FROM journal WHERE id = :id")
     suspend fun journalById(id: Long): JournalEntity?
 
+    @Query("SELECT * FROM journal WHERE uid = :uid")
+    suspend fun journalByUid(uid: String): JournalEntity?
+
+    // Journal writes go through [Journal] (which keeps sync informed), not these directly.
     @Insert suspend fun insertJournal(entry: JournalEntity): Long
     @Update suspend fun updateJournal(entry: JournalEntity)
     @Delete suspend fun deleteJournal(entry: JournalEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTombstone(t: JournalTombstone)
+
+    @Query("SELECT * FROM journal_tombstones WHERE uid = :uid")
+    suspend fun tombstone(uid: String): JournalTombstone?
+
+    @Query("DELETE FROM journal_tombstones WHERE uid = :uid")
+    suspend fun clearTombstone(uid: String)
+
+    @Query("SELECT * FROM journal WHERE updatedAtMs >= :sinceMs")
+    suspend fun journalUpdatedSince(sinceMs: Long): List<JournalEntity>
+
+    @Query("SELECT * FROM journal_tombstones WHERE deletedAtMs >= :sinceMs")
+    suspend fun tombstonesSince(sinceMs: Long): List<JournalTombstone>
 }
 
 val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
@@ -70,7 +101,17 @@ val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
     }
 }
 
-@Database(entities = [ReadingEntity::class, JournalEntity::class], version = 2, exportSchema = false)
+/** v3: per-row [JournalEntity.uid] (backfilled) + tombstones, for two-phone sync. */
+val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE journal ADD COLUMN uid TEXT NOT NULL DEFAULT ''")
+        db.execSQL("UPDATE journal SET uid = lower(hex(randomblob(16))) WHERE uid = ''")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_journal_uid ON journal (uid)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS journal_tombstones (uid TEXT NOT NULL, deletedAtMs INTEGER NOT NULL, PRIMARY KEY(uid))")
+    }
+}
+
+@Database(entities = [ReadingEntity::class, JournalEntity::class, JournalTombstone::class], version = 3, exportSchema = false)
 abstract class GlucoseDb : RoomDatabase() {
     abstract fun dao(): GlucoseDao
 
@@ -79,7 +120,7 @@ abstract class GlucoseDb : RoomDatabase() {
 
         fun get(context: Context): GlucoseDb = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, GlucoseDb::class.java, "glucose.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build().also { instance = it }
         }
     }

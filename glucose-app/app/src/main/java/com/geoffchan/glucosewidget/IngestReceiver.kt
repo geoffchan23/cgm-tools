@@ -39,14 +39,15 @@ class IngestReceiver : BroadcastReceiver() {
                     "insert" -> {
                         val text = intent.getStringExtra("text") ?: return@launch
                         val now = System.currentTimeMillis()
-                        dao.insertJournal(
+                        Journal.insert(
+                            context,
                             JournalEntity(day = day, text = text, createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY),
                         )
                         GlucoseWidget().updateAll(context)
                     }
                     "delete" -> {
                         val id = intent.getLongExtra("id", -1L)
-                        dao.journalById(id)?.let { dao.deleteJournal(it) }
+                        dao.journalById(id)?.let { Journal.delete(context, it) }
                         GlucoseWidget().updateAll(context)
                     }
                     "report-ready" -> intent.getStringExtra("name")?.let { ReportNotification.show(context, it) }

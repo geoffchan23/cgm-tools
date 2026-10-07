@@ -18,6 +18,7 @@ import java.time.ZonedDateTime
  */
 object Routines {
     suspend fun ensure(context: Context, zone: ZoneId = ZoneId.systemDefault()) {
+        if (!Store.isMainPhone(context)) return // the main phone logs; sync brings them here
         val now = ZonedDateTime.now(zone)
         val today = now.toLocalDate().toString()
         val nowMinute = now.toLocalTime().toSecondOfDay() / 60
@@ -37,7 +38,8 @@ object Routines {
             val texts = dao.dayJournalSince(today).filter { it.day == today }.map { it.text }
             val nowMs = System.currentTimeMillis()
             for (text in routineMissing(routine, texts, from, to, anyEventCovers)) {
-                dao.insertJournal(
+                Journal.insert(
+                    context,
                     JournalEntity(day = today, text = text, createdAtMs = nowMs, updatedAtMs = nowMs, scope = SCOPE_DAY),
                 )
             }

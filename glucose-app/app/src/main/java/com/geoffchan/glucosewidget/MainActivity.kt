@@ -260,7 +260,7 @@ class MainActivity : ComponentActivity() {
                                                 // Claude's inference from the curve: Keep confirms it as-is
                                                 TextButton(onClick = {
                                                     scope.launch {
-                                                        dao.updateJournal(
+                                                        Journal.update(this@MainActivity, 
                                                             entry.copy(text = confirmGuess(entry.text), updatedAtMs = System.currentTimeMillis()),
                                                         )
                                                         GlucoseWidget().updateAll(this@MainActivity)
@@ -341,7 +341,7 @@ class MainActivity : ComponentActivity() {
                                             createdAtMs = now, updatedAtMs = now, scope = mode,
                                         )
                                     scope.launch {
-                                        if (editing != null) dao.updateJournal(toSave) else dao.insertJournal(toSave)
+                                        if (editing != null) Journal.update(this@MainActivity, toSave) else Journal.insert(this@MainActivity, toSave)
                                         GlucoseWidget().updateAll(this@MainActivity)
                                         adding = false; editing = null
                                     }
@@ -433,11 +433,11 @@ class MainActivity : ComponentActivity() {
                                     scope.launch {
                                         if (toEdit != null) {
                                             // Edit keeps the entry's day and creation time; only the note changes.
-                                            dao.updateJournal(toEdit.copy(text = text, updatedAtMs = now))
+                                            Journal.update(this@MainActivity, toEdit.copy(text = text, updatedAtMs = now))
                                         } else {
                                             // Like food logs: the day being viewed (day mode), so
                                             // yesterday's dose can be backfilled; today in week mode.
-                                            dao.insertJournal(
+                                            Journal.insert(this@MainActivity,
                                                 JournalEntity(
                                                     day = (if (isWeek) LocalDate.now(zone) else day).toString(), text = text,
                                                     createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY,
@@ -488,10 +488,10 @@ class MainActivity : ComponentActivity() {
                                     val toEdit = editingLog
                                     scope.launch {
                                         if (toEdit != null) {
-                                            dao.updateJournal(toEdit.copy(text = text, updatedAtMs = now))
+                                            Journal.update(this@MainActivity, toEdit.copy(text = text, updatedAtMs = now))
                                         } else {
                                             // Logs go to the day being viewed, so yesterday can be backfilled.
-                                            dao.insertJournal(
+                                            Journal.insert(this@MainActivity,
                                                 JournalEntity(
                                                     day = (if (isWeek) LocalDate.now(zone) else day).toString(), text = text,
                                                     createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY,
@@ -521,14 +521,14 @@ class MainActivity : ComponentActivity() {
                             val now = System.currentTimeMillis()
                             scope.launch {
                                 for (text in inserts) {
-                                    dao.insertJournal(
+                                    Journal.insert(this@MainActivity,
                                         JournalEntity(
                                             day = target.toString(), text = text,
                                             createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY,
                                         ),
                                     )
                                 }
-                                for ((guess, text) in confirms) dao.updateJournal(guess.copy(text = text, updatedAtMs = now))
+                                for ((guess, text) in confirms) Journal.update(this@MainActivity, guess.copy(text = text, updatedAtMs = now))
                                 GlucoseWidget().updateAll(this@MainActivity)
                                 describing = false
                             }
@@ -544,7 +544,7 @@ class MainActivity : ComponentActivity() {
                         confirmButton = {
                             Button(onClick = {
                                 scope.launch {
-                                    dao.deleteJournal(doomed)
+                                    Journal.delete(this@MainActivity, doomed)
                                     GlucoseWidget().updateAll(this@MainActivity)
                                     deleting = null
                                 }

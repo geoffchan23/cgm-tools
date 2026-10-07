@@ -81,6 +81,20 @@ object Store {
         context.dataStore.edit { it[KEY_EVENING_ROUTINE_DAY] = day }
     }
 
+    private val KEY_IS_MAIN = androidx.datastore.preferences.core.booleanPreferencesKey("isMainPhone")
+
+    /**
+     * The main phone (hers, from 2026-10) runs the auto-routines and takes
+     * watch entries; the other phone (Geoff's) syncs but never auto-logs,
+     * so routines aren't inserted twice. Defaults to main.
+     */
+    suspend fun isMainPhone(context: Context): Boolean =
+        context.dataStore.data.first()[KEY_IS_MAIN] ?: true
+
+    suspend fun saveIsMainPhone(context: Context, main: Boolean) {
+        context.dataStore.edit { it[KEY_IS_MAIN] = main }
+    }
+
     // --- credentials + session ---
 
     private fun securePrefs(context: Context) = EncryptedSharedPreferences.create(
