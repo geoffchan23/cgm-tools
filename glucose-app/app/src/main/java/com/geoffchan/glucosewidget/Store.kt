@@ -166,6 +166,16 @@ object Store {
         securePrefs(context).edit().remove("syncKey").remove("syncTopic").commit()
     }
 
+    private val KEY_WATCH_QUEUED_IDS = stringPreferencesKey("watchQueuedIds")
+
+    /** Ids of watch entries queued while offline that were already saved (newest last). */
+    suspend fun watchQueuedIds(context: Context): List<String> =
+        context.dataStore.data.first()[KEY_WATCH_QUEUED_IDS]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList()
+
+    suspend fun saveWatchQueuedIds(context: Context, ids: List<String>) {
+        context.dataStore.edit { it[KEY_WATCH_QUEUED_IDS] = ids.joinToString(",") }
+    }
+
     // --- credentials + session ---
 
     private fun securePrefs(context: Context) = EncryptedSharedPreferences.create(

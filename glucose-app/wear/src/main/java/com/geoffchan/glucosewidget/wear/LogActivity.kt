@@ -55,6 +55,7 @@ class LogActivity : ComponentActivity() {
         data class Thinking(val transcript: String, val saving: Boolean = false) : Ui
         data class Confirm(val transcript: String, val rows: List<Row>) : Ui
         data class Done(val summary: String) : Ui
+        data class Queued(val transcript: String) : Ui
         data class Error(val message: String) : Ui
     }
 
@@ -75,6 +76,8 @@ class LogActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent { MaterialTheme { Scaffold(timeText = { TimeText() }) { Screen() } } }
         if (savedInstanceState == null) listen()
+        // Anything held from when the phone was away goes out now, quietly.
+        if (WatchQueue.all(this).isNotEmpty()) lifecycleScope.launch { runCatching { WatchQueue.flush(applicationContext) } }
     }
 
     private fun listen() {
@@ -94,7 +97,7 @@ class LogActivity : ComponentActivity() {
             ui = try {
                 val p = decodeProposal(link.request(Protocol.PATH_PARSE, transcript, Protocol.PATH_PROPOSAL))
                 when {
-                    !p.ok -> Ui.Error(p.error ?: "The phone couldn't read that.")
+                    !p.ok -> Ui.Error(p.error ?: READ_FAILED)
                     p.rows.isEmpty() -> Ui.Error("Didn't catch any doses or food — try again.\n\n“$transcript”")
                     else -> {
                         checked.clear()
@@ -103,9 +106,11 @@ class LogActivity : ComponentActivity() {
                     }
                 }
             } catch (e: PhoneUnreachable) {
-                Ui.Error(e.message.orEmpty())
+                // Don't lose it: hold it here; the phone saves it as a guess when it's back.
+                WatchQueue.add(applicationContext, transcript)
+                Ui.Queued(transcript)
             } catch (e: Exception) {
-                Ui.Error("Something went wrong: ${e.message}")
+                Ui.Error(READ_FAILED)
             }
         }
     }
@@ -116,15 +121,15 @@ class LogActivity : ComponentActivity() {
         lifecycleScope.launch {
             try {
                 val s = decodeSaved(link.request(Protocol.PATH_SAVE, encodeSave(texts), Protocol.PATH_SAVED))
-                if (!s.ok) { ui = Ui.Error(s.error ?: "The phone couldn't save that."); return@launch }
+                if (!s.ok) { ui = Ui.Error(s.error ?: SAVE_FAILED); return@launch }
                 ui = Ui.Done(savedSummary(s))
                 buzz()
                 delay(1_500)
                 finish()
             } catch (e: PhoneUnreachable) {
-                ui = Ui.Error(e.message.orEmpty())
+                ui = Ui.Error("${e.message} Your entry wasn't saved — try again.")
             } catch (e: Exception) {
-                ui = Ui.Error("Something went wrong: ${e.message}")
+                ui = Ui.Error(SAVE_FAILED)
             }
         }
     }
@@ -141,7 +146,7 @@ class LogActivity : ComponentActivity() {
             is Ui.Thinking -> Centered {
                 CircularProgressIndicator()
                 Text(
-                    if (s.saving) "Saving…" else "“${s.transcript}”",
+                    if (s.saving) "Saving…" else "Reading on your phone…\n“${s.transcript}”",
                     textAlign = TextAlign.Center, maxLines = 3, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.caption1,
                     modifier = Modifier.padding(top = 8.dp),
@@ -151,6 +156,26 @@ class LogActivity : ComponentActivity() {
             is Ui.Done -> Centered {
                 Text("✓", fontSize = 48.sp, color = MaterialTheme.colors.primary)
                 Text(s.summary, textAlign = TextAlign.Center, style = MaterialTheme.typography.body2)
+            }
+            is Ui.Queued -> ScalingLazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = 32.dp, start = 10.dp, end = 10.dp, bottom = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                item {
+                    Text(
+                        "Saved on your watch — I'll send it when your phone is back.",
+                        textAlign = TextAlign.Center, style = MaterialTheme.typography.body2,
+                    )
+                }
+                item {
+                    Text(
+                        "“${s.transcript}”", textAlign = TextAlign.Center, maxLines = 3, overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.caption2, color = MaterialTheme.colors.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
+                item { Chip(onClick = { finish() }, label = { Text("OK") }, colors = ChipDefaults.primaryChipColors(), modifier = Modifier.fillMaxWidth()) }
             }
             is Ui.Error -> ScalingLazyColumn(
                 Modifier.fillMaxSize(),
@@ -209,6 +234,11 @@ class LogActivity : ComponentActivity() {
             item { Chip(onClick = { listen() }, label = { Text("Say again") }, colors = ChipDefaults.secondaryChipColors(), modifier = Modifier.fillMaxWidth()) }
             item { Chip(onClick = { finish() }, label = { Text("Cancel") }, colors = ChipDefaults.secondaryChipColors(), modifier = Modifier.fillMaxWidth()) }
         }
+    }
+
+    private companion object {
+        const val READ_FAILED = "Your phone couldn't read that — try again."
+        const val SAVE_FAILED = "Your phone couldn't save that — try again."
     }
 
     @Composable

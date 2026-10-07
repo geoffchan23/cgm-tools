@@ -149,7 +149,9 @@ save/delete, and the 5-min refresh keeps the reading age current.
 ## Watch (voice log from her Pixel Watch 2)
 
 `wear/` is a Wear OS module: launcher app **Glucose Log** plus a tile
-with one big mic button. She speaks ("took 6 units and a chicken
+with one big mic button — and, the way she normally gets in, **tapping
+the time on her Big Glucose watch face** (a WFF `<Launch>` on the clock;
+see watch-face/CLAUDE.md). She speaks ("took 6 units and a chicken
 burger"); the watch sends the transcript to her phone (the main phone)
 over the Wearable Data Layer; the phone replies with rows; she unticks
 anything wrong and taps Save; the phone writes them to today via
@@ -159,21 +161,50 @@ both together. The wear APK must keep applicationId
 `com.geoffchan.glucosewidget` and the same debug key as the phone app,
 or the phone never hears it. Only a phone with `isMainPhone` answers.
 
-Parsing: `WatchListenerService` tries Gemini Nano first (5 s), but
-AICore refuses background use (error 30) — the usual case with the
-phone in a pocket — so `parseSpoken` (`SpokenEntry.kt`, deterministic,
-unit-tested) does most of the work: number words, "19 and 4" (19/20 →
-long), insulin brand/slang words, "at 5:30" / "an hour ago" /
-"this morning", "walked 20 minutes" → `20 min walk`; anything without a
-time is stamped now. Rows matching an existing entry come back
-"already logged" (unticked); a match on a guess confirms it. Logcat tag
-`WatchLog` shows which parser ran and the rows.
+Parsing (`WatchParse` in `WatchListenerService.kt`), in order:
+1. **Gemini Nano in-process** (4 s) — works only if the app happens to be
+   on screen; otherwise AICore answers error 30 (BACKGROUND_USE_BLOCKED:
+   inference is for the top foreground app only, foreground services
+   included).
+2. **Nano over the lock screen**: a full-screen-intent notification
+   (silent channel "Watch voice log", CATEGORY_CALL) opens the invisible
+   `NanoParseActivity` (showWhenLocked + turnScreenOn), which runs the
+   prompt and hands the answer back through `NanoBridge`. Her screen
+   lights for a few seconds and **stays locked**. Proven on a Pixel 9 Pro
+   (Android 17): locked → ~4–7 s. A plain background `startActivity` is
+   BAL-blocked even with SYSTEM_ALERT_WINDOW, hence the notification.
+   If she's using the phone, the FSI shows as a heads-up instead; after
+   12 s it falls back to rules (tapping the heads-up runs Nano).
+   **Her phone needs, once:**
+   `adb shell appops set com.geoffchan.glucosewidget USE_FULL_SCREEN_INTENT allow`
+   (Android 14+ doesn't grant it to non-call apps) and the AICore model
+   downloaded (open "Describe in words" once, or `op describe-test`).
+3. **`parseSpoken`** (`SpokenEntry.kt`, deterministic): number words,
+   "19 and 4" (19/20 → long), insulin brand/slang words, "at 5:30" /
+   "an hour ago" / "this morning", "walked 20 minutes" → `20 min walk`.
+   Good for short in-the-moment phrases; weak on paragraphs.
+Anything without a time is stamped now. Rows matching an existing entry
+come back "already logged" (unticked); a match on a guess confirms it.
+Logcat tag `WatchLog` shows which parser ran (`nano`, `nano-screen`,
+`rules`), the latency and the rows. The watch waits up to 25 s.
+
+Test without a watch (same code path, read-only):
+`adb shell am broadcast -n com.geoffchan.glucosewidget/.IngestReceiver --es op watch-parse-test --es text "'took 6 and a chicken burger'"`
+
+**Phone out of reach:** the watch keeps the transcript (`WatchQueue`,
+SharedPreferences) and says "Saved on your watch — I'll send it when your
+phone is back." It's sent on the next app open and by a WorkManager job
+retrying every few minutes (`QueueFlushWorker`), on `/log/queued`. The
+phone parses it with rules (no one can confirm it), times relative to
+when she spoke, and saves the rows as **guesses** to that day — she or
+Geoff confirms with Keep. Idempotent by id (`Store.watchQueuedIds`, last
+50), so a resend after a lost ack never double-logs.
 
 ```bash
 adb -s <watch-ip:port> install -r wear/build/outputs/apk/debug/wear-debug.apk
 ```
 
-Then on the watch: swipe to the end of the tiles → **+ Add tile** →
+The tile is optional: swipe to the end of the tiles → **+ Add tile** →
 **Glucose log**. (Watch ADB: Settings → Developer options → Wireless
 debugging → pair once; it drops when the watch sleeps off-charger.)
 

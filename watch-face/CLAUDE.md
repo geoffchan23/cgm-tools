@@ -77,6 +77,13 @@ rendered much bigger, with `mmol/L` and the timestamp dropped.
   arrowless text ("--" during warm-up), it sits ~50 right of center — known,
   accepted. Verified pixel-exact: number center 191.5/384, arrow fully clear
   of the round edge.
+- **Tap the time → voice log** (2026-10-07): the clock `PartText` carries
+  `<Launch target="com.geoffchan.glucosewidget/com.geoffchan.glucosewidget.wear.LogActivity"/>`,
+  which opens Glucose Log (glucose-app's `:wear` module) straight into the
+  mic. Nothing visual changed; the glucose complication keeps its own tap
+  (Glucose Watch). If Glucose Log isn't installed, Wear offers the Play
+  Store — install `wear-debug.apk` first. `Launch` is valid in any `Part*`
+  (validator v1.7.0, format 2).
 
 ## Remaining deltas / possible next steps
 

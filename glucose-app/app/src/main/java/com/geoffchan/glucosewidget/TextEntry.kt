@@ -141,6 +141,7 @@ Rules:
 - type is exactly "short-acting" or "long-acting". "19+4" means two doses. If the person says which is which, follow that. Otherwise the 19 or 20 is long-acting and the other is short-acting. A dose without a type is short-acting.
 - units is a whole number.
 - time is 24-hour "HH:mm". Use a time the person states ("at 7pm" is "19:00"). Otherwise: breakfast or morning coffee "10:30", lunch "13:00", afternoon snack "15:00", dinner "17:30", dessert or evening snack "21:30", bedtime "23:00". A dose taken with a meal gets that meal's time. If you cannot tell the time, use null.
+- A stated time belongs only to the item it is attached to. A meal word wins for its own items: in "dinner was a chicken burger with 6, and a cookie around 7", the chicken burger and the 6 units are "17:30" and only the cookie is "19:00".
 - name is short and lowercase, using the person's words: "pizza hut pizza", "30 min walk". Keep "coffee" and "chicken burger" exactly as written.
 - Do not log food the person says they did not eat. Do not invent anything.
 

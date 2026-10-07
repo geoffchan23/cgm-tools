@@ -24,6 +24,11 @@ import kotlinx.coroutines.launch
  *       rows. Read-only; nothing is saved. (AICore may refuse while the app
  *       is in the background — the log says so.)
  *
+ *   adb shell am broadcast -n .../.IngestReceiver --es op watch-parse-test --es text "'took 6 and a chicken burger'"
+ *     → logcat tag "WatchLog": the exact proposal her watch would get (same
+ *       code path: Nano in-process, then over the lock screen, else rules).
+ *       Read-only. Needs the main phone.
+ *
  * Two-phone sync (see [Sync]); the same key + topic go to both phones:
  *   … --es op sync-setup --es key <base64 32 bytes> --es topic <secret> --ez main true|false
  *   … --es op sync-now      (publish outbox + poll)
@@ -73,6 +78,10 @@ class IngestReceiver : BroadcastReceiver() {
                     "sync-resend" -> { Sync.queueRecent(context, Sync.RESEND_WINDOW_MS); Sync.enqueue(context) }
                     "sync-reset" -> { Sync.reset(context); android.util.Log.i("Sync", "reset") }
                     "describe-test" -> describeTest(intent.getStringExtra("text").orEmpty())
+                    "watch-parse-test" -> android.util.Log.i(
+                        WatchParse.TAG,
+                        "watch-parse-test → " + WatchParse.propose(context, intent.getStringExtra("text").orEmpty()),
+                    )
                 }
             } finally {
                 pending.finish()

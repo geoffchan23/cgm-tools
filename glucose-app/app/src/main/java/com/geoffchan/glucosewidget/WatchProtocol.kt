@@ -12,12 +12,20 @@ import org.json.JSONObject
  *   phone → watch  /log/proposal  {"ok","error","parser","rows":[{text,label,time,status}]}
  *   watch → phone  /log/save      {"texts":[...]}   (canonical journal texts, as proposed)
  *   phone → watch  /log/saved     {"ok","error","saved","confirmed","already"}
+ *
+ * Said while the phone was out of reach (no confirm screen was possible):
+ *   watch → phone  /log/queued     {"id","text","spokenAtMs"}
+ *   phone → watch  /log/queued-ack {"id","ok","saved","duplicate"}
+ * The phone saves those rows as guesses; a resend of the same id is acked
+ * without saving again.
  */
 object WatchProtocol {
     const val PATH_PARSE = "/log/parse"
     const val PATH_PROPOSAL = "/log/proposal"
     const val PATH_SAVE = "/log/save"
     const val PATH_SAVED = "/log/saved"
+    const val PATH_QUEUED = "/log/queued"
+    const val PATH_QUEUED_ACK = "/log/queued-ack"
 
     const val STATUS_NEW = "new"
     const val STATUS_ALREADY = "already" // a non-guess entry already covers it; watch starts it unticked
@@ -93,5 +101,40 @@ fun planWatchSave(texts: List<String>, existing: List<JournalEntity>): List<Watc
             }
             else -> WatchSaveOp.Already(text)
         }
+    }
+}
+
+/** One entry the watch held while the phone was unreachable. */
+data class QueuedEntry(val id: String, val text: String, val spokenAtMs: Long)
+
+fun decodeQueued(json: String): QueuedEntry? = runCatching {
+    val o = JSONObject(json)
+    QueuedEntry(o.getString("id"), o.getString("text"), o.getLong("spokenAtMs")).takeIf { it.id.isNotBlank() }
+}.getOrNull()
+
+fun encodeQueuedAck(id: String, saved: Int, duplicate: Boolean, error: String? = null): String = JSONObject()
+    .put("id", id).put("ok", error == null).put("error", error ?: JSONObject.NULL)
+    .put("saved", saved).put("duplicate", duplicate)
+    .toString()
+
+/**
+ * Idempotency for queued entries: the new remembered-id list if [id] is
+ * new (oldest dropped past [keep]), or null if it was already saved.
+ */
+fun rememberQueuedId(recent: List<String>, id: String, keep: Int = 50): List<String>? =
+    if (id in recent) null else (recent + id).takeLast(keep)
+
+/**
+ * Journal texts for a queued entry: each row as a guess (no one confirmed
+ * it on the watch), minus anything [existing] already covers — a confirmed
+ * entry or an earlier guess of the same thing.
+ */
+fun planQueuedSave(rows: List<ProposedEntry>, existing: List<JournalEntity>): List<String> {
+    val seen = existing.toMutableList()
+    return rows.mapNotNull { p ->
+        val text = p.noteText() ?: return@mapNotNull null
+        if (matchExisting(p, seen) != null) return@mapNotNull null
+        seen += JournalEntity(day = "", text = text, createdAtMs = 0, updatedAtMs = 0)
+        text + GUESS_SUFFIX
     }
 }

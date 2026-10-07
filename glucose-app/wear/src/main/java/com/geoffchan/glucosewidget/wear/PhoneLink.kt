@@ -15,7 +15,7 @@ class PhoneUnreachable(message: String) : Exception(message)
  * time (the UI is a single linear flow).
  */
 class PhoneLink(private val context: Context) {
-    suspend fun request(path: String, body: String, replyPath: String, timeoutMs: Long = 15_000): String {
+    suspend fun request(path: String, body: String, replyPath: String, timeoutMs: Long = 25_000): String {
         val nodes = Wearable.getNodeClient(context).connectedNodes.await()
         val phone = nodes.firstOrNull { it.isNearby } ?: nodes.firstOrNull()
             ?: throw PhoneUnreachable("Can't reach your phone. Is Bluetooth on and the phone nearby?")
@@ -28,7 +28,7 @@ class PhoneLink(private val context: Context) {
         try {
             client.sendMessage(phone.id, path, body.toByteArray(Charsets.UTF_8)).await()
             return withTimeoutOrNull(timeoutMs) { reply.await() }
-                ?: throw PhoneUnreachable("Your phone didn't answer. Open Glucose Widget on the phone and try again.")
+                ?: throw PhoneUnreachable("Your phone didn't answer in time.")
         } finally {
             client.removeListener(listener)
         }
