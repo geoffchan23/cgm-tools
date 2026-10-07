@@ -29,8 +29,10 @@ VERY_LOW, VERY_HIGH = 3.0, 13.9
 READINGS_PER_DAY = 288  # 5-minute cadence
 BIN_MIN = 15            # overlay bin width
 
-DOSE_RE = re.compile(r"^dose: (.+) (\d+)\S* @ (\d{1,2}):(\d{2})$")
-EVENT_RE = re.compile(r"^event: (.+) @ (\d{1,2}):(\d{2})$")
+# " (guess)" marks rows Claude inferred from the curve (fill-gaps skill);
+# they're plotted with a trailing "?" so the endo can tell them apart.
+DOSE_RE = re.compile(r"^dose: (.+) (\d+)\S* @ (\d{1,2}):(\d{2})( \(guess\))?$")
+EVENT_RE = re.compile(r"^event: (.+?) @ (\d{1,2}):(\d{2})( \(guess\))?$")
 
 
 def pct(v, p):
@@ -57,14 +59,14 @@ def load(db, days):
             continue
         m = DOSE_RE.match(text)
         if m:
-            name, units, hh, mm = m.groups()
-            journal.append(dict(day=day, kind="dose", label=f"{units}u", short="long" not in name.lower(),
+            name, units, hh, mm, guess = m.groups()
+            journal.append(dict(day=day, kind="dose", label=f"{units}u" + ("?" if guess else ""), short="long" not in name.lower(),
                                 minute=int(hh) * 60 + int(mm)))
             continue
         m = EVENT_RE.match(text)
         if m:
-            name, hh, mm = m.groups()
-            journal.append(dict(day=day, kind="event", label=name.strip(), minute=int(hh) * 60 + int(mm)))
+            name, hh, mm, guess = m.groups()
+            journal.append(dict(day=day, kind="event", label=name.strip() + ("?" if guess else ""), minute=int(hh) * 60 + int(mm)))
     return readings, journal, first_day, last_day
 
 

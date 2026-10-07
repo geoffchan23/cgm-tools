@@ -52,7 +52,7 @@ DB = HERE.parent / "data" / "glucose.db"
 CACHE = NUT / "food-cache.json"
 UA = "cgm-tools/1.0 (personal analysis; github.com/geoffchan23/cgm-tools)"
 MACROS = ("kcal", "carb", "protein", "fat", "fibre", "sugar")
-EVENT_RE = re.compile(r"^event: (.+) @ (\d{1,2}):(\d{2})$")
+EVENT_RE = re.compile(r"^event: (.+?) @ (\d{1,2}):(\d{2})( \(guess\))?$")  # guesses: fill-gaps skill
 
 
 def load_json(p, default=None):
@@ -194,8 +194,8 @@ def events_for(day):
     for (text,) in c.execute("SELECT text FROM journal WHERE scope='day' AND day=? AND text LIKE 'event: %' ORDER BY id", (day,)):
         m = EVENT_RE.match(text)
         if m:
-            name, hh, mm = m.groups()
-            out.append(dict(text=name.strip(), minute=int(hh) * 60 + int(mm)))
+            name, hh, mm, guess = m.groups()
+            out.append(dict(text=name.strip(), minute=int(hh) * 60 + int(mm), guess=bool(guess)))
     return sorted(out, key=lambda e: e["minute"])
 
 
