@@ -7,7 +7,7 @@ import java.time.ZonedDateTime
 
 /**
  * Auto-logs Geoff's fixed routines once per local day:
- *  - morning (every day, 10:30): short-acting, long-acting, coffee
+ *  - morning (10:30; Sundays 14:00): short-acting, long-acting, coffee
  *  - evening (Mon-Thu, 17:30): 6u short-acting, chicken burger
  *
  * Runs from the 5-minute refresh worker, so entries appear within a few
@@ -45,7 +45,7 @@ object Routines {
         }
 
         run(
-            morningRoutine(now.dayOfWeek), ROUTINE_TIME, 0, ROUTINE_SPLIT_MINUTE, false,
+            morningRoutine(now.dayOfWeek), morningRoutineTime(now.dayOfWeek), 0, ROUTINE_SPLIT_MINUTE, false,
             Store.routineLoggedDay(context),
         ) { Store.saveRoutineLoggedDay(context, it) }
 

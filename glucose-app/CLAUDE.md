@@ -38,6 +38,27 @@ entries are free-text summaries. Conventions inside `journal.text`:
   `event: lunch @ 12:40`, `event: 30 min walk @ 18:00`. Logged from the
   "Log food/exercise" dialog to the day being viewed. Plotted as teal
   diamonds on the chart; shown in the notes list as "12:40 PM · lunch".
+- **Guesses** (Claude's inferences from the curve): the normal dose or
+  event text plus the literal suffix ` (guess)`, e.g.
+  `dose: short-acting 6u @ 17:30 (guess)`, `event: pizza @ 18:00 (guess)`.
+  Both parsers accept it (`isGuess`); the chart draws them dashed and
+  dimmer with a trailing `?` ("6u?", "pizza?"), the notes list labels
+  them "guess" with a **Keep** button that strips the suffix, and editing
+  one in the dose/log dialog saves it confirmed. The widget ignores
+  guesses; routines treat them as covering (no double-logging). Insert
+  them with the receiver like any row.
+- **Describe in words** (FAB menu): a paragraph goes to on-device Gemini
+  Nano (ML Kit GenAI Prompt API, AICore; nothing leaves the phone, never
+  the Claude API). It answers JSON; `TextEntry.kt` validates strictly
+  (`parseBreakdown`) and the confirm list shows each row with editable
+  time/units/name. Rows matching an entry already logged (same dose type
+  or event name within ±60 min, `matchExisting`) start unchecked as
+  "already logged"; a row matching a guess starts checked and saving
+  confirms that guess with the stated values. Saves to the day being
+  viewed (today in week mode). Inference only runs with the app in the
+  foreground (AICore error 30 otherwise); the model downloads on first
+  use. Debug: `--es op describe-test --es text "'…'"` logs status, raw
+  output and parsed rows to logcat tag `Describe` (read-only).
 - **Legacy day tags**: an entry whose whole text is `#sick` etc. Hidden
   from the list; treat as boolean day flags. Chips UI removed 2026-09-02.
 - Times are stored 24-hour; the UI shows 12-hour with AM/PM.
@@ -66,7 +87,7 @@ broadcasts to non-exported receivers. With several ADB devices attached
 
 ## Auto-logged routines
 
-Every day at 10:30 the app logs `dose: short-acting 4u @ 10:30`,
+Every day at 10:30 (Sundays 14:00, since 2026-10-07) the app logs `dose: short-acting 4u @ 10:30`,
 `dose: long-acting 19u @ 10:30` (19 every day since 2026-09-12) and
 `event: coffee @ 10:30`. `MorningRoutine.ensure()` runs inside the
 5-minute refresh worker: first run after 10:30 local inserts whatever is
@@ -131,6 +152,11 @@ it). Log:
 `data/weekly-report.log`. The generated report is gitignored (health data).
 
 ## Build & deploy
+
+Kotlin 2.1.21 + KSP1 (`ksp.useKSP2=false`: Room 2.6.1 breaks under KSP2).
+ML Kit `genai-prompt` is pinned at 1.0.0-beta2 — beta3+ pulls the Kotlin
+2.3 stdlib; beta2's 2.2 metadata needs Kotlin ≥ 2.1. `maxOutputTokens` is
+capped at 256 by the API.
 
 ```bash
 export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home

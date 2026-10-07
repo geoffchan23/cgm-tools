@@ -255,10 +255,18 @@ class LatestMarkerTest {
 }
 
 class MorningRoutineTest {
-    @Test fun `routine is 4u short, 19u long, coffee, all at 10 30, any day`() {
+    @Test fun `routine is 4u short, 19u long, coffee, at 10 30 Monday to Saturday`() {
         val expected = listOf("dose: short-acting 4u @ 10:30", "dose: long-acting 19u @ 10:30", "event: coffee @ 10:30")
         assertEquals(expected, morningRoutine(java.time.DayOfWeek.WEDNESDAY))
         assertEquals(expected, morningRoutine(java.time.DayOfWeek.SATURDAY))
+    }
+
+    @Test fun `Sunday routine is the same at 14 00`() {
+        val expected = listOf("dose: short-acting 4u @ 14:00", "dose: long-acting 19u @ 14:00", "event: coffee @ 14:00")
+        assertEquals(expected, morningRoutine(java.time.DayOfWeek.SUNDAY))
+        assertEquals("14:00", morningRoutineTime(java.time.DayOfWeek.SUNDAY))
+        // still inside the morning window, so the evening routine can't swallow it
+        assertTrue(14 * 60 < ROUTINE_SPLIT_MINUTE)
     }
 
     @Test fun `hand-logged entries of the same kind suppress their routine twin`() {

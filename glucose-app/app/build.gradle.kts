@@ -58,6 +58,8 @@ dependencies {
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    // On-device Gemini Nano (AICore) for "Describe in words"; no network model.
+    implementation("com.google.mlkit:genai-prompt:1.0.0-beta2") // beta3+ pulls Kotlin 2.3 stdlib; beta2 needs Kotlin >= 2.1 (2.2 metadata)
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

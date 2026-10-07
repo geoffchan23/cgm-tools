@@ -82,6 +82,7 @@ class MainActivity : ComponentActivity() {
                 var editingDose by remember { mutableStateOf<JournalEntity?>(null) } // set alongside dosing
                 var logging by remember { mutableStateOf(false) }
                 var editingLog by remember { mutableStateOf<JournalEntity?>(null) } // set alongside logging
+                var describing by remember { mutableStateOf(false) }
                 val scope = rememberCoroutineScope()
 
                 val today = LocalDate.now(zone)
@@ -116,6 +117,10 @@ class MainActivity : ComponentActivity() {
                                 androidx.compose.material3.DropdownMenuItem(
                                     text = { Text("Log dose") },
                                     onClick = { showAddMenu = false; dosing = true },
+                                )
+                                androidx.compose.material3.DropdownMenuItem(
+                                    text = { Text("Describe in words") },
+                                    onClick = { showAddMenu = false; describing = true },
                                 )
                                 if (isWeek) {
                                     androidx.compose.material3.DropdownMenuItem(
@@ -251,6 +256,17 @@ class MainActivity : ComponentActivity() {
                                                 Modifier.weight(1f).padding(vertical = 8.dp),
                                                 style = MaterialTheme.typography.bodyMedium,
                                             )
+                                            if (isGuessEntry(entry.text)) {
+                                                // Claude's inference from the curve: Keep confirms it as-is
+                                                TextButton(onClick = {
+                                                    scope.launch {
+                                                        dao.updateJournal(
+                                                            entry.copy(text = confirmGuess(entry.text), updatedAtMs = System.currentTimeMillis()),
+                                                        )
+                                                        GlucoseWidget().updateAll(this@MainActivity)
+                                                    }
+                                                }) { Text("Keep") }
+                                            }
                                             TextButton(onClick = {
                                                 when {
                                                     parseDoseNote(entry.text) != null -> { editingDose = entry; dosing = true }
@@ -489,6 +505,34 @@ class MainActivity : ComponentActivity() {
                             ) { Text("Save") }
                         },
                         dismissButton = { TextButton(onClick = { closeLog() }) { Text("Cancel") } },
+                    )
+                }
+
+                if (describing) {
+                    // Like the other dialogs: the day being viewed, today in week mode.
+                    val target = if (isWeek) LocalDate.now(zone) else day
+                    val targetEntries by dao.journalFor(SCOPE_DAY, target.toString())
+                        .collectAsState(initial = emptyList())
+                    DescribeDialog(
+                        title = "Describe in words — ${target.format(DateTimeFormatter.ofPattern("MMM d", Locale.CANADA))}",
+                        existing = targetEntries,
+                        onDismiss = { describing = false },
+                        onSave = { inserts, confirms ->
+                            val now = System.currentTimeMillis()
+                            scope.launch {
+                                for (text in inserts) {
+                                    dao.insertJournal(
+                                        JournalEntity(
+                                            day = target.toString(), text = text,
+                                            createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY,
+                                        ),
+                                    )
+                                }
+                                for ((guess, text) in confirms) dao.updateJournal(guess.copy(text = text, updatedAtMs = now))
+                                GlucoseWidget().updateAll(this@MainActivity)
+                                describing = false
+                            }
+                        },
                     )
                 }
 

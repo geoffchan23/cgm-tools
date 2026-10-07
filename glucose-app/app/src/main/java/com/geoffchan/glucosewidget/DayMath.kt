@@ -52,6 +52,12 @@ fun defaultUnits(type: String, dayOfWeek: java.time.DayOfWeek): Int =
 /** Geoff's fixed morning routine, auto-logged daily (see [Routines]). */
 const val ROUTINE_TIME = "10:30"
 
+/** Sundays the morning routine happens around 2 pm (Geoff, 2026-10-07). */
+const val SUNDAY_ROUTINE_TIME = "14:00"
+
+fun morningRoutineTime(dayOfWeek: java.time.DayOfWeek): String =
+    if (dayOfWeek == java.time.DayOfWeek.SUNDAY) SUNDAY_ROUTINE_TIME else ROUTINE_TIME
+
 /** Monday-to-Thursday dinner, auto-logged (see [Routines]). */
 const val EVENING_ROUTINE_TIME = "17:30"
 const val EVENING_ROUTINE_UNITS = 6
@@ -59,11 +65,13 @@ const val EVENING_ROUTINE_UNITS = 6
 /** Minute of day splitting the morning routine's window from the evening's. */
 const val ROUTINE_SPLIT_MINUTE = 15 * 60
 
-fun morningRoutine(dayOfWeek: java.time.DayOfWeek): List<String> = listOf(
-    doseNoteText("short-acting", "${defaultUnits("short-acting", dayOfWeek)}u", ROUTINE_TIME),
-    doseNoteText("long-acting", "${defaultUnits("long-acting", dayOfWeek)}u", ROUTINE_TIME),
-    eventNoteText("coffee", ROUTINE_TIME),
-)
+fun morningRoutine(dayOfWeek: java.time.DayOfWeek): List<String> = morningRoutineTime(dayOfWeek).let { t ->
+    listOf(
+        doseNoteText("short-acting", "${defaultUnits("short-acting", dayOfWeek)}u", t),
+        doseNoteText("long-acting", "${defaultUnits("long-acting", dayOfWeek)}u", t),
+        eventNoteText("coffee", t),
+    )
+}
 
 /**
  * Mon-Thu only: 6u short-acting and a chicken burger at 17:30. Friday
@@ -114,13 +122,25 @@ fun routineMissing(
 fun doseNoteText(name: String, amount: String, time: String): String =
     "dose: ${name.trim()} ${amount.trim()} @ $time"
 
-data class DoseNote(val isShort: Boolean, val units: Int, val minuteOfDay: Int) {
+/**
+ * Suffix Claude Code appends to entries it inferred from the glucose curve
+ * (`dose: short-acting 6u @ 17:30 (guess)`). Drawn hollow on the chart until
+ * "Keep" in the notes list strips it; editing one also saves it confirmed.
+ */
+const val GUESS_SUFFIX = " (guess)"
+
+fun isGuessEntry(text: String): Boolean = text.endsWith(GUESS_SUFFIX)
+
+/** The confirmed form of a guess: same entry, suffix removed. */
+fun confirmGuess(text: String): String = text.removeSuffix(GUESS_SUFFIX)
+
+data class DoseNote(val isShort: Boolean, val units: Int, val minuteOfDay: Int, val isGuess: Boolean = false) {
     /** Canonical type name, as the dose dialog's chips and [doseNoteText] use it. */
     val insulinType: String get() = if (isShort) "short-acting" else "long-acting"
     val time: java.time.LocalTime get() = java.time.LocalTime.of(minuteOfDay / 60, minuteOfDay % 60)
 }
 
-data class EventNote(val name: String, val minuteOfDay: Int) {
+data class EventNote(val name: String, val minuteOfDay: Int, val isGuess: Boolean = false) {
     val time: java.time.LocalTime get() = java.time.LocalTime.of(minuteOfDay / 60, minuteOfDay % 60)
 }
 
@@ -134,8 +154,8 @@ fun time12(t: java.time.LocalTime): String = t.format(TIME_12H)
 
 /** Notes-list rendering: timed entries read "12:40 PM · lunch"; anything else is shown raw. */
 fun entryLabel(text: String): String {
-    parseDoseNote(text)?.let { return "${time12(it.time)} · ${it.units}u ${it.insulinType}" }
-    parseEventNote(text)?.let { return "${time12(it.time)} · ${it.name}" }
+    parseDoseNote(text)?.let { return "${time12(it.time)} · ${it.units}u ${it.insulinType}" + if (it.isGuess) " · guess" else "" }
+    parseEventNote(text)?.let { return "${time12(it.time)} · ${it.name}" + if (it.isGuess) " · guess" else "" }
     return text
 }
 
@@ -160,13 +180,13 @@ private fun instantOf(day: String, minuteOfDay: Int, zone: ZoneId): Long =
 
 fun latestDose(entries: List<JournalEntity>, zone: ZoneId): LastLog? =
     entries.asSequence()
-        .filter { it.scope == SCOPE_DAY }
+        .filter { it.scope == SCOPE_DAY && !isGuessEntry(it.text) } // the widget shows what's known
         .mapNotNull { e -> parseDoseNote(e.text)?.let { d -> LastLog("${if (d.isShort) "▲" else "△"} ${d.units}u", instantOf(e.day, d.minuteOfDay, zone)) } }
         .maxByOrNull { it.atMs }
 
 fun latestEvent(entries: List<JournalEntity>, zone: ZoneId): LastLog? =
     entries.asSequence()
-        .filter { it.scope == SCOPE_DAY }
+        .filter { it.scope == SCOPE_DAY && !isGuessEntry(it.text) }
         .mapNotNull { e -> parseEventNote(e.text)?.let { ev -> LastLog("◆ ${ev.name}", instantOf(e.day, ev.minuteOfDay, zone)) } }
         .maxByOrNull { it.atMs }
 
@@ -185,7 +205,7 @@ fun relativeAge(atMs: Long, nowMs: Long): String {
     }
 }
 
-private val EVENT_RE = Regex("""^event: (.+) @ (\d{1,2}):(\d{2})$""")
+private val EVENT_RE = Regex("""^event: (.+) @ (\d{1,2}):(\d{2})( \(guess\))?$""")
 
 /**
  * Parse a food/exercise log (`event: coffee @ 10:30`). Logged from the app's
@@ -194,8 +214,8 @@ private val EVENT_RE = Regex("""^event: (.+) @ (\d{1,2}):(\d{2})$""")
  */
 fun parseEventNote(text: String): EventNote? {
     val m = EVENT_RE.find(text) ?: return null
-    val (name, hh, mm) = m.destructured
-    return EventNote(name.trim(), hh.toInt() * 60 + mm.toInt())
+    val (name, hh, mm, guess) = m.destructured
+    return EventNote(name.trim(), hh.toInt() * 60 + mm.toInt(), isGuess = guess.isNotEmpty())
 }
 
 /** Entries the notes list hides: legacy tag chips only. Logs and doses are shown. */
@@ -205,28 +225,29 @@ fun isDerivedEntry(text: String): Boolean = isTagEntry(text)
 fun markerData(
     entries: List<JournalEntity>,
     firstDay: LocalDate,
-): Pair<List<Pair<Float, DoseNote>>, List<Pair<Float, String>>> {
+): Pair<List<Pair<Float, DoseNote>>, List<Pair<Float, EventNote>>> {
     val doses = mutableListOf<Pair<Float, DoseNote>>()
-    val events = mutableListOf<Pair<Float, String>>()
+    val events = mutableListOf<Pair<Float, EventNote>>()
     for (e in entries) {
         if (e.scope != SCOPE_DAY) continue
         val dayOffset = java.time.temporal.ChronoUnit.DAYS.between(firstDay, LocalDate.parse(e.day)).toInt()
         parseDoseNote(e.text)?.let { doses += (dayOffset * 1440f + it.minuteOfDay) to it }
-        parseEventNote(e.text)?.let { events += (dayOffset * 1440f + it.minuteOfDay) to it.name }
+        parseEventNote(e.text)?.let { events += (dayOffset * 1440f + it.minuteOfDay) to it }
     }
     return doses to events
 }
 
-private val DOSE_RE = Regex("""^dose: (.+) (\d+)\S* @ (\d{1,2}):(\d{2})$""")
+private val DOSE_RE = Regex("""^dose: (.+) (\d+)\S* @ (\d{1,2}):(\d{2})( \(guess\))?$""")
 
 /** Parse a dose journal entry; legacy free-name notes count as short-acting. */
 fun parseDoseNote(text: String): DoseNote? {
     val m = DOSE_RE.find(text) ?: return null
-    val (name, units, hh, mm) = m.destructured
+    val (name, units, hh, mm, guess) = m.destructured
     return DoseNote(
         isShort = !name.contains("long", ignoreCase = true),
         units = units.toInt(),
         minuteOfDay = hh.toInt() * 60 + mm.toInt(),
+        isGuess = guess.isNotEmpty(),
     )
 }
 

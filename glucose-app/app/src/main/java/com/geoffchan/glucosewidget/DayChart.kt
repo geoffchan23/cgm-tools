@@ -54,7 +54,7 @@ fun RangeChart(
     lowMmol: Double = Store.DEFAULT_LOW,
     highMmol: Double = Store.DEFAULT_HIGH,
     doses: List<Pair<Float, DoseNote>> = emptyList(), // minute-of-range to dose
-    events: List<Pair<Float, String>> = emptyList(), // minute-of-range to event name
+    events: List<Pair<Float, EventNote>> = emptyList(), // minute-of-range to event
 ) {
     val density = LocalDensity.current
     val (startMs, endMs) = rangeBoundsMs(firstDay, days, zone)
@@ -196,7 +196,14 @@ fun RangeChart(
 
             // dose markers: purple triangles below the curve — filled for
             // short-acting, outlined for long-acting, units labeled beside.
+            // Claude's guesses are dashed outlines at half strength, "4u?".
             val dosePurple = Color(0xFFD0BCFF)
+            val guessStroke = androidx.compose.ui.graphics.drawscope.Stroke(
+                width = with(density) { 1.5.dp.toPx() },
+                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(
+                    with(density) { floatArrayOf(3.dp.toPx(), 2.dp.toPx()) },
+                ),
+            )
             val triH = with(density) { 9.dp.toPx() }
             val dosePaint = android.graphics.Paint().apply {
                 this.color = android.graphics.Color.argb(0xFF, 0xD0, 0xBC, 0xFF)
@@ -226,14 +233,15 @@ fun RangeChart(
                     lineTo(x + triH * 0.6f, baseY)
                     close()
                 }
-                if (dose.isShort) {
-                    drawPath(path, dosePurple)
-                } else {
-                    drawPath(path, dosePurple, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f))
+                when {
+                    dose.isGuess -> drawPath(path, dosePurple.copy(alpha = 0.55f), style = guessStroke)
+                    dose.isShort -> drawPath(path, dosePurple)
+                    else -> drawPath(path, dosePurple, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f))
                 }
                 if (visibleMinutes <= 2880f) {
+                    dosePaint.alpha = if (dose.isGuess) 0x8C else 0xFF
                     drawIntoCanvas {
-                        it.nativeCanvas.drawText("${dose.units}u", x + triH * 0.8f, baseY - 2f, dosePaint)
+                        it.nativeCanvas.drawText("${dose.units}u" + if (dose.isGuess) "?" else "", x + triH * 0.8f, baseY - 2f, dosePaint)
                     }
                 }
             }
@@ -248,7 +256,7 @@ fun RangeChart(
             }
             var evPrevX = Float.NEGATIVE_INFINITY
             var evLevel = 0
-            for ((minute, name) in events.sortedBy { it.first }) {
+            for ((minute, event) in events.sortedBy { it.first }) {
                 if (minute < viewStartMin - 5 || minute > viewEndMin + 5) continue
                 val x = xOf(minute)
                 evLevel = if (x - evPrevX < diaR * 12f && visibleMinutes <= 2880f) evLevel + 1 else 0
@@ -264,10 +272,16 @@ fun RangeChart(
                 val path = androidx.compose.ui.graphics.Path().apply {
                     moveTo(x, cy - diaR); lineTo(x + diaR, cy); lineTo(x, cy + diaR); lineTo(x - diaR, cy); close()
                 }
-                drawPath(path, eventTeal)
+                // a guess is a hollow, dimmer diamond labelled "pizza?"
+                if (event.isGuess) {
+                    drawPath(path, eventTeal.copy(alpha = 0.6f), style = guessStroke)
+                } else {
+                    drawPath(path, eventTeal)
+                }
                 if (visibleMinutes <= 2880f) {
+                    eventPaint.alpha = if (event.isGuess) 0x99 else 0xFF
                     drawIntoCanvas {
-                        it.nativeCanvas.drawText(name, x + diaR + 3f, cy + eventPaint.textSize / 3, eventPaint)
+                        it.nativeCanvas.drawText(event.name + if (event.isGuess) "?" else "", x + diaR + 3f, cy + eventPaint.textSize / 3, eventPaint)
                     }
                 }
             }

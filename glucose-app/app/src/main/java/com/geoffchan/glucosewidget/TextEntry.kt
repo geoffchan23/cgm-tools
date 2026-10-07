@@ -1,0 +1,153 @@
+package com.geoffchan.glucosewidget
+
+import org.json.JSONArray
+import org.json.JSONObject
+import java.time.LocalTime
+
+/**
+ * "Describe in words": a paragraph goes to on-device Gemini Nano, which
+ * answers with JSON; everything here is the deterministic half — the prompt,
+ * strict validation of what the model said, and matching against what's
+ * already logged. Nothing here trusts the model: a row that doesn't validate
+ * is dropped (and counted), and the user confirms every row before saving.
+ */
+
+/** One row the breakdown proposes. [time] null = not stated; the user must set it. */
+data class ProposedEntry(
+    val isDose: Boolean,
+    val insulinType: String? = null, // "short-acting" | "long-acting", doses only
+    val units: Int? = null, // 1..100, doses only
+    val name: String? = null, // events only
+    val time: LocalTime? = null,
+) {
+    /** The canonical journal text, or null until a time is set. */
+    fun noteText(): String? {
+        val t = time ?: return null
+        val hhmm = "%02d:%02d".format(t.hour, t.minute)
+        return if (isDose) doseNoteText(insulinType!!, "${units}u", hhmm) else eventNoteText(name!!, hhmm)
+    }
+
+    val minuteOfDay: Int? get() = time?.let { it.hour * 60 + it.minute }
+}
+
+/** Validated rows plus how many the model produced that didn't pass. */
+data class Breakdown(val entries: List<ProposedEntry>, val rejected: Int)
+
+private val HHMM = Regex("""^(\d{1,2}):(\d{2})$""")
+
+/** "17:30" → 17:30; anything else (including "evening", "25:00") → null. */
+fun parseHhmm(s: String?): LocalTime? {
+    val m = HHMM.find(s?.trim() ?: return null) ?: return null
+    val (h, mm) = m.destructured
+    val hour = h.toInt(); val minute = mm.toInt()
+    if (hour !in 0..23 || minute !in 0..59) return null
+    return LocalTime.of(hour, minute)
+}
+
+/**
+ * Parse the model's answer. Tolerates the wrapping small models add (```json
+ * fences, a sentence before the JSON); the rows themselves are strict:
+ * kind dose|event, type short-acting|long-acting, whole units 1..100, a
+ * non-blank event name. A missing or malformed time keeps the row with a null
+ * time so the confirm list asks for it, rather than inventing one.
+ */
+fun parseBreakdown(raw: String): Breakdown {
+    val rows = extractRows(raw) ?: return Breakdown(emptyList(), rejected = 1)
+    val ok = mutableListOf<ProposedEntry>()
+    var rejected = 0
+    for (i in 0 until rows.length()) {
+        val row = rows.optJSONObject(i)
+        val parsed = row?.let { parseRow(it) }
+        if (parsed == null) rejected++ else ok += parsed
+    }
+    return Breakdown(ok, rejected)
+}
+
+private fun extractRows(raw: String): JSONArray? {
+    val text = raw.replace("```json", "").replace("```", "").trim()
+    val obj = text.indexOf('{').takeIf { it >= 0 }?.let { start ->
+        runCatching { JSONObject(text.substring(start, text.lastIndexOf('}') + 1)) }.getOrNull()
+    }
+    obj?.optJSONArray("entries")?.let { return it }
+    val arrStart = text.indexOf('[')
+    if (arrStart < 0) return null
+    return runCatching { JSONArray(text.substring(arrStart, text.lastIndexOf(']') + 1)) }.getOrNull()
+}
+
+private fun parseRow(o: JSONObject): ProposedEntry? {
+    val time = parseHhmm(o.optString("time", ""))
+    return when (o.optString("kind").trim().lowercase()) {
+        "dose" -> {
+            val type = o.optString("type").trim().lowercase()
+            if (type != "short-acting" && type != "long-acting") return null
+            val units = when (val u = o.opt("units")) {
+                is Int -> u
+                is Long -> u.toInt()
+                is Number -> u.toDouble().takeIf { it == Math.floor(it) }?.toInt()
+                is String -> u.trim().takeIf { s -> s.isNotEmpty() && s.all(Char::isDigit) }?.toInt()
+                else -> null
+            } ?: return null
+            if (units !in 1..100) return null
+            ProposedEntry(isDose = true, insulinType = type, units = units, time = time)
+        }
+        "event" -> {
+            val name = o.optString("name").replace(Regex("""\s+"""), " ").trim()
+            if (name.isEmpty() || name.length > 80 || name.equals("null", ignoreCase = true)) return null
+            ProposedEntry(isDose = false, name = name, time = time)
+        }
+        else -> null
+    }
+}
+
+/**
+ * The logged entry this proposal duplicates, if any: a dose of the same type,
+ * or an event of the same name (case-insensitive), within [windowMinutes].
+ * The auto routines usually already logged the morning, so "coffee and 19+4"
+ * mostly matches. A confirmed match wins over a guess, so a real duplicate
+ * is reported as such; a guess-only match lets the caller confirm the guess.
+ */
+fun matchExisting(p: ProposedEntry, existing: List<JournalEntity>, windowMinutes: Int = 60): JournalEntity? {
+    val minute = p.minuteOfDay ?: return null
+    val matches = existing.filter { e ->
+        if (p.isDose) {
+            parseDoseNote(e.text)?.let { d ->
+                d.insulinType == p.insulinType && kotlin.math.abs(d.minuteOfDay - minute) <= windowMinutes
+            } ?: false
+        } else {
+            parseEventNote(e.text)?.let { ev ->
+                ev.name.equals(p.name, ignoreCase = true) && kotlin.math.abs(ev.minuteOfDay - minute) <= windowMinutes
+            } ?: false
+        }
+    }
+    return matches.firstOrNull { !isGuessEntry(it.text) } ?: matches.firstOrNull()
+}
+
+/**
+ * Instructions for Gemini Nano. Small model, so: one schema, explicit rules
+ * for her routine, one worked example, JSON only. The defaults mirror the
+ * auto routines (10:30 coffee + doses, 17:30 dinner).
+ */
+fun describePrompt(paragraph: String): String = """
+You turn a person's description of their day into diabetes log entries.
+The person has type 1 diabetes and takes two insulins:
+- long-acting: one dose a day, usually 19 or 20 units, in the morning.
+- short-acting: smaller doses (about 1 to 12 units) with meals or to correct highs.
+
+Output ONLY JSON, no other text, exactly this shape:
+{"entries":[{"kind":"dose","type":"short-acting","units":4,"time":"10:30"},{"kind":"event","name":"coffee","time":"10:30"}]}
+
+Rules:
+- kind is "dose" for insulin, "event" for food, drink or exercise.
+- type is exactly "short-acting" or "long-acting". "19+4" means two doses. If the person says which is which, follow that. Otherwise the 19 or 20 is long-acting and the other is short-acting. A dose without a type is short-acting.
+- units is a whole number.
+- time is 24-hour "HH:mm". Use a time the person states ("at 7pm" is "19:00"). Otherwise: breakfast or morning coffee "10:30", lunch "13:00", afternoon snack "15:00", dinner "17:30", dessert or evening snack "21:30", bedtime "23:00". A dose taken with a meal gets that meal's time. If you cannot tell the time, use null.
+- name is short and lowercase, using the person's words: "pizza hut pizza", "30 min walk". Keep "coffee" and "chicken burger" exactly as written.
+- Do not log food the person says they did not eat. Do not invent anything.
+
+Example
+Text: had a bagel with cream cheese around 2 and took 3, then pizza for dinner with 7 units and walked 20 min after
+JSON: {"entries":[{"kind":"event","name":"bagel with cream cheese","time":"14:00"},{"kind":"dose","type":"short-acting","units":3,"time":"14:00"},{"kind":"event","name":"pizza","time":"17:30"},{"kind":"dose","type":"short-acting","units":7,"time":"17:30"},{"kind":"event","name":"20 min walk","time":"18:00"}]}
+
+Text: ${paragraph.trim().replace("\n", " ")}
+JSON:
+""".trimIndent()
