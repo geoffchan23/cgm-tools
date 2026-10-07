@@ -82,6 +82,9 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
         }.onFailure { android.util.Log.w("GlucoseWidget", "refresh failed", it) }
         runCatching { Routines.ensure(ctx) }
             .onFailure { android.util.Log.w("GlucoseWidget", "routine failed", it) }
+        // the other phone's journal changes; a failure leaves the outbox for SyncWorker's retries
+        runCatching { Sync.runOnce(ctx) }
+            .onFailure { android.util.Log.w("GlucoseWidget", "sync failed", it); Sync.enqueue(ctx) }
         // Always repaint: even on failure the age line must keep counting up.
         GlucoseWidget().updateAll(ctx)
         return Result.success()

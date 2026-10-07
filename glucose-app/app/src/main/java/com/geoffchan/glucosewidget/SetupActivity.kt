@@ -153,9 +153,53 @@ class SetupActivity : ComponentActivity() {
                                 else "Disable battery optimization",
                             )
                         }
+
+                        SyncSection()
                     }
                 }
             }
+        }
+    }
+}
+
+/** Two-phone sync status + manual controls. Setup itself is done over ADB (`op sync-setup`). */
+@androidx.compose.runtime.Composable
+private fun SyncSection() {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    var tick by remember { mutableStateOf(0) }
+    var lines by remember { mutableStateOf(listOf<String>()) }
+    androidx.compose.runtime.LaunchedEffect(tick) {
+        while (true) {
+            val configured = Store.syncConfig(ctx) != null
+            val main = Store.isMainPhone(ctx)
+            val st = Store.syncStatus(ctx)
+            fun ago(t: Long?) = t?.let { ageText(it, System.currentTimeMillis()) + " ago" } ?: "never"
+            lines = if (!configured) {
+                listOf("Not set up — this phone keeps its journal to itself.", if (main) "Role: main phone" else "Role: second phone")
+            } else {
+                listOfNotNull(
+                    "On — end-to-end encrypted relay",
+                    if (main) "Role: main phone (auto-logs routines)" else "Role: second phone (no auto-logging)",
+                    "Last checked: ${ago(st.lastPollAt)} · last sent: ${ago(st.lastPublishAt)}",
+                    "Waiting to send: ${st.outbox}",
+                    st.lastError?.let { "Last error: $it" },
+                )
+            }
+            kotlinx.coroutines.delay(5_000)
+        }
+    }
+    Text("Sync with the other phone", style = MaterialTheme.typography.titleMedium)
+    for (l in lines) Text(l, style = MaterialTheme.typography.bodySmall)
+    if (Store.syncConfig(ctx) != null) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(onClick = { Sync.enqueue(ctx); tick++ }, modifier = Modifier.weight(1f)) { Text("Sync now") }
+            OutlinedButton(
+                onClick = {
+                    scope.launch { Sync.queueRecent(ctx, Sync.RESEND_WINDOW_MS); Sync.enqueue(ctx); tick++ }
+                },
+                modifier = Modifier.weight(1f),
+            ) { Text("Resend 30 days") }
         }
     }
 }

@@ -95,6 +95,77 @@ object Store {
         context.dataStore.edit { it[KEY_IS_MAIN] = main }
     }
 
+    // --- two-phone sync state (key + topic are in securePrefs below) ---
+
+    private val KEY_DEVICE_ID = stringPreferencesKey("syncDeviceId")
+    private val KEY_SYNC_SINCE = stringPreferencesKey("syncSinceId")
+    private val KEY_SYNC_OUTBOX = androidx.datastore.preferences.core.stringSetPreferencesKey("syncOutbox")
+    private val KEY_SYNC_POLL_AT = longPreferencesKey("syncLastPollAt")
+    private val KEY_SYNC_PUBLISH_AT = longPreferencesKey("syncLastPublishAt")
+    private val KEY_SYNC_DIGEST_AT = longPreferencesKey("syncLastDigestAt")
+    private val KEY_SYNC_ERROR = stringPreferencesKey("syncLastError")
+
+    /** Random per install; tells this phone's own relay messages apart. */
+    suspend fun deviceId(context: Context): String {
+        context.dataStore.data.first()[KEY_DEVICE_ID]?.let { return it }
+        val id = newUid()
+        context.dataStore.edit { if (it[KEY_DEVICE_ID] == null) it[KEY_DEVICE_ID] = id }
+        return context.dataStore.data.first()[KEY_DEVICE_ID]!!
+    }
+
+    /** Last relay message id applied; null = never polled (ask for everything cached). */
+    suspend fun syncSince(context: Context): String? = context.dataStore.data.first()[KEY_SYNC_SINCE]
+    suspend fun saveSyncSince(context: Context, id: String) { context.dataStore.edit { it[KEY_SYNC_SINCE] = id } }
+
+    /** uids whose current state (row or tombstone) still has to be published. */
+    suspend fun syncOutbox(context: Context): Set<String> = context.dataStore.data.first()[KEY_SYNC_OUTBOX] ?: emptySet()
+    suspend fun addToOutbox(context: Context, uids: Collection<String>) {
+        if (uids.isEmpty()) return
+        context.dataStore.edit { it[KEY_SYNC_OUTBOX] = (it[KEY_SYNC_OUTBOX] ?: emptySet()) + uids }
+    }
+    suspend fun removeFromOutbox(context: Context, uids: Collection<String>) {
+        context.dataStore.edit { it[KEY_SYNC_OUTBOX] = (it[KEY_SYNC_OUTBOX] ?: emptySet()) - uids.toSet() }
+    }
+
+    data class SyncStatus(val lastPollAt: Long?, val lastPublishAt: Long?, val lastDigestAt: Long?, val lastError: String?, val outbox: Int)
+
+    suspend fun syncStatus(context: Context): SyncStatus {
+        val p = context.dataStore.data.first()
+        return SyncStatus(p[KEY_SYNC_POLL_AT], p[KEY_SYNC_PUBLISH_AT], p[KEY_SYNC_DIGEST_AT], p[KEY_SYNC_ERROR], (p[KEY_SYNC_OUTBOX] ?: emptySet()).size)
+    }
+    suspend fun markPolled(context: Context) { context.dataStore.edit { it[KEY_SYNC_POLL_AT] = System.currentTimeMillis() } }
+    suspend fun markPublished(context: Context) { context.dataStore.edit { it[KEY_SYNC_PUBLISH_AT] = System.currentTimeMillis() } }
+    suspend fun markDigest(context: Context) { context.dataStore.edit { it[KEY_SYNC_DIGEST_AT] = System.currentTimeMillis() } }
+    suspend fun saveSyncError(context: Context, error: String?) {
+        context.dataStore.edit { if (error == null) it.remove(KEY_SYNC_ERROR) else it[KEY_SYNC_ERROR] = error }
+    }
+
+    /** Forget all sync state (config is cleared separately). */
+    suspend fun resetSyncState(context: Context) {
+        context.dataStore.edit {
+            it.remove(KEY_SYNC_SINCE); it.remove(KEY_SYNC_OUTBOX); it.remove(KEY_SYNC_POLL_AT)
+            it.remove(KEY_SYNC_PUBLISH_AT); it.remove(KEY_SYNC_DIGEST_AT); it.remove(KEY_SYNC_ERROR)
+        }
+    }
+
+    data class SyncConfig(val key: ByteArray, val topic: String)
+
+    /** Null = sync not set up on this phone; everything then stays local. */
+    fun syncConfig(context: Context): SyncConfig? {
+        val p = securePrefs(context)
+        val key = p.getString("syncKey", null)?.let { SyncCrypto.keyFromBase64(it) } ?: return null
+        val topic = p.getString("syncTopic", null) ?: return null
+        return SyncConfig(key, topic)
+    }
+
+    fun saveSyncConfig(context: Context, keyBase64: String, topic: String) {
+        securePrefs(context).edit().putString("syncKey", keyBase64).putString("syncTopic", topic).commit()
+    }
+
+    fun clearSyncConfig(context: Context) {
+        securePrefs(context).edit().remove("syncKey").remove("syncTopic").commit()
+    }
+
     // --- credentials + session ---
 
     private fun securePrefs(context: Context) = EncryptedSharedPreferences.create(

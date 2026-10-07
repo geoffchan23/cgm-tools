@@ -104,6 +104,40 @@ meal is suppressed by *any* food already logged after 15:00 rather than by
 name — a logged pizza means no phantom burger. Both live in `Routines.kt`
 with their own DataStore day-marker.
 
+## Two phones: sync (from 2026-10)
+
+Her Pixel 9 Pro is the **main** phone (runs the 10:30/17:30 routines, takes
+watch entries); Geoff's is a **second** phone (`isMainPhone=false`, never
+auto-logs). Both read Dexcom Share themselves, and both can add/edit/delete
+journal rows: changes sync both ways, end-to-end encrypted, through an
+ntfy.sh topic (no account). The relay only sees base64(nonce ‖ AES-256-GCM).
+
+- Every journal write goes through `Journal` (dialogs, routines, receiver),
+  which queues the row's `uid` in an outbox; `SyncWorker` publishes each
+  uid's current row or tombstone (chunked under ntfy's 4 KB limit) and
+  polls the topic. Polls also run on every 5-min refresh and app open.
+- Merge (`SyncCore.kt`, unit-tested): by `uid`, last write wins on
+  `updatedAtMs`, ties keep local; a delete beats any edit older than it.
+  Remote rows are written straight to Room so they aren't re-published.
+- ntfy.sh keeps messages ~12 h, so once a day each phone re-sends what
+  changed in the last **7 days**. A phone offline longer than that needs
+  Settings → "Resend 30 days" (or `op sync-resend`) on the other phone.
+- `journal.id` is per phone; use ids from a pull of the phone you target.
+  Because edits sync, `pull-db.sh`, the IngestReceiver and the fill-gaps
+  push can target either phone — Geoff's is usually the one on ADB.
+- Settings shows sync status (role, last check/send, waiting, last error).
+
+Configure both phones with the same key and topic (keep them out of git):
+
+```bash
+KEY=$(python3 -c "import os,base64;print(base64.b64encode(os.urandom(32)).decode())")
+TOPIC=cgm-$(python3 -c "import secrets;print(secrets.token_hex(16))")
+R="shell am broadcast -n com.geoffchan.glucosewidget/.IngestReceiver"
+adb -s <her-phone>   $R --es op sync-setup --es key "$KEY" --es topic "$TOPIC" --ez main true
+adb -s <geoff-phone> $R --es op sync-setup --es key "$KEY" --es topic "$TOPIC" --ez main false
+# also: --es op sync-now | sync-resend | sync-reset   (logcat tag "Sync")
+```
+
 ## Widget
 
 Three rows: reading + trend arrow with its age on the right; last dose

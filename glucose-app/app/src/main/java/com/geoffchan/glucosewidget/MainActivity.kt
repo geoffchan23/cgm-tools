@@ -64,6 +64,7 @@ class MainActivity : ComponentActivity() {
         val dao = GlucoseDb.get(this).dao()
         val zone = ZoneId.systemDefault()
         Refresh.enqueue(this) // opening the app freshens the data
+        Sync.enqueue(this) // and pulls the other phone's entries
         // Android 13+: notifications need a runtime grant (used for "report ready").
         if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) {}

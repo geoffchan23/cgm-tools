@@ -24,19 +24,27 @@ import kotlinx.coroutines.launch
  *       rows. Read-only; nothing is saved. (AICore may refuse while the app
  *       is in the background — the log says so.)
  *
+ * Two-phone sync (see [Sync]); the same key + topic go to both phones:
+ *   … --es op sync-setup --es key <base64 32 bytes> --es topic <secret> --ez main true|false
+ *   … --es op sync-now      (publish outbox + poll)
+ *   … --es op sync-resend   (re-publish everything changed in the last 30 days)
+ *   … --es op sync-reset    (forget key, topic and sync state)
+ * Inserts/deletes here go through [Journal], so they sync like app edits.
+ *
  * Delete is by single row id only; there is deliberately no bulk delete,
  * since `event:` rows are user-logged data.
  */
 class IngestReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val op = intent.getStringExtra("op") ?: return
-        val day = intent.getStringExtra("day") ?: return
+        val day = intent.getStringExtra("day") ?: "" // only insert/delete use it
         val dao = GlucoseDb.get(context).dao()
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 when (op) {
                     "insert" -> {
+                        if (day.isEmpty()) return@launch
                         val text = intent.getStringExtra("text") ?: return@launch
                         val now = System.currentTimeMillis()
                         Journal.insert(
@@ -52,6 +60,18 @@ class IngestReceiver : BroadcastReceiver() {
                     }
                     "report-ready" -> intent.getStringExtra("name")?.let { ReportNotification.show(context, it) }
                     "refresh" -> Refresh.enqueue(context)
+                    "sync-setup" -> {
+                        val ok = Sync.setup(
+                            context,
+                            intent.getStringExtra("key").orEmpty(),
+                            intent.getStringExtra("topic").orEmpty(),
+                            if (intent.hasExtra("main")) intent.getBooleanExtra("main", true) else null,
+                        )
+                        android.util.Log.i("Sync", if (ok) "configured" else "sync-setup rejected: need a base64 32-byte key and a 16+ char topic")
+                    }
+                    "sync-now" -> Sync.enqueue(context)
+                    "sync-resend" -> { Sync.queueRecent(context, Sync.RESEND_WINDOW_MS); Sync.enqueue(context) }
+                    "sync-reset" -> { Sync.reset(context); android.util.Log.i("Sync", "reset") }
                     "describe-test" -> describeTest(intent.getStringExtra("text").orEmpty())
                 }
             } finally {
