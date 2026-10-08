@@ -68,6 +68,7 @@ object WatchParse {
     const val READ_FAILED = "Your phone couldn't read that — try again."
     const val SAVE_FAILED = "Your phone couldn't save that — try again."
 
+    private const val ASSISTANT_TIMEOUT_MS = 24_000L // the watch waits ~30 s for the reply
     private const val DIRECT_TIMEOUT_MS = 4_000L // in-process Nano: works only if the app is on screen
     private const val SCREEN_TIMEOUT_MS = 12_000L // full-screen-intent Nano; the watch waits ~25 s in all
     private const val CHANNEL = "watch-voice-log"
@@ -76,18 +77,37 @@ object WatchParse {
     private suspend fun todayEntries(context: Context, day: String): List<JournalEntity> =
         GlucoseDb.get(context).dao().dayJournalSince(day).filter { it.day == day && it.scope == SCOPE_DAY }
 
-    /** /log/parse → /log/proposal body. Nano when it can run, else [parseSpoken]. */
-    suspend fun propose(context: Context, transcript: String): String {
-        if (!Store.isMainPhone(context)) return encodeProposal(emptyList(), "none", NOT_MAIN)
+    /**
+     * /log/parse → /log/proposal body. The OpenAI assistant when it's set up
+     * and the phone is online (it can also answer questions); otherwise Nano
+     * when it can run, else [parseSpoken]. [requireMain] is false only for
+     * the ADB test op.
+     */
+    suspend fun propose(context: Context, transcript: String, requireMain: Boolean = true): String {
+        if (requireMain && !Store.isMainPhone(context)) return encodeProposal(emptyList(), "none", NOT_MAIN)
         val zone = ZoneId.systemDefault()
         val now = LocalTime.now(zone).withSecond(0).withNano(0)
         val t0 = System.currentTimeMillis()
-        val (entries, parser) = nanoRows(context, transcript, now) ?: (parseSpoken(transcript, now) to "rules")
-        val today = LocalDate.now(zone).toString()
-        val existing = todayEntries(context, today)
+        val today = LocalDate.now(zone)
+        var answer = ""
+        val ai = if (Assistant.configured(context) && Assistant.online(context)) {
+            try {
+                Assistant.ask(context, transcript, today, fromWatch = true, timeoutMs = ASSISTANT_TIMEOUT_MS, zone = zone)
+            } catch (e: Exception) {
+                Log.i(TAG, "assistant failed (${e.message}); falling back to rules")
+                null
+            }
+        } else null
+        val (entries, parser) = when {
+            ai != null -> { answer = ai.answer; ai.entries to "openai" }
+            // the assistant used up the time budget: no room for Nano's ~12 s route
+            Assistant.configured(context) && Assistant.online(context) -> parseSpoken(transcript, now) to "rules"
+            else -> nanoRows(context, transcript, now) ?: (parseSpoken(transcript, now) to "rules")
+        }
+        val existing = todayEntries(context, today.toString())
         val rows = entries.mapNotNull { watchRow(if (it.time == null) it.copy(time = now) else it, existing) }
-        Log.i(TAG, "parse via $parser in ${System.currentTimeMillis() - t0} ms: \"$transcript\" → ${rows.map { it.text }}")
-        return encodeProposal(rows, parser)
+        Log.i(TAG, "parse via $parser in ${System.currentTimeMillis() - t0} ms: \"$transcript\" → ${rows.map { it.text }} answer=\"$answer\"")
+        return encodeProposal(rows, parser, answer = answer)
     }
 
     /** Rows from Gemini Nano with the parser name, or null to fall back to rules. */

@@ -155,6 +155,7 @@ class SetupActivity : ComponentActivity() {
                         }
 
                         SyncSection()
+                        AssistantSection()
                     }
                 }
             }
@@ -202,4 +203,18 @@ private fun SyncSection() {
             ) { Text("Resend 30 days") }
         }
     }
+}
+
+/** Which assistant model is set up (never the key). Configured over ADB: see IngestReceiver `ai-setup`. */
+@androidx.compose.runtime.Composable
+private fun AssistantSection() {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val cfg = androidx.compose.runtime.remember { Store.aiConfig(ctx) }
+    Text("Assistant", style = MaterialTheme.typography.titleMedium)
+    Text(
+        if (cfg == null) "Not set up — typed and spoken entries use the on-device model."
+        else "OpenAI ${cfg.model}, effort ${cfg.effort ?: "auto (low for logging, medium for questions)"}. " +
+            "Sends your question and the readings/logs it looks up to OpenAI.",
+        style = MaterialTheme.typography.bodySmall,
+    )
 }

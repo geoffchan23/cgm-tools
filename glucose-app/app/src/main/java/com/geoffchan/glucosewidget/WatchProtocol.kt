@@ -9,7 +9,8 @@ import org.json.JSONObject
  * wear/…/Protocol.kt — change both together.
  *
  *   watch → phone  /log/parse     UTF-8 transcript
- *   phone → watch  /log/proposal  {"ok","error","parser","rows":[{text,label,time,status}]}
+ *   phone → watch  /log/proposal  {"ok","error","parser","answer","rows":[{text,label,time,status}]}
+ *                  answer: the assistant's watch-sized reply ("" when none; then rows only)
  *   watch → phone  /log/save      {"texts":[...]}   (canonical journal texts, as proposed)
  *   phone → watch  /log/saved     {"ok","error","saved","confirmed","already"}
  *
@@ -50,10 +51,11 @@ fun watchRow(p: ProposedEntry, existing: List<JournalEntity>): WatchRow? {
     return WatchRow(text, watchLabel(p), time12(p.time!!), status)
 }
 
-fun encodeProposal(rows: List<WatchRow>, parser: String, error: String? = null): String = JSONObject()
+fun encodeProposal(rows: List<WatchRow>, parser: String, error: String? = null, answer: String = ""): String = JSONObject()
     .put("ok", error == null)
     .put("error", error ?: JSONObject.NULL)
     .put("parser", parser)
+    .put("answer", answer)
     .put("rows", JSONArray(rows.map { JSONObject().put("text", it.text).put("label", it.label).put("time", it.time).put("status", it.status) }))
     .toString()
 

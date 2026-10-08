@@ -1,6 +1,6 @@
 ---
 name: fill-gaps
-description: Infer unlogged meals, snacks, doses and low treatments from the glucose curve on days (or evenings) nobody logged, and add them to the app as marked guesses. Use when Geoff asks to fill gaps, predict/guess what happened on a day, or backfill missing entries, and whenever gaps.py status shows days needing filling. Claude in this session does the reasoning — never the Claude API.
+description: Infer unlogged meals, snacks, doses and low treatments from the glucose curve on days (or evenings) nobody logged, and add them to the app as marked guesses. Use when Geoff asks to fill gaps, predict/guess what happened on a day, or backfill missing entries, and whenever gaps.py status shows days needing filling. Claude in this session does the reasoning.
 ---
 
 # Fill gaps in the journal

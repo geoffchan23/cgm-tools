@@ -36,6 +36,12 @@ import kotlinx.coroutines.launch
  *   … --es op sync-reset    (forget key, topic and sync state)
  * Inserts/deletes here go through [Journal], so they sync like app edits.
  *
+ * Assistant (OpenAI, see [Assistant]); the key travels as a file, never an extra:
+ *   adb exec-in run-as <pkg> sh -c 'cat > files/ai-handoff' < key-file
+ *   … --es op ai-setup [--es model gpt-6-luna] [--es effort low|medium|auto]
+ *   … --es op ai-clear
+ *   … --es op ask-test --es text '…' [--ez watch true]   (runs it, saves nothing, logs to tag Assistant)
+ *
  * Delete is by single row id only; there is deliberately no bulk delete,
  * since `event:` rows are user-logged data.
  */
@@ -91,15 +97,43 @@ class IngestReceiver : BroadcastReceiver() {
                     "sync-now" -> Sync.enqueue(context)
                     "sync-resend" -> { Sync.queueRecent(context, Sync.RESEND_WINDOW_MS); Sync.enqueue(context) }
                     "sync-reset" -> { Sync.reset(context); android.util.Log.i("Sync", "reset") }
+                    // Assistant key: pushed into files/ai-handoff with adb exec-in (never an
+                    // intent extra, so it never shows in logs or `ps`), imported, deleted.
+                    "ai-setup" -> {
+                        val f = java.io.File(context.filesDir, AI_HANDOFF)
+                        val key = f.takeIf { it.exists() }?.readText()?.lineSequence()
+                            ?.map { it.trim().removePrefix("OPENAI_API_KEY=").trim() }?.firstOrNull { it.isNotEmpty() }
+                        f.delete()
+                        Store.saveAiConfig(context, key, intent.getStringExtra("model"), intent.getStringExtra("effort"))
+                        val cfg = Store.aiConfig(context)
+                        android.util.Log.i("Assistant", if (cfg != null) "configured: model=${cfg.model} effort=${cfg.effort ?: "auto"}" else "ai-setup: no key (push files/$AI_HANDOFF first)")
+                    }
+                    "ai-clear" -> { Store.clearAiConfig(context); android.util.Log.i("Assistant", "cleared") }
+                    // Runs the assistant on --es text without saving anything; logs the result.
+                    "ask-test" -> askTest(context, intent.getStringExtra("text").orEmpty(), intent.getBooleanExtra("watch", false))
                     "describe-test" -> describeTest(intent.getStringExtra("text").orEmpty())
                     "watch-parse-test" -> android.util.Log.i(
                         WatchParse.TAG,
-                        "watch-parse-test → " + WatchParse.propose(context, intent.getStringExtra("text").orEmpty()),
+                        "watch-parse-test → " + WatchParse.propose(
+                            context, intent.getStringExtra("text").orEmpty(),
+                            requireMain = !intent.getBooleanExtra("any", false), // --ez any true: test on the peer phone
+                        ),
                     )
                 }
             } finally {
                 pending.finish()
             }
+        }
+    }
+
+    private suspend fun askTest(context: Context, text: String, fromWatch: Boolean) {
+        try {
+            val r = Assistant.ask(context, text, java.time.LocalDate.now(), fromWatch, timeoutMs = 50_000)
+            android.util.Log.i("Assistant", "ask-test answer: ${r.answer}")
+            r.detail?.let { android.util.Log.i("Assistant", "ask-test detail: $it") }
+            android.util.Log.i("Assistant", "ask-test rows: ${r.entries.map { it.noteText() ?: "$it (no time)" }} rejected=${r.rejected}")
+        } catch (e: Exception) {
+            android.util.Log.w("Assistant", "ask-test failed: $e")
         }
     }
 
@@ -134,3 +168,4 @@ class IngestReceiver : BroadcastReceiver() {
 }
 
 private const val CREDS_HANDOFF = "creds-handoff"
+private const val AI_HANDOFF = "ai-handoff"

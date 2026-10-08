@@ -47,9 +47,10 @@ entries are free-text summaries. Conventions inside `journal.text`:
   one in the dose/log dialog saves it confirmed. The widget ignores
   guesses; routines treat them as covering (no double-logging). Insert
   them with the receiver like any row.
-- **Describe in words** (FAB menu): a paragraph goes to on-device Gemini
-  Nano (ML Kit GenAI Prompt API, AICore; nothing leaves the phone, never
-  the Claude API). It answers JSON; `TextEntry.kt` validates strictly
+- **Ask / log by text** (FAB menu; was "Describe in words"): a question or
+  paragraph goes to the OpenAI assistant when it's set up and online (see
+  "Assistant" below), else to on-device Gemini Nano (ML Kit GenAI Prompt
+  API, AICore). Nano answers JSON; `TextEntry.kt` validates strictly
   (`parseBreakdown`) and the confirm list shows each row with editable
   time/units/name. Rows matching an entry already logged (same dose type
   or event name within ±60 min, `matchExisting`) start unchecked as
@@ -146,6 +147,44 @@ likewise. Dose/log rows come straight from Room (last 3 days) at render
 time; the app calls `GlucoseWidget().updateAll()` after every journal
 save/delete, and the 5-min refresh keeps the reading age current.
 
+## Assistant (OpenAI, from 2026-10-08)
+
+Francine's CGM assistant (`Assistant.kt`, `AssistantTools.kt`): OpenAI's
+Responses API with function tools over her own data. It logs what she says
+(as rows she confirms — the model never writes) and answers questions
+("why did I go low last night?", "this week vs last?"). Model is a setting,
+default **`gpt-6-luna`** ($0.10 in / $0.01 cached / $0.50 out per 1M
+tokens; `gpt-6.1-sol` at $2/$0.10/$10 is the step up). Effort: `low` for
+logging, `medium` for questions (`defaultEffort`), or a fixed override.
+The old "no cloud / never an LLM API" rule is gone (Geoff, 2026-10-08).
+
+- Raw HTTPS to `/v1/responses` with okhttp + org.json, not openai-java:
+  the SDK brings Jackson and a newer Kotlin stdlib, and the project is
+  pinned to Kotlin 2.1.21 for ML Kit genai-prompt.
+- `store: false`; every output item (encrypted reasoning included) is
+  replayed each round; ≤ 6 rounds; the final answer comes from the `reply`
+  tool (`answer` = watch-sized, `detail` = phone), or plain text if the
+  model skips it.
+- Tools: `get_readings` (≤150 points), `get_stats` (report.py metrics),
+  `get_journal` (guesses flagged), `get_lows` (each low + 3 h before),
+  `propose_entries`, `reply`. Instructions (`ASSISTANT_INSTRUCTIONS`) are a
+  stable, cacheable prefix built on the shared `LOGGING_RULES`; now, the
+  current reading and the target day go in the user turn.
+- Safety: explains patterns, never recommends doses or treatment changes
+  (refers to her endo); tells her to treat a low first.
+- **What goes to OpenAI:** her message, the current reading, and whatever
+  the tools return for that question (readings, stats, logs). Nothing else.
+- Logcat tag `Assistant`: model, effort, latency, tokens, estimated cost.
+- Setup over ADB — the key travels as a file, never an intent extra:
+  ```bash
+  P=com.geoffchan.glucosewidget
+  grep OPENAI_API_KEY ~/.config/cgm-tools/openai.env | adb -s <serial> exec-in run-as $P sh -c 'cat > files/ai-handoff'
+  adb -s <serial> shell am broadcast -n $P/.IngestReceiver --es op ai-setup [--es model gpt-6-luna] [--es effort low|medium|auto]
+  adb -s <serial> shell am broadcast -n $P/.IngestReceiver --es op ask-test --es text "'how was this week?'"   # saves nothing
+  adb -s <serial> shell am broadcast -n $P/.IngestReceiver --es op ai-clear
+  ```
+  Settings shows the model (never the key). Unset or offline → Nano/rules.
+
 ## Watch (voice log from her Pixel Watch 2)
 
 `wear/` is a Wear OS module: launcher app **Glucose Log** plus a tile
@@ -162,6 +201,10 @@ both together. The wear APK must keep applicationId
 or the phone never hears it. Only a phone with `isMainPhone` answers.
 
 Parsing (`WatchParse` in `WatchListenerService.kt`), in order:
+0. **The OpenAI assistant** when set up and online (24 s budget): rows
+   plus an `answer`; the watch shows the answer above the rows, or alone
+   (Done / Ask again) for a pure question. If it fails, straight to rules
+   (no time left for Nano's route).
 1. **Gemini Nano in-process** (4 s) — works only if the app happens to be
    on screen; otherwise AICore answers error 30 (BACKGROUND_USE_BLOCKED:
    inference is for the top foreground app only, foreground services
@@ -185,8 +228,9 @@ Parsing (`WatchParse` in `WatchListenerService.kt`), in order:
    Good for short in-the-moment phrases; weak on paragraphs.
 Anything without a time is stamped now. Rows matching an existing entry
 come back "already logged" (unticked); a match on a guess confirms it.
-Logcat tag `WatchLog` shows which parser ran (`nano`, `nano-screen`,
-`rules`), the latency and the rows. The watch waits up to 25 s.
+Logcat tag `WatchLog` shows which parser ran (`openai`, `nano`,
+`nano-screen`, `rules`), the latency and the rows. The watch waits up to
+30 s ("Thinking…"). `watch-parse-test --ez any true` runs it on the peer.
 
 Test without a watch (same code path, read-only):
 `adb shell am broadcast -n com.geoffchan.glucosewidget/.IngestReceiver --es op watch-parse-test --es text "'took 6 and a chicken burger'"`
@@ -212,8 +256,8 @@ debugging → pair once; it drops when the watch sleeps off-charger.)
 
 Per-day JSON (`analysis/nutrition/<day>.json`) with each logged event
 broken into items (grams, kcal, carb, protein, fat, fibre, sugar) and
-activities (MET, minutes, kcal). Claude in a session does the parsing —
-**never the Claude API** (Geoff's rule) — via the `nutrition` skill;
+activities (MET, minutes, kcal). Claude in a session does the parsing
+via the `nutrition` skill;
 `analysis/nutrition.py` does search/lookup/arithmetic. Sources, in order:
 `nutrition/cnf.json` (Canadian Nutrient File, offline, primary),
 Open Food Facts (`search --off`, brands; flaky 503s), USDA FoodData

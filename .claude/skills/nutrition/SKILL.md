@@ -1,6 +1,6 @@
 ---
 name: nutrition
-description: Estimate macros, calories and activity energy for the food/exercise logs of a day (or all unparsed days) and store the result in analysis/nutrition/<day>.json. Use when asked to parse/estimate nutrition, carbs, calories or exercise for a day, or when the weekly report needs missing days filled in. Never uses the Claude API — Claude in this session does the parsing.
+description: Estimate macros, calories and activity energy for the food/exercise logs of a day (or all unparsed days) and store the result in analysis/nutrition/<day>.json. Use when asked to parse/estimate nutrition, carbs, calories or exercise for a day, or when the weekly report needs missing days filled in. Claude in this session does the parsing.
 ---
 
 # Nutrition for a day's logs

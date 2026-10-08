@@ -54,19 +54,25 @@ private fun reviewRow(entry: ProposedEntry, existing: List<JournalEntity>): Revi
 }
 
 /**
- * "Describe in words": type a paragraph, on-device Gemini Nano breaks it into
- * doses and food/exercise logs, the user checks each row, then Save. Nothing
- * leaves the phone. [existing] is the target day's journal, for dedupe.
- * [onSave] gets new texts to insert and guess rows to replace (confirmed).
+ * "Ask / log by text": type a question or a paragraph. The OpenAI assistant
+ * ([Assistant], when set up and online) answers and/or breaks it into doses
+ * and food/exercise logs; otherwise on-device Gemini Nano does the breakdown.
+ * The user checks each row, then Save. [existing] is [day]'s journal, for
+ * dedupe. [onSave] gets new texts to insert and guess rows to replace (confirmed).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DescribeDialog(
     title: String,
+    day: java.time.LocalDate,
     existing: List<JournalEntity>,
     onDismiss: () -> Unit,
     onSave: (inserts: List<String>, confirms: List<Pair<JournalEntity, String>>) -> Unit,
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val useAssistant = remember { Assistant.configured(context) }
+    var answer by remember { mutableStateOf<String?>(null) }
+    var detail by remember { mutableStateOf<String?>(null) }
     val model = remember { Generation.getClient() }
     DisposableEffect(Unit) { onDispose { model.close() } }
     val scope = rememberCoroutineScope()
@@ -79,10 +85,11 @@ fun DescribeDialog(
     var reviewing by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
+        if (useAssistant) { ready = true; status = null } // Nano still loads below, as the fallback
         try {
             when (model.checkStatus()) {
                 FeatureStatus.AVAILABLE -> { ready = true; status = null }
-                FeatureStatus.UNAVAILABLE -> status = "Gemini Nano isn't available on this phone, so this can't run. Use Log dose / Log food instead."
+                FeatureStatus.UNAVAILABLE -> if (!useAssistant) status = "Gemini Nano isn't available on this phone, so this can't run. Use Log dose / Log food instead."
                 else -> { // DOWNLOADABLE or DOWNLOADING: ask AICore to fetch it, show progress
                     status = "Downloading the on-device model…"
                     model.download().collect { s ->
@@ -100,10 +107,40 @@ fun DescribeDialog(
         }
     }
 
+    fun showRows(entries: List<ProposedEntry>, skipped: Int) {
+        rows.clear()
+        rows += entries.map { reviewRow(it, existing) }
+        status = when {
+            entries.isEmpty() && answer.isNullOrBlank() -> "Couldn't find any doses or food in that. Try saying it differently."
+            skipped > 0 -> "Skipped $skipped item(s) that didn't make sense."
+            else -> null
+        }
+        reviewing = entries.isNotEmpty() || !answer.isNullOrBlank()
+    }
+
     fun breakDown() {
         working = true
         status = null
+        answer = null; detail = null
         scope.launch {
+            if (useAssistant && Assistant.online(context)) {
+                try {
+                    val r = Assistant.ask(context, paragraph, day, fromWatch = false, timeoutMs = 45_000)
+                    answer = r.answer.takeIf { it.isNotBlank() }
+                    detail = r.detail
+                    showRows(r.entries, r.rejected)
+                    working = false
+                    return@launch
+                } catch (e: Exception) {
+                    android.util.Log.w("Assistant", "ask failed: $e")
+                    if (!ready || model.checkStatus() != FeatureStatus.AVAILABLE) {
+                        status = "The assistant couldn't answer (${e.message}). Try again in a moment."
+                        working = false
+                        return@launch
+                    }
+                    status = "The assistant couldn't answer; using the on-device model."
+                }
+            }
             try {
                 val response = model.generateContent(
                     generateContentRequest(TextPart(describePrompt(paragraph))) {
@@ -115,14 +152,7 @@ fun DescribeDialog(
                 val raw = response.candidates.firstOrNull()?.text.orEmpty()
                 android.util.Log.d("Describe", "model output: $raw")
                 val breakdown = parseBreakdown(raw)
-                rows.clear()
-                rows += breakdown.entries.map { reviewRow(it, existing) }
-                status = when {
-                    breakdown.entries.isEmpty() -> "Couldn't find any doses or food in that. Try saying it differently."
-                    breakdown.rejected > 0 -> "Skipped ${breakdown.rejected} item(s) that didn't make sense."
-                    else -> null
-                }
-                reviewing = breakdown.entries.isNotEmpty()
+                showRows(breakdown.entries, breakdown.rejected)
             } catch (e: Exception) {
                 status = "Couldn't break that down: ${e.message}"
             } finally {
@@ -146,23 +176,32 @@ fun DescribeDialog(
                     OutlinedTextField(
                         paragraph, { paragraph = it },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp),
-                        placeholder = { Text("Coffee for breakfast with 19 long and 4 short, then chicken burger for dinner and 6…") },
+                        placeholder = {
+                            Text(
+                                if (useAssistant) "Log something (\"sourdough with 15 g cheddar and took 3\") or ask (\"why did I go low last night?\")…"
+                                else "Coffee for breakfast with 19 long and 4 short, then chicken burger for dinner and 6…",
+                            )
+                        },
                         minLines = 5,
                     )
                 } else {
-                    Text("Check what to save:", style = MaterialTheme.typography.labelLarge)
+                    answer?.let { Text(it, style = MaterialTheme.typography.bodyLarge) }
+                    detail?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                    if (rows.isNotEmpty()) Text("Check what to save:", style = MaterialTheme.typography.labelLarge)
                     rows.forEachIndexed { i, row ->
                         // an edited time or name can start or stop matching a logged entry
                         ReviewRowItem(row) { rows[i] = it.copy(match = matchExisting(it.entry, existing)) }
                     }
                 }
                 status?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary) }
-                if (working) Text("Thinking (on this phone)…", style = MaterialTheme.typography.bodySmall)
+                if (working) Text(if (useAssistant) "Thinking…" else "Thinking (on this phone)…", style = MaterialTheme.typography.bodySmall)
             }
         },
         confirmButton = {
             if (!reviewing) {
-                Button(enabled = ready && !working && paragraph.isNotBlank(), onClick = { breakDown() }) { Text("Break down") }
+                Button(enabled = ready && !working && paragraph.isNotBlank(), onClick = { breakDown() }) { Text(if (useAssistant) "Send" else "Break down") }
+            } else if (rows.isEmpty()) {
+                Button(onClick = onDismiss) { Text("Done") }
             } else {
                 Button(
                     enabled = canSave,

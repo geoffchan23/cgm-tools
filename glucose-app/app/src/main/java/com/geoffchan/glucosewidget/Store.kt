@@ -166,6 +166,28 @@ object Store {
         securePrefs(context).edit().remove("syncKey").remove("syncTopic").commit()
     }
 
+    // --- assistant (OpenAI): key, model and effort, all in encrypted prefs ---
+
+    /** Null = assistant not set up; Nano and the rule parser handle everything. */
+    fun aiConfig(context: Context): AiConfig? {
+        val p = securePrefs(context)
+        val key = p.getString("aiKey", null)?.takeIf { it.isNotBlank() } ?: return null
+        return AiConfig(key, p.getString("aiModel", null) ?: DEFAULT_AI_MODEL, p.getString("aiEffort", null))
+    }
+
+    /** [key] null keeps the stored one (to change only the model or effort). */
+    fun saveAiConfig(context: Context, key: String?, model: String?, effort: String?) {
+        securePrefs(context).edit().apply {
+            key?.let { putString("aiKey", it) }
+            model?.let { if (it.isBlank()) remove("aiModel") else putString("aiModel", it) }
+            effort?.let { if (it.isBlank() || it == "auto") remove("aiEffort") else putString("aiEffort", it) }
+        }.commit()
+    }
+
+    fun clearAiConfig(context: Context) {
+        securePrefs(context).edit().remove("aiKey").remove("aiModel").remove("aiEffort").commit()
+    }
+
     private val KEY_WATCH_QUEUED_IDS = stringPreferencesKey("watchQueuedIds")
 
     /** Ids of watch entries queued while offline that were already saved (newest last). */

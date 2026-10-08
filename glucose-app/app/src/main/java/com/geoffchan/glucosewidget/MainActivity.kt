@@ -120,7 +120,7 @@ class MainActivity : ComponentActivity() {
                                     onClick = { showAddMenu = false; dosing = true },
                                 )
                                 androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text("Describe in words") },
+                                    text = { Text("Ask / log by text") },
                                     onClick = { showAddMenu = false; describing = true },
                                 )
                                 if (isWeek) {
@@ -515,7 +515,8 @@ class MainActivity : ComponentActivity() {
                     val targetEntries by dao.journalFor(SCOPE_DAY, target.toString())
                         .collectAsState(initial = emptyList())
                     DescribeDialog(
-                        title = "Describe in words — ${target.format(DateTimeFormatter.ofPattern("MMM d", Locale.CANADA))}",
+                        title = "Ask or log — ${target.format(DateTimeFormatter.ofPattern("MMM d", Locale.CANADA))}",
+                        day = target,
                         existing = targetEntries,
                         onDismiss = { describing = false },
                         onSave = { inserts, confirms ->

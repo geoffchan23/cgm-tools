@@ -66,4 +66,10 @@ class WatchProtocolTest {
         assertEquals(1, json.getInt("confirmed"))
         assertEquals(1, json.getInt("already"))
     }
+
+    @Test fun `proposal carries the assistant answer`() {
+        val o = org.json.JSONObject(encodeProposal(emptyList(), "openai", answer = "In range 82% this week."))
+        assertEquals("In range 82% this week.", o.getString("answer"))
+        assertEquals("", org.json.JSONObject(encodeProposal(emptyList(), "rules")).getString("answer"))
+    }
 }

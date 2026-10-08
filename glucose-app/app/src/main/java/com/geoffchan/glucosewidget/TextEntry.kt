@@ -127,6 +127,21 @@ fun matchExisting(p: ProposedEntry, existing: List<JournalEntity>, windowMinutes
  * for her routine, one worked example, JSON only. The defaults mirror the
  * auto routines (10:30 coffee + doses, 17:30 dinner).
  */
+/**
+ * How a description becomes entries — shared by the on-device prompt
+ * ([describePrompt]) and the OpenAI assistant ([ASSISTANT_INSTRUCTIONS]).
+ */
+val LOGGING_RULES = """
+- kind is "dose" for insulin, "event" for food, drink or exercise.
+- type is exactly "short-acting" or "long-acting". "19+4" means two doses. If the person says which is which, follow that. Otherwise the 19 or 20 is long-acting and the other is short-acting. A dose without a type is short-acting.
+- units is a whole number.
+- time is 24-hour "HH:mm". Use a time the person states ("at 7pm" is "19:00"). Otherwise: breakfast or morning coffee "10:30", lunch "13:00", afternoon snack "15:00", dinner "17:30", dessert or evening snack "21:30", bedtime "23:00". A dose taken with a meal gets that meal's time. If you cannot tell the time, use null.
+- A stated time belongs only to the item it is attached to. A meal word wins for its own items: in "dinner was a chicken burger with 6, and a cookie around 7", the chicken burger and the 6 units are "17:30" and only the cookie is "19:00".
+- name is lowercase, in the person's own words, and KEEPS every amount and size they said: "15 g cheddar cheese", "half a medium pizza hut pizza", "2 slices sourdough", "30 min walk". Never drop a number from a food.
+- Foods eaten together at the same time are ONE event with all of them in its name, joined the way the person said them: "sourdough bread with butter and jam and 15 g cheddar cheese" is one event, not four. Only coffee, candy and exercise are always their own events. Keep "coffee" and "chicken burger" exactly as written.
+- Do not log food the person says they did not eat. Do not invent anything.
+""".trim()
+
 /** Long enough for a whole meal said in one breath. */
 const val MAX_EVENT_NAME = 160
 
@@ -140,14 +155,7 @@ Output ONLY JSON, no other text, exactly this shape:
 {"entries":[{"kind":"dose","type":"short-acting","units":4,"time":"10:30"},{"kind":"event","name":"coffee","time":"10:30"}]}
 
 Rules:
-- kind is "dose" for insulin, "event" for food, drink or exercise.
-- type is exactly "short-acting" or "long-acting". "19+4" means two doses. If the person says which is which, follow that. Otherwise the 19 or 20 is long-acting and the other is short-acting. A dose without a type is short-acting.
-- units is a whole number.
-- time is 24-hour "HH:mm". Use a time the person states ("at 7pm" is "19:00"). Otherwise: breakfast or morning coffee "10:30", lunch "13:00", afternoon snack "15:00", dinner "17:30", dessert or evening snack "21:30", bedtime "23:00". A dose taken with a meal gets that meal's time. If you cannot tell the time, use null.
-- A stated time belongs only to the item it is attached to. A meal word wins for its own items: in "dinner was a chicken burger with 6, and a cookie around 7", the chicken burger and the 6 units are "17:30" and only the cookie is "19:00".
-- name is lowercase, in the person's own words, and KEEPS every amount and size they said: "15 g cheddar cheese", "half a medium pizza hut pizza", "2 slices sourdough", "30 min walk". Never drop a number from a food.
-- Foods eaten together at the same time are ONE event with all of them in its name, joined the way the person said them: "sourdough bread with butter and jam and 15 g cheddar cheese" is one event, not four. Only coffee, candy and exercise are always their own events. Keep "coffee" and "chicken burger" exactly as written.
-- Do not log food the person says they did not eat. Do not invent anything.
+$LOGGING_RULES
 
 Example
 Text: had a quarter bagel with cream cheese and 20 g of cheddar around 2 and took 3, then half a pizza for dinner with 7 units and walked 20 min after

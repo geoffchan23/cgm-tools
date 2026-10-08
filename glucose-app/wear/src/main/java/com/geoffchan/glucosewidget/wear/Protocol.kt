@@ -20,7 +20,8 @@ object Protocol {
 
 data class Row(val text: String, val label: String, val time: String, val status: String)
 
-data class Proposal(val ok: Boolean, val error: String?, val parser: String, val rows: List<Row>)
+/** [answer]: the assistant's reply for the watch screen ("" when it only logged). */
+data class Proposal(val ok: Boolean, val error: String?, val parser: String, val rows: List<Row>, val answer: String = "")
 
 data class Saved(val ok: Boolean, val error: String?, val saved: Int, val confirmed: Int, val already: Int)
 
@@ -33,7 +34,7 @@ fun decodeProposal(json: String): Proposal {
         val r = arr.getJSONObject(it)
         Row(r.getString("text"), r.getString("label"), r.getString("time"), r.getString("status"))
     }
-    return Proposal(o.optBoolean("ok"), o.optNullableString("error"), o.optString("parser"), rows)
+    return Proposal(o.optBoolean("ok"), o.optNullableString("error"), o.optString("parser"), rows, o.optString("answer", ""))
 }
 
 fun encodeSave(texts: List<String>): String = JSONObject().put("texts", JSONArray(texts)).toString()

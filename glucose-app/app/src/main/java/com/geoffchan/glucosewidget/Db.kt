@@ -71,6 +71,13 @@ interface GlucoseDao {
     @Query("SELECT * FROM journal WHERE id = :id")
     suspend fun journalById(id: Long): JournalEntity?
 
+    // One-shot reads for the assistant's tools (no Flow).
+    @Query("SELECT * FROM readings WHERE timestampMs >= :startMs AND timestampMs < :endMs ORDER BY timestampMs")
+    suspend fun readingsIn(startMs: Long, endMs: Long): List<ReadingEntity>
+
+    @Query("SELECT * FROM journal WHERE scope = 'day' AND day >= :firstDay AND day <= :lastDay ORDER BY day, createdAtMs")
+    suspend fun dayJournalBetween(firstDay: String, lastDay: String): List<JournalEntity>
+
     @Query("SELECT * FROM journal WHERE uid = :uid")
     suspend fun journalByUid(uid: String): JournalEntity?
 

@@ -45,6 +45,8 @@ and doses and food/exercise logs are already structured (`dose: … @ HH:mm`,
 ## Notes on privacy
 
 The database lives unencrypted in app-private storage; Dexcom credentials are
-kept in `EncryptedSharedPreferences`. Nothing leaves the phone except the
-Share API calls. Fine for a personal device — just be aware before sharing a
+kept in `EncryptedSharedPreferences`. What leaves the phone: the Share API
+calls, the encrypted journal sync between the two phones (ntfy.sh), and —
+when the assistant is set up — her questions/entries plus the readings and
+logs it looks up, sent to OpenAI (`store: false`). Fine for a personal device — just be aware before sharing a
 pulled DB.

@@ -53,7 +53,8 @@ class LogActivity : ComponentActivity() {
     private sealed interface Ui {
         data object Listening : Ui
         data class Thinking(val transcript: String, val saving: Boolean = false) : Ui
-        data class Confirm(val transcript: String, val rows: List<Row>) : Ui
+        data class Confirm(val transcript: String, val rows: List<Row>, val answer: String = "") : Ui
+        data class Answer(val transcript: String, val answer: String) : Ui
         data class Done(val summary: String) : Ui
         data class Queued(val transcript: String) : Ui
         data class Error(val message: String) : Ui
@@ -68,7 +69,7 @@ class LogActivity : ComponentActivity() {
         when {
             result.resultCode == Activity.RESULT_OK && !heard.isNullOrBlank() -> parse(heard)
             ui is Ui.Listening -> finish() // backed out of the first prompt: nothing to keep
-            // backed out of "Say again": stay on whatever was showing
+            // backed out of "Say again" / "Ask again": stay on whatever was showing
         }
     }
 
@@ -104,7 +105,7 @@ class LogActivity : ComponentActivity() {
     private fun listen() {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            .putExtra(RecognizerIntent.EXTRA_PROMPT, "Dose, food or activity")
+            .putExtra(RecognizerIntent.EXTRA_PROMPT, "Log something or ask")
         try {
             speech.launch(intent)
         } catch (e: ActivityNotFoundException) {
@@ -116,14 +117,16 @@ class LogActivity : ComponentActivity() {
         ui = Ui.Thinking(transcript)
         lifecycleScope.launch {
             ui = try {
-                val p = decodeProposal(link.request(Protocol.PATH_PARSE, transcript, Protocol.PATH_PROPOSAL))
+                // the assistant may look things up before answering: give it longer
+                val p = decodeProposal(link.request(Protocol.PATH_PARSE, transcript, Protocol.PATH_PROPOSAL, timeoutMs = 30_000))
                 when {
                     !p.ok -> Ui.Error(p.error ?: READ_FAILED)
+                    p.rows.isEmpty() && p.answer.isNotBlank() -> Ui.Answer(transcript, p.answer)
                     p.rows.isEmpty() -> Ui.Error("Didn't catch any doses or food — try again.\n\n“$transcript”")
                     else -> {
                         checked.clear()
                         checked.addAll(p.rows.map { it.status != Protocol.STATUS_ALREADY })
-                        Ui.Confirm(transcript, p.rows)
+                        Ui.Confirm(transcript, p.rows, p.answer)
                     }
                 }
             } catch (e: PhoneUnreachable) {
@@ -167,13 +170,28 @@ class LogActivity : ComponentActivity() {
             is Ui.Thinking -> Centered {
                 CircularProgressIndicator()
                 Text(
-                    if (s.saving) "Saving…" else "Reading on your phone…\n“${s.transcript}”",
+                    if (s.saving) "Saving…" else "Thinking…\n“${s.transcript}”",
                     textAlign = TextAlign.Center, maxLines = 3, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.caption1,
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
             is Ui.Confirm -> ConfirmList(s)
+            is Ui.Answer -> ScalingLazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = 28.dp, start = 10.dp, end = 10.dp, bottom = 40.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                item {
+                    Text(
+                        "“${s.transcript}”", textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.caption2, color = MaterialTheme.colors.onSurfaceVariant,
+                    )
+                }
+                item { Text(s.answer, textAlign = TextAlign.Center, style = MaterialTheme.typography.body1, modifier = Modifier.padding(vertical = 6.dp)) }
+                item { Chip(onClick = { finish() }, label = { Text("Done") }, colors = ChipDefaults.primaryChipColors(), modifier = Modifier.fillMaxWidth()) }
+                item { Chip(onClick = { listen() }, label = { Text("Ask again") }, colors = ChipDefaults.secondaryChipColors(), modifier = Modifier.fillMaxWidth()) }
+            }
             is Ui.Done -> Centered {
                 Text("✓", fontSize = 48.sp, color = MaterialTheme.colors.primary)
                 Text(s.summary, textAlign = TextAlign.Center, style = MaterialTheme.typography.body2)
@@ -223,6 +241,9 @@ class LogActivity : ComponentActivity() {
                     "“${s.transcript}”", textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.caption2, color = MaterialTheme.colors.onSurfaceVariant,
                 )
+            }
+            if (s.answer.isNotBlank()) {
+                item { Text(s.answer, textAlign = TextAlign.Center, style = MaterialTheme.typography.body2, modifier = Modifier.padding(vertical = 4.dp)) }
             }
             itemsIndexed(s.rows) { i, row ->
                 val on = checked.getOrElse(i) { false }
