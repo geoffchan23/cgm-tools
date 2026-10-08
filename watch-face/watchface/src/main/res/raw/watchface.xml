@@ -163,9 +163,8 @@
              12-hour with no leading zero, matching the stock face.
              For 24-hour, change [HOUR_1_12] to [HOUR_0_23].
 
-             Tapping the time opens voice logging (Glucose Log, the
-             glucose-app wear module) straight into the microphone.
-             The glucose complication below keeps its own tap.
+             Taps anywhere on the face are handled by the TAP LAYER at
+             the end of the scene.
              ============================================================ -->
         <PartText x="25" y="105" width="400" height="145" alpha="255">
             <Text align="CENTER">
@@ -173,7 +172,6 @@
                     <Template>%d:%02d<Parameter expression="[HOUR_1_12]" /><Parameter expression="[MINUTE]" /></Template>
                 </Font>
             </Text>
-            <Launch target="com.geoffchan.glucosewidget/com.geoffchan.glucosewidget.wear.LogActivity" />
         </PartText>
 
         <!-- ============================================================
@@ -226,6 +224,23 @@
             </Complication>
 
         </ComplicationSlot>
+
+        <!-- ============================================================
+             TAP LAYER - the whole face opens the assistant
+
+             An invisible full-face rectangle, last so it sits on top of
+             the time, date and glucose complication: a tap anywhere
+             opens Glucose Log (glucose-app wear module) straight into
+             the microphone. The complication no longer opens Glucose
+             Watch on tap (Geoff, 2026-10-08). Swipes still reach tiles
+             and notifications - those are system gestures.
+             ============================================================ -->
+        <PartDraw x="0" y="0" width="450" height="450">
+            <Rectangle x="0" y="0" width="450" height="450">
+                <Fill color="#00000000" />
+            </Rectangle>
+            <Launch target="com.geoffchan.glucosewidget/com.geoffchan.glucosewidget.wear.LogActivity" />
+        </PartDraw>
 
     </Scene>
 </WatchFace>

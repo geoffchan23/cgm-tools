@@ -37,7 +37,8 @@ rendered much bigger, with `mmol/L` and the timestamp dropped.
 - **Gradle cannot validate the WFF XML** (res/raw is opaque to aapt2). Always
   run Google's validator after editing:
   `java -jar wff-validator.jar 2 watchface/src/main/res/raw/watchface.xml`
-  (jar from https://github.com/google/watchface/releases, tag `latest`).
+  (jar from https://github.com/google/watchface/releases, tag `latest`; on
+  this Mac: `~/.local/share/wff/wff-validator.jar`).
 - Watch connects over Wi-Fi ADB: `adb pair` once, then
   `adb mdns services` to find the connect port, `adb connect IP:port`.
   The watch drops off Wi-Fi when it sleeps off-charger; re-pair is not
