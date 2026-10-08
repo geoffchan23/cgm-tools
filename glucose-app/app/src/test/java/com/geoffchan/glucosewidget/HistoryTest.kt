@@ -279,8 +279,8 @@ class MorningRoutineTest {
         assertTrue(routineMissing(routine, routine).isEmpty())
     }
 
-    @Test fun `evening routine is 6u and a chicken burger, Mon-Thu only`() {
-        val expected = listOf("dose: short-acting 6u @ 17:30", "event: chicken burger @ 17:30")
+    @Test fun `evening routine is 6u, no assumed meal, Mon-Thu only`() {
+        val expected = listOf("dose: short-acting 6u @ 17:30")
         for (d in listOf(
             java.time.DayOfWeek.MONDAY, java.time.DayOfWeek.TUESDAY,
             java.time.DayOfWeek.WEDNESDAY, java.time.DayOfWeek.THURSDAY,
@@ -299,14 +299,13 @@ class MorningRoutineTest {
         )
     }
 
-    @Test fun `any dinner already logged suppresses the default chicken burger`() {
+    @Test fun `a logged dinner leaves the evening dose due`() {
         val evening = eveningRoutine(java.time.DayOfWeek.WEDNESDAY)
-        // A different dinner: the meal is covered, the dose is still due.
         assertEquals(
             listOf("dose: short-acting 6u @ 17:30"),
             routineMissing(evening, listOf("event: pizza @ 18:00"), ROUTINE_SPLIT_MINUTE, 24 * 60, anyEventCovers = true),
         )
-        // Both logged by hand: nothing to add.
+        // Dose logged by hand: nothing to add.
         assertTrue(
             routineMissing(
                 evening, listOf("event: pizza @ 18:00", "dose: short-acting 5u @ 17:45"),

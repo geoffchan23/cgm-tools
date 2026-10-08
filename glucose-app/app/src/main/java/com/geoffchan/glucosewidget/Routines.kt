@@ -8,7 +8,7 @@ import java.time.ZonedDateTime
 /**
  * Auto-logs Geoff's fixed routines once per local day:
  *  - morning (10:30; Sundays 14:00): short-acting, long-acting, coffee
- *  - evening (Mon-Thu, 17:30): 6u short-acting, chicken burger
+ *  - evening (Mon-Thu, 17:30): 6u short-acting
  *
  * Runs from the 5-minute refresh worker, so entries appear within a few
  * minutes of their time (stamped at the routine time either way) and catch

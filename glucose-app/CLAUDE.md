@@ -98,12 +98,11 @@ twin (any time/units), so a 10:25 hand entry doesn't get a 10:30 double.
 Wrong-day entries are just deleted in the app like any other row.
 
 Mon-Thu also gets an **evening routine** at 17:30: `dose: short-acting 6u`
-and `event: chicken burger` (added 2026-09-17). Fri-Sun dinner varies, so
-nothing is logged. Dedupe is windowed at `ROUTINE_SPLIT_MINUTE` (15:00) so
-the morning's short-acting doesn't suppress the evening's, and the evening
-meal is suppressed by *any* food already logged after 15:00 rather than by
-name — a logged pizza means no phantom burger. Both live in `Routines.kt`
-with their own DataStore day-marker.
+(added 2026-09-17). It also logged `event: chicken burger` until 2026-10-08,
+when Geoff dropped the assumed meal; dinner is now logged by hand/voice.
+Fri-Sun nothing is logged. Dedupe is windowed at `ROUTINE_SPLIT_MINUTE`
+(15:00) so the morning's short-acting doesn't suppress the evening's. Both
+live in `Routines.kt` with their own DataStore day-marker.
 
 ## Two phones: sync (from 2026-10)
 

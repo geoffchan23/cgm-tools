@@ -58,7 +58,7 @@ const val SUNDAY_ROUTINE_TIME = "14:00"
 fun morningRoutineTime(dayOfWeek: java.time.DayOfWeek): String =
     if (dayOfWeek == java.time.DayOfWeek.SUNDAY) SUNDAY_ROUTINE_TIME else ROUTINE_TIME
 
-/** Monday-to-Thursday dinner, auto-logged (see [Routines]). */
+/** Monday-to-Thursday dinner dose, auto-logged (see [Routines]). */
 const val EVENING_ROUTINE_TIME = "17:30"
 const val EVENING_ROUTINE_UNITS = 6
 
@@ -74,14 +74,14 @@ fun morningRoutine(dayOfWeek: java.time.DayOfWeek): List<String> = morningRoutin
 }
 
 /**
- * Mon-Thu only: 6u short-acting and a chicken burger at 17:30. Friday
- * through Sunday dinner varies too much to guess, so nothing is logged.
+ * Mon-Thu only: 6u short-acting at 17:30. The meal itself isn't assumed
+ * (the chicken burger default was dropped 2026-10-08); Friday through
+ * Sunday nothing is logged.
  */
 fun eveningRoutine(dayOfWeek: java.time.DayOfWeek): List<String> = when (dayOfWeek) {
     java.time.DayOfWeek.MONDAY, java.time.DayOfWeek.TUESDAY,
     java.time.DayOfWeek.WEDNESDAY, java.time.DayOfWeek.THURSDAY -> listOf(
         doseNoteText("short-acting", "${EVENING_ROUTINE_UNITS}u", EVENING_ROUTINE_TIME),
-        eventNoteText("chicken burger", EVENING_ROUTINE_TIME),
     )
     else -> emptyList()
 }
@@ -93,9 +93,8 @@ fun eveningRoutine(dayOfWeek: java.time.DayOfWeek): List<String> = when (dayOfWe
  * matters: without it the morning's short-acting would suppress the evening's.
  *
  * [anyEventCovers] decides how food is matched. The morning routine matches by
- * name (coffee is near-certain, so add it even if toast was logged); the
- * evening routine sets it true, so any dinner already logged — pizza, takeout —
- * suppresses the default chicken burger instead of double-logging a meal.
+ * name (coffee is near-certain, so add it even if toast was logged); true
+ * lets any food logged in the window cover a routine meal instead.
  */
 fun routineMissing(
     routine: List<String>,

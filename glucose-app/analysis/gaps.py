@@ -50,15 +50,20 @@ MORNING_ROUTINE = {
     "dose: long-acting 19u @ 10:30",
     "event: coffee @ 10:30",
 }
-EVENING_ROUTINE = {
-    "dose: short-acting 6u @ 17:30",
-    "event: chicken burger @ 17:30",
-}
+EVENING_ROUTINE = {"dose: short-acting 6u @ 17:30"}
 EVENING_ROUTINE_FROM = dt.date(2026, 9, 17)
+# The routine also auto-logged a chicken burger until it was dropped; after
+# that an exact match was typed by a person.
+EVENING_BURGER = "event: chicken burger @ 17:30"
+EVENING_BURGER_UNTIL = dt.date(2026, 10, 8)
 
 
 def is_routine(day, text):
-    return text in MORNING_ROUTINE or (text in EVENING_ROUTINE and day >= EVENING_ROUTINE_FROM)
+    if text in MORNING_ROUTINE:
+        return True
+    if text in EVENING_ROUTINE:
+        return day >= EVENING_ROUTINE_FROM
+    return text == EVENING_BURGER and EVENING_ROUTINE_FROM <= day <= EVENING_BURGER_UNTIL
 
 SWING = 2.0  # mmol/L a turning point must move to count as a rise or fall
 

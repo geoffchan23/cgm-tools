@@ -42,8 +42,8 @@ it fits, or none. Rules:
 - Explain a fall before a rise only with something that happened earlier.
 - Prefer the scenario whose weekday rule fits (S4 Mon–Thu, S5/S6 Fri/Sat).
 - Don't duplicate what's already there: routine rows and earlier guesses
-  count. If the evening routine logged a chicken burger at 17:30 but the
-  curve says pizza, don't add a second dinner — ask.
+  count. If a dinner is already logged but the curve says something else
+  (pizza vs. a light meal), don't add a second dinner — ask.
 - Round guessed times to :00/:15/:30/:45; use the scenario's default units.
 - S11 (sensor artifacts) and S12 (unexplained) produce **questions, not rows**.
 - When torn between two scenarios, write the more conservative one (a
