@@ -8,14 +8,17 @@ import org.json.JSONObject
  * The watch module keeps a mirror of these paths and field names in
  * wear/…/Protocol.kt — change both together.
  *
- *   watch → phone  /log/parse     UTF-8 transcript
- *   phone → watch  /log/proposal  {"ok","error","parser","answer","rows":[{text,label,time,status}]}
+ *   watch → phone  /log/parse     {"id","text"} (older watches: the bare UTF-8 transcript)
+ *   phone → watch  /log/proposal  {"ok","error","parser","answer","id","rows":[{text,label,time,status}]}
  *                  answer: the assistant's watch-sized reply ("" when none; then rows only)
- *   watch → phone  /log/save      {"texts":[...]}   (canonical journal texts, as proposed)
+ *                  id: the interaction log record (the watch's id echoed, or a new one)
+ *   watch → phone  /log/save      {"texts":[...],"id","unticked":[...]}  (canonical texts, as proposed;
+ *                                 id + unticked are optional and only feed the interaction log)
  *   phone → watch  /log/saved     {"ok","error","saved","confirmed","already"}
+ *   watch → phone  /log/outcome   {"id","kind"}  no reply; cancelled / ask-again / answered, for the log
  *
  * Said while the phone was out of reach (no confirm screen was possible):
- *   watch → phone  /log/queued     {"id","text","spokenAtMs"}
+ *   watch → phone  /log/queued     {"id","text","spokenAtMs","parseId"?}  (parseId: the /log/parse that timed out)
  *   phone → watch  /log/queued-ack {"id","ok","saved","duplicate"}
  * The phone saves those rows as guesses; a resend of the same id is acked
  * without saving again.
@@ -27,6 +30,7 @@ object WatchProtocol {
     const val PATH_SAVED = "/log/saved"
     const val PATH_QUEUED = "/log/queued"
     const val PATH_QUEUED_ACK = "/log/queued-ack"
+    const val PATH_OUTCOME = "/log/outcome"
 
     const val STATUS_NEW = "new"
     const val STATUS_ALREADY = "already" // a non-guess entry already covers it; watch starts it unticked
@@ -51,15 +55,29 @@ fun watchRow(p: ProposedEntry, existing: List<JournalEntity>): WatchRow? {
     return WatchRow(text, watchLabel(p), time12(p.time!!), status)
 }
 
-fun encodeProposal(rows: List<WatchRow>, parser: String, error: String? = null, answer: String = ""): String = JSONObject()
+fun encodeProposal(rows: List<WatchRow>, parser: String, error: String? = null, answer: String = "", id: String? = null): String = JSONObject()
     .put("ok", error == null)
     .put("error", error ?: JSONObject.NULL)
     .put("parser", parser)
     .put("answer", answer)
+    .put("id", id ?: JSONObject.NULL)
     .put("rows", JSONArray(rows.map { JSONObject().put("text", it.text).put("label", it.label).put("time", it.time).put("status", it.status) }))
     .toString()
 
-fun encodeSave(texts: List<String>): String = JSONObject().put("texts", JSONArray(texts)).toString()
+fun encodeSave(texts: List<String>, id: String? = null, unticked: List<String> = emptyList()): String = JSONObject()
+    .put("texts", JSONArray(texts)).put("id", id ?: JSONObject.NULL).put("unticked", JSONArray(unticked)).toString()
+
+/** The interaction-log half of a /log/save: which record, and the rows she unticked. */
+data class SaveMeta(val id: String?, val unticked: List<String>)
+
+fun decodeSaveMeta(json: String): SaveMeta = runCatching {
+    val o = JSONObject(json)
+    val u = o.optJSONArray("unticked") ?: JSONArray()
+    SaveMeta(
+        if (o.isNull("id")) null else o.optString("id").takeIf { it.isNotBlank() },
+        (0 until u.length()).map { u.getString(it) },
+    )
+}.getOrDefault(SaveMeta(null, emptyList()))
 
 /** Texts to save; anything that isn't a canonical dose/event line is dropped. */
 fun decodeSave(json: String): List<String> = runCatching {
@@ -107,11 +125,12 @@ fun planWatchSave(texts: List<String>, existing: List<JournalEntity>): List<Watc
 }
 
 /** One entry the watch held while the phone was unreachable. */
-data class QueuedEntry(val id: String, val text: String, val spokenAtMs: Long)
+data class QueuedEntry(val id: String, val text: String, val spokenAtMs: Long, val parseId: String? = null)
 
 fun decodeQueued(json: String): QueuedEntry? = runCatching {
     val o = JSONObject(json)
-    QueuedEntry(o.getString("id"), o.getString("text"), o.getLong("spokenAtMs")).takeIf { it.id.isNotBlank() }
+    val parseId = if (o.isNull("parseId")) null else o.optString("parseId").takeIf { it.isNotBlank() }
+    QueuedEntry(o.getString("id"), o.getString("text"), o.getLong("spokenAtMs"), parseId).takeIf { it.id.isNotBlank() }
 }.getOrNull()
 
 fun encodeQueuedAck(id: String, saved: Int, duplicate: Boolean, error: String? = null): String = JSONObject()

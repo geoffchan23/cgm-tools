@@ -45,6 +45,26 @@ data class JournalTombstone(
     val deletedAtMs: Long,
 )
 
+/**
+ * One thing Francine said or typed to the assistant and what came of it
+ * (see InteractionCore.kt). [data] is JSON: context, parsers tried, model
+ * usage + trace, proposals. [outcome] is JSON, set when she acts (the eval
+ * label). [full] is false for a copy synced from the other phone, whose
+ * trace may be trimmed.
+ */
+@Entity(tableName = "assistant_log")
+data class AssistantLogEntity(
+    @PrimaryKey val uid: String = newUid(),
+    val createdAtMs: Long,
+    val updatedAtMs: Long,
+    val source: String,
+    val input: String,
+    val parser: String,
+    val full: Boolean = true,
+    val data: String,
+    val outcome: String? = null,
+)
+
 const val SCOPE_DAY = "day"
 const val SCOPE_WEEK = "week"
 
@@ -100,6 +120,21 @@ interface GlucoseDao {
 
     @Query("SELECT * FROM journal_tombstones WHERE deletedAtMs >= :sinceMs")
     suspend fun tombstonesSince(sinceMs: Long): List<JournalTombstone>
+
+    // Assistant interaction log; writes go through [InteractionLog] (sync), not these directly.
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertInteraction(e: AssistantLogEntity)
+
+    @Update suspend fun updateInteraction(e: AssistantLogEntity)
+
+    @Query("SELECT * FROM assistant_log WHERE uid = :uid")
+    suspend fun interaction(uid: String): AssistantLogEntity?
+
+    @Query("SELECT uid FROM assistant_log WHERE updatedAtMs >= :sinceMs")
+    suspend fun interactionUidsUpdatedSince(sinceMs: Long): List<String>
+
+    @Query("SELECT COUNT(*) FROM assistant_log")
+    suspend fun interactionCount(): Int
 }
 
 val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
@@ -118,7 +153,20 @@ val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
     }
 }
 
-@Database(entities = [ReadingEntity::class, JournalEntity::class, JournalTombstone::class], version = 3, exportSchema = false)
+/** v4: the assistant interaction log (CREATE matches Room's own; checked against schemas/…/4.json in tests). */
+val MIGRATION_3_4_SQL = listOf(
+    "CREATE TABLE IF NOT EXISTS `assistant_log` (`uid` TEXT NOT NULL, `createdAtMs` INTEGER NOT NULL, `updatedAtMs` INTEGER NOT NULL, " +
+        "`source` TEXT NOT NULL, `input` TEXT NOT NULL, `parser` TEXT NOT NULL, `full` INTEGER NOT NULL, `data` TEXT NOT NULL, " +
+        "`outcome` TEXT, PRIMARY KEY(`uid`))",
+)
+
+val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        MIGRATION_3_4_SQL.forEach { db.execSQL(it) }
+    }
+}
+
+@Database(entities = [ReadingEntity::class, JournalEntity::class, JournalTombstone::class, AssistantLogEntity::class], version = 4, exportSchema = true)
 abstract class GlucoseDb : RoomDatabase() {
     abstract fun dao(): GlucoseDao
 
@@ -127,7 +175,7 @@ abstract class GlucoseDb : RoomDatabase() {
 
         fun get(context: Context): GlucoseDb = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, GlucoseDb::class.java, "glucose.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build().also { instance = it }
         }
     }

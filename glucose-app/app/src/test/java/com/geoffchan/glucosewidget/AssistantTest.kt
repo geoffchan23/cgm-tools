@@ -210,6 +210,19 @@ class AssistantLoopTest {
         assertEquals(listOf("user", "reasoning", "function_call", "function_call_output"), types)
         val stats = JSONObject(second.getJSONObject(3).getString("output"))
         assertEquals(100.0, stats.getDouble("in_range_pct"), 0.01)
+
+        // the interaction log's trace: one entry per round, every tool call with args and result
+        assertEquals("low", r.effort)
+        assertEquals("Francine: took 3", r.userTurn)
+        assertEquals(2, r.trace.length())
+        val round1 = r.trace.getJSONObject(0)
+        assertEquals(1000, round1.getJSONObject("usage").getInt("input"))
+        val statsCall = round1.getJSONArray("calls").getJSONObject(0)
+        assertEquals("get_stats", statsCall.getString("name"))
+        assertEquals("2026-10-07", statsCall.getJSONObject("args").getString("from_day"))
+        assertTrue(statsCall.getString("result").contains("in_range_pct"))
+        val names = r.trace.getJSONObject(1).getJSONArray("calls").let { c -> (0 until c.length()).map { c.getJSONObject(it).getString("name") } }
+        assertEquals(listOf("propose_entries", "reply"), names)
     }
 
     @Test fun `a plain text answer without reply is still used`() = runBlocking {

@@ -45,6 +45,11 @@ data class AssistantResult(
     val cachedTokens: Int,
     val outputTokens: Int,
     val ms: Long,
+    val reasoningTokens: Int = 0,
+    val effort: String? = null,
+    val userTurn: String? = null,
+    /** Per round: usage, each tool call (args + result, results cut at [MAX_TOOL_RESULT_CHARS]), any text. */
+    val trace: JSONArray = JSONArray(),
 ) {
     val estimatedCostUsd: Double get() = aiCostUsd(model, inputTokens, cachedTokens, outputTokens)
 }
@@ -151,15 +156,11 @@ object Assistant {
         override suspend fun journal(firstDay: String, lastDay: String) = dao.dayJournalBetween(firstDay, lastDay)
     }
 
-    private suspend fun currentReading(context: Context): String? {
-        val r = Store.reading(context) ?: return null
-        val ageMin = (System.currentTimeMillis() - r.timestampMs) / 60_000
-        return "${mmolText(r.mgdl)} mmol/L ${r.trend} (${ageMin} min ago)"
-    }
-
     /**
      * One exchange: her [message] → answer + proposed rows. Throws
-     * [AssistantException] (or times out) so callers can fall back.
+     * [AssistantException] (or times out) so callers can fall back. [trace]
+     * collects the rounds as they happen, so a caller logging a failure
+     * still has what got that far.
      */
     suspend fun ask(
         context: Context,
@@ -168,10 +169,11 @@ object Assistant {
         fromWatch: Boolean,
         timeoutMs: Long,
         zone: ZoneId = ZoneId.systemDefault(),
+        trace: JSONArray = JSONArray(),
     ): AssistantResult = withTimeout(timeoutMs) {
         val cfg = Store.aiConfig(context) ?: throw AssistantException("assistant not configured")
-        val turn = assistantUserTurn(message, ZonedDateTime.now(zone), targetDay, fromWatch, currentReading(context))
-        run(cfg, turn, cfg.effort ?: defaultEffort(message), roomData(context), zone)
+        val turn = assistantUserTurn(message, ZonedDateTime.now(zone), targetDay, fromWatch, InteractionLog.currentReading(context))
+        run(cfg, turn, cfg.effort ?: defaultEffort(message), roomData(context), zone, trace = trace)
     }
 
     /**
@@ -184,6 +186,7 @@ object Assistant {
         effort: String,
         data: AssistantData,
         zone: ZoneId,
+        trace: JSONArray = JSONArray(),
         transport: suspend (key: String, body: JSONObject) -> JSONObject = ::post,
     ): AssistantResult {
         val t0 = System.currentTimeMillis()
@@ -192,7 +195,7 @@ object Assistant {
         var rejected = 0
         var answer: String? = null
         var detail: String? = null
-        var inTok = 0; var cachedTok = 0; var outTok = 0
+        var inTok = 0; var cachedTok = 0; var outTok = 0; var reasoningTok = 0
         var lastText: String? = null
 
         for (round in 1..MAX_ROUNDS) {
@@ -205,10 +208,21 @@ object Assistant {
                 .put("store", false)
                 .put("max_output_tokens", 8_000)
             val res = transport(cfg.key, body)
+            val roundLog = JSONObject().put("round", round)
+            val roundCalls = JSONArray()
             res.optJSONObject("usage")?.let { u ->
                 inTok += u.optInt("input_tokens"); outTok += u.optInt("output_tokens")
                 cachedTok += u.optJSONObject("input_tokens_details")?.optInt("cached_tokens") ?: 0
+                reasoningTok += u.optJSONObject("output_tokens_details")?.optInt("reasoning_tokens") ?: 0
+                roundLog.put(
+                    "usage",
+                    JSONObject().put("input", u.optInt("input_tokens")).put("output", u.optInt("output_tokens"))
+                        .put("cached", u.optJSONObject("input_tokens_details")?.optInt("cached_tokens") ?: 0)
+                        .put("reasoning", u.optJSONObject("output_tokens_details")?.optInt("reasoning_tokens") ?: 0),
+                )
             }
+            roundLog.put("calls", roundCalls)
+            trace.put(roundLog)
             val output = res.optJSONArray("output") ?: JSONArray()
             val calls = mutableListOf<JSONObject>()
             for (i in 0 until output.length()) {
@@ -216,7 +230,7 @@ object Assistant {
                 input.put(item)
                 when (item.optString("type")) {
                     "function_call" -> calls += item
-                    "message" -> lastText = messageText(item) ?: lastText
+                    "message" -> lastText = messageText(item)?.also { roundLog.put("text", it) } ?: lastText
                 }
             }
             if (calls.isEmpty()) break // spoke without calling reply: use its text
@@ -240,6 +254,11 @@ object Assistant {
                     else -> AssistantTools.run(name, args, data, zone)
                 }
                 input.put(JSONObject().put("type", "function_call_output").put("call_id", c.optString("call_id")).put("output", result))
+                roundCalls.put(
+                    JSONObject().put("name", name)
+                        .put("args", runCatching { JSONObject(args) }.getOrElse { cut(args, MAX_TOOL_RESULT_CHARS) })
+                        .put("result", cut(result, MAX_TOOL_RESULT_CHARS)),
+                )
             }
             if (replied) break
             if (round == MAX_ROUNDS) log("stopped after $MAX_ROUNDS rounds")
@@ -250,6 +269,7 @@ object Assistant {
             answer = finalAnswer, detail = detail, entries = proposed, rejected = rejected,
             model = cfg.model, inputTokens = inTok, cachedTokens = cachedTok, outputTokens = outTok,
             ms = System.currentTimeMillis() - t0,
+            reasoningTokens = reasoningTok, effort = effort, userTurn = userTurn, trace = trace,
         )
         log(
             "model=${cfg.model} effort=$effort ms=${result.ms} tokens in=$inTok (cached $cachedTok) out=$outTok " +

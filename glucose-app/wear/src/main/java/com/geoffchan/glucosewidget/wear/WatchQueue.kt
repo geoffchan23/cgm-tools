@@ -26,9 +26,9 @@ object WatchQueue {
     fun all(context: Context): List<QueuedItem> =
         decodeQueue(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null))
 
-    fun add(context: Context, text: String, spokenAtMs: Long = System.currentTimeMillis()) {
+    fun add(context: Context, text: String, spokenAtMs: Long = System.currentTimeMillis(), parseId: String? = null) {
         synchronized(lock) {
-            val items = all(context) + QueuedItem(java.util.UUID.randomUUID().toString(), text, spokenAtMs)
+            val items = all(context) + QueuedItem(java.util.UUID.randomUUID().toString(), text, spokenAtMs, parseId)
             write(context, items)
         }
         QueueFlushWorker.schedule(context)

@@ -111,12 +111,13 @@ class IngestReceiver : BroadcastReceiver() {
                     "ai-clear" -> { Store.clearAiConfig(context); android.util.Log.i("Assistant", "cleared") }
                     // Runs the assistant on --es text without saving anything; logs the result.
                     "ask-test" -> askTest(context, intent.getStringExtra("text").orEmpty(), intent.getBooleanExtra("watch", false))
-                    "describe-test" -> describeTest(intent.getStringExtra("text").orEmpty())
+                    "describe-test" -> describeTest(context, intent.getStringExtra("text").orEmpty())
                     "watch-parse-test" -> android.util.Log.i(
                         WatchParse.TAG,
                         "watch-parse-test → " + WatchParse.propose(
                             context, intent.getStringExtra("text").orEmpty(),
                             requireMain = !intent.getBooleanExtra("any", false), // --ez any true: test on the peer phone
+                            source = SOURCE_DEBUG,
                         ),
                     )
                 }
@@ -126,18 +127,37 @@ class IngestReceiver : BroadcastReceiver() {
         }
     }
 
+    /** Runs the assistant without saving; recorded in the interaction log as source=debug. */
     private suspend fun askTest(context: Context, text: String, fromWatch: Boolean) {
+        val today = java.time.LocalDate.now()
+        val trace = org.json.JSONArray()
+        val t0 = System.currentTimeMillis()
         try {
-            val r = Assistant.ask(context, text, java.time.LocalDate.now(), fromWatch, timeoutMs = 50_000)
+            val r = Assistant.ask(context, text, today, fromWatch, timeoutMs = 50_000, trace = trace)
             android.util.Log.i("Assistant", "ask-test answer: ${r.answer}")
             r.detail?.let { android.util.Log.i("Assistant", "ask-test detail: $it") }
             android.util.Log.i("Assistant", "ask-test rows: ${r.entries.map { it.noteText() ?: "$it (no time)" }} rejected=${r.rejected}")
+            InteractionLog.record(
+                context, newUid(), SOURCE_DEBUG, text, "openai",
+                interactionData(
+                    InteractionLog.context(context, today, userTurn = r.userTurn), listOf(ParseAttempt("openai", true, null, r.ms)),
+                    r.entries.map { ProposalLog(it.noteText() ?: "${it.name ?: it.insulinType} (no time)", "new") },
+                    r.answer, r.detail, r.rejected, r, trace,
+                ).put("debugOp", "ask-test"),
+            )
         } catch (e: Exception) {
             android.util.Log.w("Assistant", "ask-test failed: $e")
+            InteractionLog.record(
+                context, newUid(), SOURCE_DEBUG, text, "none",
+                interactionData(
+                    InteractionLog.context(context, today), listOf(ParseAttempt("openai", false, e.message ?: e.javaClass.simpleName, System.currentTimeMillis() - t0)),
+                    emptyList(), trace = trace, error = e.message ?: e.javaClass.simpleName,
+                ).put("debugOp", "ask-test"),
+            )
         }
     }
 
-    private suspend fun describeTest(text: String) {
+    private suspend fun describeTest(context: Context, text: String) {
         val model = com.google.mlkit.genai.prompt.Generation.getClient()
         try {
             val status = model.checkStatus()
@@ -159,6 +179,13 @@ class IngestReceiver : BroadcastReceiver() {
             android.util.Log.i("Describe", "raw=$raw")
             val b = parseBreakdown(raw)
             android.util.Log.i("Describe", "rows=${b.entries.map { it.noteText() ?: "$it (no time)" }} rejected=${b.rejected}")
+            InteractionLog.record(
+                context, newUid(), SOURCE_DEBUG, text, "nano",
+                interactionData(
+                    InteractionLog.context(context, java.time.LocalDate.now()), listOf(ParseAttempt("nano", b.entries.isNotEmpty())),
+                    b.entries.map { ProposalLog(it.noteText() ?: "${it.name ?: it.insulinType} (no time)", "new") }, rejected = b.rejected,
+                ).put("debugOp", "describe-test").put("raw", raw),
+            )
         } catch (e: Exception) {
             android.util.Log.w("Describe", "failed: $e")
         } finally {

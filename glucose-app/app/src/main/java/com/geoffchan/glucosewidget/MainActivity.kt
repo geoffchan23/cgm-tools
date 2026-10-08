@@ -519,19 +519,26 @@ class MainActivity : ComponentActivity() {
                         day = target,
                         existing = targetEntries,
                         onDismiss = { describing = false },
-                        onSave = { inserts, confirms ->
+                        onSave = { save ->
                             val now = System.currentTimeMillis()
                             scope.launch {
-                                for (text in inserts) {
-                                    Journal.insert(this@MainActivity,
-                                        JournalEntity(
-                                            day = target.toString(), text = text,
-                                            createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY,
-                                        ),
+                                val items = mutableListOf<SavedItem>()
+                                for ((proposed, text) in save.inserts) {
+                                    val row = JournalEntity(
+                                        day = target.toString(), text = text,
+                                        createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY,
                                     )
+                                    Journal.insert(this@MainActivity, row)
+                                    items += SavedItem(proposed, text, row.uid, "insert")
                                 }
-                                for ((guess, text) in confirms) Journal.update(this@MainActivity, guess.copy(text = text, updatedAtMs = now))
+                                for ((guess, proposed, text) in save.confirms) {
+                                    Journal.update(this@MainActivity, guess.copy(text = text, updatedAtMs = now))
+                                    items += SavedItem(proposed, text, guess.uid, "confirm")
+                                }
                                 GlucoseWidget().updateAll(this@MainActivity)
+                                save.interactionId?.let {
+                                    InteractionLog.setOutcomeLater(this@MainActivity, it, Outcome(OUTCOME_SAVED, now, items, save.unticked))
+                                }
                                 describing = false
                             }
                         },

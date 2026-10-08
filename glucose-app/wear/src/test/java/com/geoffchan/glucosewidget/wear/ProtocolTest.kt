@@ -47,3 +47,25 @@ class ProtocolTest {
         assertEquals("2 already logged", savedSummary(Saved(true, null, 0, 0, 2)))
     }
 }
+
+class LogIdsTest {
+    @Test fun `parse, save and outcome carry the interaction id`() {
+        val p = org.json.JSONObject(encodeParse("abc", "took 6"))
+        org.junit.Assert.assertEquals("abc", p.getString("id")); org.junit.Assert.assertEquals("took 6", p.getString("text"))
+        val s = org.json.JSONObject(encodeSave(listOf("a"), "abc", listOf("b")))
+        org.junit.Assert.assertEquals("abc", s.getString("id")); org.junit.Assert.assertEquals("b", s.getJSONArray("unticked").getString(0))
+        org.junit.Assert.assertEquals("cancelled", org.json.JSONObject(encodeOutcome("abc", Protocol.OUTCOME_CANCELLED)).getString("kind"))
+    }
+
+    @Test fun `proposal id is read when present, null from older phones`() {
+        org.junit.Assert.assertEquals("abc", decodeProposal("""{"ok":true,"parser":"rules","rows":[],"id":"abc"}""").id)
+        org.junit.Assert.assertNull(decodeProposal("""{"ok":true,"parser":"rules","rows":[]}""").id)
+        org.junit.Assert.assertNull(decodeProposal("""{"ok":true,"parser":"rules","rows":[],"id":null}""").id)
+    }
+
+    @Test fun `queue keeps the timed-out parse id`() {
+        val items = listOf(QueuedItem("q1", "candy", 5, "p1"), QueuedItem("q2", "walk", 6))
+        org.junit.Assert.assertEquals(items, decodeQueue(encodeQueue(items)))
+        org.junit.Assert.assertEquals("p1", org.json.JSONObject(encodeQueued(items[0])).getString("parseId"))
+    }
+}

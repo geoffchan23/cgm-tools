@@ -217,4 +217,8 @@ private fun AssistantSection() {
             "Sends your question and the readings/logs it looks up to OpenAI.",
         style = MaterialTheme.typography.bodySmall,
     )
+    // what's been recorded for evals (this phone's own + synced from the other)
+    var logged by remember { mutableStateOf<Int?>(null) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { logged = runCatching { GlucoseDb.get(ctx).dao().interactionCount() }.getOrNull() }
+    logged?.let { Text("Interaction log: $it recorded", style = MaterialTheme.typography.bodySmall) }
 }

@@ -73,3 +73,23 @@ class WatchProtocolTest {
         assertEquals("", org.json.JSONObject(encodeProposal(emptyList(), "rules")).getString("answer"))
     }
 }
+
+class WatchLogProtocolTest {
+    @Test fun `proposal echoes the interaction id`() {
+        val j = org.json.JSONObject(encodeProposal(emptyList(), "rules", id = "abc"))
+        org.junit.Assert.assertEquals("abc", j.getString("id"))
+        org.junit.Assert.assertTrue(org.json.JSONObject(encodeProposal(emptyList(), "rules")).isNull("id"))
+    }
+
+    @Test fun `save carries id and unticked for the log - old saves still decode`() {
+        val json = encodeSave(listOf("dose: short-acting 3u @ 14:33"), "abc", listOf("event: butter @ 14:33"))
+        org.junit.Assert.assertEquals(listOf("dose: short-acting 3u @ 14:33"), decodeSave(json))
+        org.junit.Assert.assertEquals(SaveMeta("abc", listOf("event: butter @ 14:33")), decodeSaveMeta(json))
+        org.junit.Assert.assertEquals(SaveMeta(null, emptyList()), decodeSaveMeta("""{"texts":[]}"""))
+    }
+
+    @Test fun `queued entries may name the parse that timed out`() {
+        org.junit.Assert.assertEquals("p1", decodeQueued("""{"id":"q1","text":"candy","spokenAtMs":5,"parseId":"p1"}""")!!.parseId)
+        org.junit.Assert.assertNull(decodeQueued("""{"id":"q1","text":"candy","spokenAtMs":5}""")!!.parseId)
+    }
+}

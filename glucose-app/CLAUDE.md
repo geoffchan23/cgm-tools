@@ -185,6 +185,54 @@ The old "no cloud / never an LLM API" rule is gone (Geoff, 2026-10-08).
   ```
   Settings shows the model (never the key). Unset or offline → Nano/rules.
 
+## Interaction log (for evals and skills, from 2026-10-08)
+
+Every parse/ask is recorded in Room table `assistant_log` (v4), whatever
+handled it and wherever it came from — the point is to build skills and
+evals for the assistant from what Francine actually says and does.
+`source`: `watch`, `watch-queued` (said while the phone was away, saved as
+guesses), `phone` (Ask / log dialog), `debug` (ADB `ask-test`,
+`watch-parse-test`, `describe-test`). Pure logic in `InteractionCore.kt`,
+I/O in `InteractionLog.kt`; logging never blocks or breaks an entry.
+
+- `input`: exactly what she said or typed. `parser`: what produced the rows
+  (openai / nano / nano-screen / rules / none).
+- `data` (JSON): `context` (local time, the day entries went on, current
+  reading, the full user turn sent to OpenAI), `attempts` (each parser
+  tried, ok, reason — e.g. `openai timeout after 24000 ms` → rules, ms),
+  `model`/`effort`/`ms`/`tokens` (input, cached, output, reasoning)/`costUsd`,
+  `trace` (per round: usage, every tool call with args and result — results
+  over 20 KB cut with a marker — and any text), `answer`/`detail`,
+  `proposals` (text + status new/already/confirm), `rejected`, `error`.
+- `outcome` (JSON, the eval label): `saved` (each row: as proposed, as
+  saved — differs if she edited it on the phone — journal uid, op
+  insert/confirm/already/guess), `unticked`, or `cancelled` / `ask-again` /
+  `answered` / `timeout` (the watch gave up; its queued resend is linked by
+  `parseId`) / `saved-as-guesses`. A save is never overwritten by a later
+  cancel. No outcome = she swiped away (or hasn't acted yet).
+- The watch generates the id and sends it with /log/parse; proposal, save
+  and /log/outcome carry it back (older watches/phones without ids still work).
+- Later corrections aren't written back: saved rows keep their journal uid,
+  and the export resolves each against the journal (kept / edited / confirmed
+  guess / deleted).
+
+Sync: records ride the encrypted relay (outbox entries `i:<uid>`, payload
+field `inter`). The full trace stays on the phone where it happened; the
+other phone gets a copy trimmed to fit one relay message (tool results,
+then the trace, then long texts are dropped; input, proposals and outcome
+kept) stored with `full=0`, and only outcome changes move after that. So
+pulling from Geoff's phone gives every interaction with outcomes; pull from
+her phone for full traces of what happened there.
+
+```bash
+tools/pull-db.sh <serial>
+python3 tools/export-assistant-log.py          # → data/assistant-log.jsonl + summary
+python3 tools/export-assistant-log.py --include-debug
+```
+Privacy: this is her words and health data. It stays on the two phones, in
+the encrypted relay, and in gitignored `data/` — never commit an export or
+paste one into an issue. Settings shows a count only.
+
 ## Watch (voice log from her Pixel Watch 2)
 
 `wear/` is a Wear OS module: launcher app **Glucose Log** plus a tile

@@ -14,6 +14,12 @@ object Protocol {
     const val PATH_SAVED = "/log/saved"
     const val PATH_QUEUED = "/log/queued"
     const val PATH_QUEUED_ACK = "/log/queued-ack"
+    const val PATH_OUTCOME = "/log/outcome"
+
+    // outcomes for the phone's interaction log (match InteractionCore.kt)
+    const val OUTCOME_CANCELLED = "cancelled"
+    const val OUTCOME_ASK_AGAIN = "ask-again"
+    const val OUTCOME_ANSWERED = "answered"
     const val STATUS_ALREADY = "already"
     const val STATUS_CONFIRM = "confirm"
 }
@@ -21,7 +27,8 @@ object Protocol {
 data class Row(val text: String, val label: String, val time: String, val status: String)
 
 /** [answer]: the assistant's reply for the watch screen ("" when it only logged). */
-data class Proposal(val ok: Boolean, val error: String?, val parser: String, val rows: List<Row>, val answer: String = "")
+/** [id]: the phone's interaction-log record (our parse id echoed back; null from older phones). */
+data class Proposal(val ok: Boolean, val error: String?, val parser: String, val rows: List<Row>, val answer: String = "", val id: String? = null)
 
 data class Saved(val ok: Boolean, val error: String?, val saved: Int, val confirmed: Int, val already: Int)
 
@@ -34,10 +41,19 @@ fun decodeProposal(json: String): Proposal {
         val r = arr.getJSONObject(it)
         Row(r.getString("text"), r.getString("label"), r.getString("time"), r.getString("status"))
     }
-    return Proposal(o.optBoolean("ok"), o.optNullableString("error"), o.optString("parser"), rows, o.optString("answer", ""))
+    return Proposal(
+        o.optBoolean("ok"), o.optNullableString("error"), o.optString("parser"), rows, o.optString("answer", ""),
+        if (o.has("id")) o.optNullableString("id") else null,
+    )
 }
 
-fun encodeSave(texts: List<String>): String = JSONObject().put("texts", JSONArray(texts)).toString()
+/** /log/parse body: the id lets every later message (save, outcome, a queued resend) find the record. */
+fun encodeParse(id: String, text: String): String = JSONObject().put("id", id).put("text", text).toString()
+
+fun encodeSave(texts: List<String>, id: String? = null, unticked: List<String> = emptyList()): String = JSONObject()
+    .put("texts", JSONArray(texts)).put("id", id ?: JSONObject.NULL).put("unticked", JSONArray(unticked)).toString()
+
+fun encodeOutcome(id: String, kind: String): String = JSONObject().put("id", id).put("kind", kind).toString()
 
 fun decodeSaved(json: String): Saved {
     val o = JSONObject(json)
@@ -53,12 +69,15 @@ fun savedSummary(s: Saved): String {
 }
 
 /** Something she said while the phone was out of reach, held until it's back. */
-data class QueuedItem(val id: String, val text: String, val spokenAtMs: Long)
+/** [parseId]: the live /log/parse that gave up waiting, so the phone can link the two records. */
+data class QueuedItem(val id: String, val text: String, val spokenAtMs: Long, val parseId: String? = null)
 
 data class QueuedAck(val id: String, val ok: Boolean, val duplicate: Boolean)
 
-fun encodeQueued(q: QueuedItem): String =
-    JSONObject().put("id", q.id).put("text", q.text).put("spokenAtMs", q.spokenAtMs).toString()
+private fun QueuedItem.toJson(): JSONObject =
+    JSONObject().put("id", id).put("text", text).put("spokenAtMs", spokenAtMs).apply { parseId?.let { put("parseId", it) } }
+
+fun encodeQueued(q: QueuedItem): String = q.toJson().toString()
 
 fun decodeQueuedAck(json: String): QueuedAck {
     val o = JSONObject(json)
@@ -69,12 +88,12 @@ fun decodeQueuedAck(json: String): QueuedAck {
 fun ackSettles(item: QueuedItem, ack: QueuedAck): Boolean = ack.id == item.id && (ack.ok || ack.duplicate)
 
 fun encodeQueue(items: List<QueuedItem>): String =
-    JSONArray(items.map { JSONObject().put("id", it.id).put("text", it.text).put("spokenAtMs", it.spokenAtMs) }).toString()
+    JSONArray(items.map { it.toJson() }).toString()
 
 fun decodeQueue(json: String?): List<QueuedItem> = runCatching {
     val arr = JSONArray(json ?: return emptyList())
     (0 until arr.length()).map {
         val o = arr.getJSONObject(it)
-        QueuedItem(o.getString("id"), o.getString("text"), o.getLong("spokenAtMs"))
+        QueuedItem(o.getString("id"), o.getString("text"), o.getLong("spokenAtMs"), o.optNullableString("parseId")?.takeIf { it.isNotBlank() })
     }
 }.getOrDefault(emptyList())

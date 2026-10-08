@@ -13,8 +13,9 @@ import javax.crypto.spec.SecretKeySpec
  * rules. No Android here, so it's all unit-tested; [Sync] does the I/O.
  *
  * A message is base64(nonce ‖ AES-256-GCM ciphertext) of a JSON payload
- * `{"v":1,"device":…,"rows":[…],"tombs":[…]}`. The relay (ntfy.sh) only
- * ever sees the base64.
+ * `{"v":1,"device":…,"rows":[…],"tombs":[…],"inter":[…]}`. The relay
+ * (ntfy.sh) only ever sees the base64. "inter" (assistant interaction log
+ * records, see InteractionCore.kt) is optional, so older payloads still decode.
  */
 const val SYNC_FORMAT = 1
 
@@ -37,6 +38,7 @@ data class SyncPayload(
     val rows: List<SyncRow> = emptyList(),
     val tombs: List<SyncTomb> = emptyList(),
     val v: Int = SYNC_FORMAT,
+    val inter: List<SyncInteraction> = emptyList(),
 )
 
 fun JournalEntity.toSyncRow() = SyncRow(uid, day, text, scope, createdAtMs, updatedAtMs)
@@ -49,6 +51,7 @@ fun encodePayload(p: SyncPayload): String = JSONObject()
             .put("createdAtMs", it.createdAtMs).put("updatedAtMs", it.updatedAtMs)
     }))
     .put("tombs", JSONArray(p.tombs.map { JSONObject().put("uid", it.uid).put("deletedAtMs", it.deletedAtMs) }))
+    .apply { if (p.inter.isNotEmpty()) put("inter", JSONArray(p.inter.map { encodeSyncInteraction(it) })) }
     .toString()
 
 /** Null for anything that isn't a well-formed payload of a format we know. */
@@ -58,6 +61,7 @@ fun decodePayload(json: String): SyncPayload? = runCatching {
     if (v != SYNC_FORMAT) return null
     val rows = o.optJSONArray("rows") ?: JSONArray()
     val tombs = o.optJSONArray("tombs") ?: JSONArray()
+    val inter = o.optJSONArray("inter") ?: JSONArray()
     SyncPayload(
         device = o.getString("device"),
         rows = (0 until rows.length()).map { i ->
@@ -72,6 +76,7 @@ fun decodePayload(json: String): SyncPayload? = runCatching {
             SyncTomb(t.getString("uid"), t.getLong("deletedAtMs"))
         },
         v = v,
+        inter = (0 until inter.length()).map { decodeSyncInteraction(inter.getJSONObject(it)) },
     )
 }.getOrNull()
 
@@ -104,31 +109,39 @@ object SyncCrypto {
 fun encryptedSize(plainBytes: Int): Int = (plainBytes + 12 + 16 + 2) / 3 * 4
 
 /**
- * Split rows and tombstones into payloads whose encrypted message stays
- * under [maxMessageBytes]. A single oversized row still goes out alone.
+ * Split rows, tombstones and interaction records into payloads whose
+ * encrypted message stays under [maxMessageBytes]. A single oversized item
+ * still goes out alone (interaction records are trimmed beforehand, see
+ * [trimForSync], so they fit).
  */
 fun chunkPayloads(
     device: String,
     rows: List<SyncRow>,
     tombs: List<SyncTomb>,
+    inter: List<SyncInteraction> = emptyList(),
     maxMessageBytes: Int = MAX_MESSAGE_BYTES,
 ): List<SyncPayload> {
     val out = mutableListOf<SyncPayload>()
     var curRows = mutableListOf<SyncRow>()
     var curTombs = mutableListOf<SyncTomb>()
-    fun size(r: List<SyncRow>, t: List<SyncTomb>) =
-        encryptedSize(encodePayload(SyncPayload(device, r, t)).toByteArray(Charsets.UTF_8).size)
+    var curInter = mutableListOf<SyncInteraction>()
+    fun size(r: List<SyncRow>, t: List<SyncTomb>, i: List<SyncInteraction>) =
+        encryptedSize(encodePayload(SyncPayload(device, r, t, inter = i)).toByteArray(Charsets.UTF_8).size)
     fun flush() {
-        if (curRows.isNotEmpty() || curTombs.isNotEmpty()) out += SyncPayload(device, curRows, curTombs)
-        curRows = mutableListOf(); curTombs = mutableListOf()
+        if (curRows.isNotEmpty() || curTombs.isNotEmpty() || curInter.isNotEmpty()) out += SyncPayload(device, curRows, curTombs, inter = curInter)
+        curRows = mutableListOf(); curTombs = mutableListOf(); curInter = mutableListOf()
     }
     for (r in rows) {
-        if (size(curRows + r, curTombs) > maxMessageBytes) flush()
+        if (size(curRows + r, curTombs, curInter) > maxMessageBytes) flush()
         curRows += r
     }
     for (t in tombs) {
-        if (size(curRows, curTombs + t) > maxMessageBytes) flush()
+        if (size(curRows, curTombs + t, curInter) > maxMessageBytes) flush()
         curTombs += t
+    }
+    for (i in inter) {
+        if (size(curRows, curTombs, curInter + i) > maxMessageBytes) flush()
+        curInter += i
     }
     flush()
     return out

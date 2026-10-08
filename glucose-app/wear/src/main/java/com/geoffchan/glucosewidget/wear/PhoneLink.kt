@@ -33,4 +33,12 @@ class PhoneLink(private val context: Context) {
             client.removeListener(listener)
         }
     }
+
+    /** Fire-and-forget (no reply expected); false if no phone was there to take it. */
+    suspend fun send(path: String, body: String): Boolean = runCatching {
+        val nodes = Wearable.getNodeClient(context).connectedNodes.await()
+        val phone = nodes.firstOrNull { it.isNearby } ?: nodes.firstOrNull() ?: return false
+        Wearable.getMessageClient(context).sendMessage(phone.id, path, body.toByteArray(Charsets.UTF_8)).await()
+        true
+    }.getOrDefault(false)
 }

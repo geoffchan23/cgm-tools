@@ -5,6 +5,11 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+// Room writes each schema version here; tests check migrations against it.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 android {
     namespace = "com.geoffchan.glucosewidget"
     compileSdk = 35
@@ -67,4 +72,5 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
+    testImplementation("org.xerial:sqlite-jdbc:3.46.1.3") // runs the Room migration SQL in unit tests
 }

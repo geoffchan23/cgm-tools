@@ -61,13 +61,15 @@ class LogActivity : ComponentActivity() {
     }
 
     private var ui by mutableStateOf<Ui>(Ui.Listening)
+    /** The phone's interaction-log record for what's on screen; cleared once an outcome is sent. */
+    private var interactionId: String? = null
     private val checked = mutableStateListOf<Boolean>()
     private val link by lazy { PhoneLink(this) }
 
     private val speech = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val heard = heardText(result.data)
         when {
-            result.resultCode == Activity.RESULT_OK && !heard.isNullOrBlank() -> parse(heard)
+            result.resultCode == Activity.RESULT_OK && !heard.isNullOrBlank() -> { tellOutcome(Protocol.OUTCOME_ASK_AGAIN); parse(heard) }
             ui is Ui.Listening -> finish() // backed out of the first prompt: nothing to keep
             // backed out of "Say again" / "Ask again": stay on whatever was showing
         }
@@ -113,12 +115,28 @@ class LogActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Tells the phone's interaction log what she did with the record on
+     * screen (cancel, ask again, read an answer). Fire-and-forget, outside the
+     * activity's scope so it survives finish().
+     */
+    private fun tellOutcome(kind: String) {
+        val id = interactionId ?: return
+        interactionId = null
+        val app = applicationContext
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            PhoneLink(app).send(Protocol.PATH_OUTCOME, encodeOutcome(id, kind))
+        }
+    }
+
     private fun parse(transcript: String) {
         ui = Ui.Thinking(transcript)
+        val id = java.util.UUID.randomUUID().toString().replace("-", "")
         lifecycleScope.launch {
             ui = try {
                 // the assistant may look things up before answering: give it longer
-                val p = decodeProposal(link.request(Protocol.PATH_PARSE, transcript, Protocol.PATH_PROPOSAL, timeoutMs = 30_000))
+                val p = decodeProposal(link.request(Protocol.PATH_PARSE, encodeParse(id, transcript), Protocol.PATH_PROPOSAL, timeoutMs = 30_000))
+                interactionId = p.id ?: id
                 when {
                     !p.ok -> Ui.Error(p.error ?: READ_FAILED)
                     p.rows.isEmpty() && p.answer.isNotBlank() -> Ui.Answer(transcript, p.answer)
@@ -131,7 +149,7 @@ class LogActivity : ComponentActivity() {
                 }
             } catch (e: PhoneUnreachable) {
                 // Don't lose it: hold it here; the phone saves it as a guess when it's back.
-                WatchQueue.add(applicationContext, transcript)
+                WatchQueue.add(applicationContext, transcript, parseId = id)
                 Ui.Queued(transcript)
             } catch (e: Exception) {
                 Ui.Error(READ_FAILED)
@@ -141,10 +159,13 @@ class LogActivity : ComponentActivity() {
 
     private fun save(c: Ui.Confirm) {
         val texts = c.rows.filterIndexed { i, _ -> checked.getOrElse(i) { false } }.map { it.text }
+        val unticked = c.rows.filterIndexed { i, _ -> !checked.getOrElse(i) { false } }.map { it.text }
+        val id = interactionId
         ui = Ui.Thinking(c.transcript, saving = true)
         lifecycleScope.launch {
             try {
-                val s = decodeSaved(link.request(Protocol.PATH_SAVE, encodeSave(texts), Protocol.PATH_SAVED))
+                val s = decodeSaved(link.request(Protocol.PATH_SAVE, encodeSave(texts, id, unticked), Protocol.PATH_SAVED))
+                interactionId = null // the save is the outcome
                 if (!s.ok) { ui = Ui.Error(s.error ?: SAVE_FAILED); return@launch }
                 ui = Ui.Done(savedSummary(s))
                 buzz()
@@ -189,7 +210,7 @@ class LogActivity : ComponentActivity() {
                     )
                 }
                 item { Text(s.answer, textAlign = TextAlign.Center, style = MaterialTheme.typography.body1, modifier = Modifier.padding(vertical = 6.dp)) }
-                item { Chip(onClick = { finish() }, label = { Text("Done") }, colors = ChipDefaults.primaryChipColors(), modifier = Modifier.fillMaxWidth()) }
+                item { Chip(onClick = { tellOutcome(Protocol.OUTCOME_ANSWERED); finish() }, label = { Text("Done") }, colors = ChipDefaults.primaryChipColors(), modifier = Modifier.fillMaxWidth()) }
                 item { Chip(onClick = { listen() }, label = { Text("Ask again") }, colors = ChipDefaults.secondaryChipColors(), modifier = Modifier.fillMaxWidth()) }
             }
             is Ui.Done -> Centered {
@@ -274,7 +295,7 @@ class LogActivity : ComponentActivity() {
                 )
             }
             item { Chip(onClick = { listen() }, label = { Text("Say again") }, colors = ChipDefaults.secondaryChipColors(), modifier = Modifier.fillMaxWidth()) }
-            item { Chip(onClick = { finish() }, label = { Text("Cancel") }, colors = ChipDefaults.secondaryChipColors(), modifier = Modifier.fillMaxWidth()) }
+            item { Chip(onClick = { tellOutcome(Protocol.OUTCOME_CANCELLED); finish() }, label = { Text("Cancel") }, colors = ChipDefaults.secondaryChipColors(), modifier = Modifier.fillMaxWidth()) }
         }
     }
 

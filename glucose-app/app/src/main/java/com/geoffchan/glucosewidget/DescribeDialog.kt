@@ -46,6 +46,22 @@ private data class ReviewRow(
     val confirmsGuess: Boolean get() = match != null && isGuessEntry(match.text)
 }
 
+/** What was saved from the dialog, for [MainActivity] to write and the interaction log to label. */
+data class ReviewedSave(
+    val inserts: List<Pair<String?, String>>, // (text as proposed, text to save) — differ if she edited it
+    val confirms: List<Triple<JournalEntity, String?, String>>, // (guess, as proposed, text to save)
+    val unticked: List<String>, // proposals she left unchecked
+    val interactionId: String?,
+)
+
+private fun ReviewRow.statusForLog(): String = when {
+    match == null -> WatchProtocol.STATUS_NEW
+    isGuessEntry(match.text) -> WatchProtocol.STATUS_CONFIRM
+    else -> WatchProtocol.STATUS_ALREADY
+}
+
+private fun ProposedEntry.logText(): String = noteText() ?: "${name ?: "${units}u $insulinType"} (no time)"
+
 private fun reviewRow(entry: ProposedEntry, existing: List<JournalEntity>): ReviewRow {
     val match = matchExisting(entry, existing)
     // A plain duplicate starts unchecked; matching one of Claude's guesses
@@ -58,7 +74,9 @@ private fun reviewRow(entry: ProposedEntry, existing: List<JournalEntity>): Revi
  * ([Assistant], when set up and online) answers and/or breaks it into doses
  * and food/exercise logs; otherwise on-device Gemini Nano does the breakdown.
  * The user checks each row, then Save. [existing] is [day]'s journal, for
- * dedupe. [onSave] gets new texts to insert and guess rows to replace (confirmed).
+ * dedupe. [onSave] gets new texts to insert and guess rows to replace
+ * (confirmed). Each Send is recorded in the interaction log, and what she
+ * does next (save / back / cancel) becomes its outcome.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,7 +85,7 @@ fun DescribeDialog(
     day: java.time.LocalDate,
     existing: List<JournalEntity>,
     onDismiss: () -> Unit,
-    onSave: (inserts: List<String>, confirms: List<Pair<JournalEntity, String>>) -> Unit,
+    onSave: (ReviewedSave) -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val useAssistant = remember { Assistant.configured(context) }
@@ -82,7 +100,17 @@ fun DescribeDialog(
     var status by remember { mutableStateOf<String?>("Checking on-device model…") }
     var working by remember { mutableStateOf(false) }
     val rows = remember { mutableStateListOf<ReviewRow>() }
+    val originals = remember { mutableStateListOf<String>() } // each row's text as proposed, before edits
+    var interactionId by remember { mutableStateOf<String?>(null) }
     var reviewing by remember { mutableStateOf(false) }
+
+    /** Leaving without saving: the open record gets [kind] (answered if there was only an answer). */
+    fun leave(kind: String) {
+        val k = if (kind == OUTCOME_CANCELLED && rows.isEmpty() && !answer.isNullOrBlank()) OUTCOME_ANSWERED else kind
+        InteractionLog.setOutcomeLater(context, interactionId, Outcome(k, System.currentTimeMillis()))
+        interactionId = null
+    }
+    fun close() { if (reviewing) leave(OUTCOME_CANCELLED); onDismiss() }
 
     LaunchedEffect(Unit) {
         if (useAssistant) { ready = true; status = null } // Nano still loads below, as the fallback
@@ -110,6 +138,8 @@ fun DescribeDialog(
     fun showRows(entries: List<ProposedEntry>, skipped: Int) {
         rows.clear()
         rows += entries.map { reviewRow(it, existing) }
+        originals.clear()
+        originals += rows.map { it.entry.logText() }
         status = when {
             entries.isEmpty() && answer.isNullOrBlank() -> "Couldn't find any doses or food in that. Try saying it differently."
             skipped > 0 -> "Skipped $skipped item(s) that didn't make sense."
@@ -122,25 +152,50 @@ fun DescribeDialog(
         working = true
         status = null
         answer = null; detail = null
+        val said = paragraph
+        val attempts = mutableListOf<ParseAttempt>()
+        val trace = org.json.JSONArray()
+        var aiError: String? = null
+        /** One record per Send: what she typed, what handled it, what was shown. */
+        suspend fun log(parser: String, ai: AssistantResult? = null, rejected: Int = 0, extra: org.json.JSONObject.() -> Unit = {}) {
+            val id = newUid()
+            interactionId = id
+            InteractionLog.record(
+                context, id, SOURCE_PHONE, said, parser,
+                interactionData(
+                    InteractionLog.context(context, day, userTurn = ai?.userTurn), attempts,
+                    rows.map { ProposalLog(it.entry.logText(), it.statusForLog()) },
+                    answer.orEmpty(), detail, rejected, ai, trace.takeIf { it.length() > 0 }, aiError,
+                ).apply(extra),
+            )
+        }
         scope.launch {
+            if (useAssistant && !Assistant.online(context)) attempts += ParseAttempt("openai", false, "offline")
             if (useAssistant && Assistant.online(context)) {
+                val ta = System.currentTimeMillis()
                 try {
-                    val r = Assistant.ask(context, paragraph, day, fromWatch = false, timeoutMs = 45_000)
+                    val r = Assistant.ask(context, said, day, fromWatch = false, timeoutMs = 45_000, trace = trace)
+                    attempts += ParseAttempt("openai", true, null, System.currentTimeMillis() - ta)
                     answer = r.answer.takeIf { it.isNotBlank() }
                     detail = r.detail
                     showRows(r.entries, r.rejected)
+                    log("openai", r, r.rejected)
                     working = false
                     return@launch
                 } catch (e: Exception) {
                     android.util.Log.w("Assistant", "ask failed: $e")
+                    aiError = if (e is kotlinx.coroutines.TimeoutCancellationException) "timeout after 45000 ms" else e.message ?: e.javaClass.simpleName
+                    attempts += ParseAttempt("openai", false, aiError, System.currentTimeMillis() - ta)
                     if (!ready || model.checkStatus() != FeatureStatus.AVAILABLE) {
                         status = "The assistant couldn't answer (${e.message}). Try again in a moment."
                         working = false
+                        log("none")
                         return@launch
                     }
                     status = "The assistant couldn't answer; using the on-device model."
                 }
             }
+            val tn = System.currentTimeMillis()
             try {
                 val response = model.generateContent(
                     generateContentRequest(TextPart(describePrompt(paragraph))) {
@@ -153,8 +208,12 @@ fun DescribeDialog(
                 android.util.Log.d("Describe", "model output: $raw")
                 val breakdown = parseBreakdown(raw)
                 showRows(breakdown.entries, breakdown.rejected)
+                attempts += ParseAttempt("nano", breakdown.entries.isNotEmpty(), null, System.currentTimeMillis() - tn)
+                log("nano", rejected = breakdown.rejected) { put("raw", raw) }
             } catch (e: Exception) {
                 status = "Couldn't break that down: ${e.message}"
+                attempts += ParseAttempt("nano", false, e.message ?: e.javaClass.simpleName, System.currentTimeMillis() - tn)
+                log("none")
             } finally {
                 working = false
             }
@@ -165,7 +224,7 @@ fun DescribeDialog(
     val canSave = toSave.isNotEmpty() && toSave.all { it.entry.time != null }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { close() },
         title = { Text(title) },
         text = {
             Column(
@@ -201,25 +260,28 @@ fun DescribeDialog(
             if (!reviewing) {
                 Button(enabled = ready && !working && paragraph.isNotBlank(), onClick = { breakDown() }) { Text(if (useAssistant) "Send" else "Break down") }
             } else if (rows.isEmpty()) {
-                Button(onClick = onDismiss) { Text("Done") }
+                Button(onClick = { close() }) { Text("Done") }
             } else {
                 Button(
                     enabled = canSave,
                     onClick = {
                         // each guess is confirmed at most once; any further match is a new row
+                        fun proposedOf(r: ReviewRow) = originals.getOrNull(rows.indexOf(r))
                         val (confirming, inserting) = toSave.partition { it.confirmsGuess }
                         val firstPerGuess = confirming.distinctBy { it.match!!.id }
-                        val confirms = firstPerGuess.map { it.match!! to it.entry.noteText()!! }
-                        val inserts = (inserting + (confirming - firstPerGuess.toSet())).map { it.entry.noteText()!! }
-                        onSave(inserts, confirms)
+                        val confirms = firstPerGuess.map { Triple(it.match!!, proposedOf(it), it.entry.noteText()!!) }
+                        val inserts = (inserting + (confirming - firstPerGuess.toSet())).map { proposedOf(it) to it.entry.noteText()!! }
+                        val unticked = rows.filter { !it.checked }.map { proposedOf(it) ?: it.entry.logText() }
+                        onSave(ReviewedSave(inserts, confirms, unticked, interactionId))
+                        interactionId = null
                     },
                 ) { Text("Save ${toSave.size}") }
             }
         },
         dismissButton = {
             Row {
-                if (reviewing) TextButton(onClick = { reviewing = false; status = null }) { Text("Back") }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                if (reviewing) TextButton(onClick = { leave(OUTCOME_ASK_AGAIN); reviewing = false; status = null }) { Text("Back") }
+                TextButton(onClick = { close() }) { Text("Cancel") }
             }
         },
     )

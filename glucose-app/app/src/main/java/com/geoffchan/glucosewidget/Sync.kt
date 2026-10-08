@@ -33,6 +33,10 @@ import java.util.concurrent.TimeUnit
  *   everything changed in the last 7 days. A phone offline longer than that
  *   needs "Resend last 30 days" from the other one (Settings).
  *
+ * Assistant interaction records ([InteractionLog]) ride along: outbox
+ * entries "i:<uid>", sent trimmed to fit a message ([trimForSync]); the full
+ * trace stays on the phone where it happened.
+ *
  * Not set up (no key/topic) = no-op; the app behaves as a single phone.
  */
 object Sync {
@@ -53,6 +57,15 @@ object Sync {
         enqueue(context, delaySeconds = 5) // coalesce a burst (e.g. a describe-in-words save)
     }
 
+    /** Called after an interaction record is created or its outcome changes. */
+    suspend fun interactionChanged(context: Context, uid: String) {
+        if (Store.syncConfig(context) == null) return
+        Store.addToOutbox(context, listOf(INTERACTION_PREFIX + uid))
+        enqueue(context, delaySeconds = 5)
+    }
+
+    private const val INTERACTION_PREFIX = "i:"
+
     /** Run a sync soon, when there's a network; retried with backoff on failure. */
     fun enqueue(context: Context, delaySeconds: Long = 0) {
         val req = OneTimeWorkRequestBuilder<SyncWorker>()
@@ -67,7 +80,11 @@ object Sync {
     suspend fun queueRecent(context: Context, windowMs: Long) {
         val dao = GlucoseDb.get(context).dao()
         val since = System.currentTimeMillis() - windowMs
-        Store.addToOutbox(context, dao.journalUpdatedSince(since).map { it.uid } + dao.tombstonesSince(since).map { it.uid })
+        Store.addToOutbox(
+            context,
+            dao.journalUpdatedSince(since).map { it.uid } + dao.tombstonesSince(since).map { it.uid } +
+                dao.interactionUidsUpdatedSince(since).map { INTERACTION_PREFIX + it },
+        )
     }
 
     /** Configure from ADB (`op sync-setup`). Returns false for a bad key. */
@@ -110,8 +127,9 @@ object Sync {
     }
 
     private suspend fun publishOutbox(context: Context, cfg: Store.SyncConfig) {
-        val uids = Store.syncOutbox(context)
-        if (uids.isEmpty()) return
+        val all = Store.syncOutbox(context)
+        if (all.isEmpty()) return
+        val (interUids, uids) = all.partition { it.startsWith(INTERACTION_PREFIX) }
         val dao = GlucoseDb.get(context).dao()
         val rows = mutableListOf<SyncRow>()
         val tombs = mutableListOf<SyncTomb>()
@@ -120,13 +138,18 @@ object Sync {
             if (row != null) rows += row.toSyncRow()
             else dao.tombstone(uid)?.let { tombs += SyncTomb(it.uid, it.deletedAtMs) }
         }
+        val inter = interUids.mapNotNull { dao.interaction(it.removePrefix(INTERACTION_PREFIX))?.let { e -> trimForSync(e) } }
         val device = Store.deviceId(context)
-        for (payload in chunkPayloads(device, rows, tombs)) {
+        for (payload in chunkPayloads(device, rows, tombs, inter)) {
             post(cfg, SyncCrypto.encrypt(cfg.key, encodePayload(payload)))
-            Store.removeFromOutbox(context, payload.rows.map { it.uid } + payload.tombs.map { it.uid })
+            Store.removeFromOutbox(
+                context,
+                payload.rows.map { it.uid } + payload.tombs.map { it.uid } + payload.inter.map { INTERACTION_PREFIX + it.uid },
+            )
         }
-        // uids with neither a row nor a tombstone have nothing to send
-        Store.removeFromOutbox(context, uids - (rows.map { it.uid } + tombs.map { it.uid }).toSet())
+        // entries with nothing behind them have nothing to send
+        val sent = (rows.map { it.uid } + tombs.map { it.uid } + inter.map { INTERACTION_PREFIX + it.uid }).toSet()
+        Store.removeFromOutbox(context, all - sent)
         Store.markPublished(context)
     }
 
@@ -193,6 +216,10 @@ object Sync {
                 }
                 val known = dao.tombstone(t.uid)
                 if (known == null || known.deletedAtMs < t.deletedAtMs) dao.insertTombstone(JournalTombstone(t.uid, t.deletedAtMs))
+            }
+            for (i in p.inter) {
+                val local = dao.interaction(i.uid)
+                applyRemoteInteraction(i, local)?.let { if (local == null) dao.insertInteraction(it) else dao.updateInteraction(it) }
             }
         }
         return changed

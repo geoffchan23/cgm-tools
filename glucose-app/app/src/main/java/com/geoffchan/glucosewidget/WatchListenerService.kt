@@ -42,9 +42,11 @@ class WatchListenerService : WearableListenerService() {
                     WatchProtocol.PATH_PARSE -> reply(event, WatchProtocol.PATH_PROPOSAL, WatchParse.propose(this@WatchListenerService, body))
                     WatchProtocol.PATH_SAVE -> reply(event, WatchProtocol.PATH_SAVED, WatchParse.save(this@WatchListenerService, body))
                     WatchProtocol.PATH_QUEUED -> reply(event, WatchProtocol.PATH_QUEUED_ACK, WatchParse.saveQueued(this@WatchListenerService, body))
+                    WatchProtocol.PATH_OUTCOME -> WatchParse.outcome(this@WatchListenerService, body) // no reply
                 }
             } catch (e: Exception) {
                 Log.w(WatchParse.TAG, "watch ${event.path} failed", e)
+                if (event.path == WatchProtocol.PATH_OUTCOME) return@runBlocking
                 val (path, err) = when (event.path) {
                     WatchProtocol.PATH_SAVE -> WatchProtocol.PATH_SAVED to encodeSaved(0, 0, 0, WatchParse.SAVE_FAILED)
                     WatchProtocol.PATH_QUEUED -> WatchProtocol.PATH_QUEUED_ACK to
@@ -80,63 +82,102 @@ object WatchParse {
     /**
      * /log/parse → /log/proposal body. The OpenAI assistant when it's set up
      * and the phone is online (it can also answer questions); otherwise Nano
-     * when it can run, else [parseSpoken]. [requireMain] is false only for
-     * the ADB test op.
+     * when it can run, else [parseSpoken]. Every call is recorded in the
+     * interaction log under the watch's id (echoed back in the proposal).
+     * [requireMain] is false and [source] is debug only for the ADB test op.
      */
-    suspend fun propose(context: Context, transcript: String, requireMain: Boolean = true): String {
-        if (requireMain && !Store.isMainPhone(context)) return encodeProposal(emptyList(), "none", NOT_MAIN)
+    suspend fun propose(context: Context, body: String, requireMain: Boolean = true, source: String = SOURCE_WATCH): String {
+        val req = decodeParseRequest(body)
+        val id = req.id ?: newUid()
+        val transcript = req.text
+        if (requireMain && !Store.isMainPhone(context)) return encodeProposal(emptyList(), "none", NOT_MAIN, id = id)
         val zone = ZoneId.systemDefault()
-        val now = LocalTime.now(zone).withSecond(0).withNano(0)
+        val nowZ = java.time.ZonedDateTime.now(zone)
+        val now = nowZ.toLocalTime().withSecond(0).withNano(0)
         val t0 = System.currentTimeMillis()
-        val today = LocalDate.now(zone)
-        var answer = ""
-        val ai = if (Assistant.configured(context) && Assistant.online(context)) {
+        val today = nowZ.toLocalDate()
+        val attempts = mutableListOf<ParseAttempt>()
+        val trace = org.json.JSONArray()
+        var aiError: String? = null
+        val configured = Assistant.configured(context)
+        val online = configured && Assistant.online(context)
+        if (configured && !online) attempts += ParseAttempt("openai", false, "offline")
+        val ai = if (online) {
+            val ta = System.currentTimeMillis()
             try {
-                Assistant.ask(context, transcript, today, fromWatch = true, timeoutMs = ASSISTANT_TIMEOUT_MS, zone = zone)
+                Assistant.ask(context, transcript, today, fromWatch = true, timeoutMs = ASSISTANT_TIMEOUT_MS, zone = zone, trace = trace)
+                    .also { attempts += ParseAttempt("openai", true, null, System.currentTimeMillis() - ta) }
             } catch (e: Exception) {
-                Log.i(TAG, "assistant failed (${e.message}); falling back to rules")
+                val reason = if (e is kotlinx.coroutines.TimeoutCancellationException) "timeout after ${ASSISTANT_TIMEOUT_MS} ms" else e.message ?: e.javaClass.simpleName
+                aiError = reason
+                attempts += ParseAttempt("openai", false, reason, System.currentTimeMillis() - ta)
+                Log.i(TAG, "assistant failed ($reason); falling back to rules")
                 null
             }
         } else null
         val (entries, parser) = when {
-            ai != null -> { answer = ai.answer; ai.entries to "openai" }
+            ai != null -> ai.entries to "openai"
             // the assistant used up the time budget: no room for Nano's ~12 s route
-            Assistant.configured(context) && Assistant.online(context) -> parseSpoken(transcript, now) to "rules"
-            else -> nanoRows(context, transcript, now) ?: (parseSpoken(transcript, now) to "rules")
+            online -> parseSpoken(transcript, now) to "rules"
+            else -> nanoRows(context, transcript, now, attempts) ?: (parseSpoken(transcript, now) to "rules")
         }
+        if (parser == "rules") attempts += ParseAttempt("rules", true)
+        val answer = ai?.answer.orEmpty()
         val existing = todayEntries(context, today.toString())
         val rows = entries.mapNotNull { watchRow(if (it.time == null) it.copy(time = now) else it, existing) }
         Log.i(TAG, "parse via $parser in ${System.currentTimeMillis() - t0} ms: \"$transcript\" → ${rows.map { it.text }} answer=\"$answer\"")
-        return encodeProposal(rows, parser, answer = answer)
+        InteractionLog.record(
+            context, id, source, transcript, parser,
+            interactionData(
+                InteractionLog.context(context, today, nowZ, ai?.userTurn), attempts,
+                rows.map { ProposalLog(it.text, it.status) }, answer, ai?.detail, ai?.rejected ?: 0, ai,
+                trace.takeIf { it.length() > 0 }, if (ai == null) aiError else null,
+            ),
+        )
+        return encodeProposal(rows, parser, answer = answer, id = id)
     }
 
-    /** Rows from Gemini Nano with the parser name, or null to fall back to rules. */
-    private suspend fun nanoRows(context: Context, transcript: String, now: LocalTime): Pair<List<ProposedEntry>, String>? {
+    /** Rows from Gemini Nano with the parser name, or null to fall back to rules; each try lands in [attempts]. */
+    private suspend fun nanoRows(context: Context, transcript: String, now: LocalTime, attempts: MutableList<ParseAttempt>): Pair<List<ProposedEntry>, String>? {
+        val t0 = System.currentTimeMillis()
         val model = Generation.getClient()
         val available = try {
             withTimeoutOrNull(DIRECT_TIMEOUT_MS) { model.checkStatus() } == FeatureStatus.AVAILABLE
         } catch (e: Exception) {
             false
         }
-        if (!available) { model.close(); return null }
+        if (!available) {
+            model.close()
+            attempts += ParseAttempt("nano", false, "model not available", System.currentTimeMillis() - t0)
+            return null
+        }
         val prompt = describePrompt(watchParagraph(transcript, now))
 
         // 1) The app may already be on screen (she has it open): just ask.
+        var why: String? = null
         val direct = try {
             withTimeoutOrNull(DIRECT_TIMEOUT_MS) {
                 model.generateContent(generateContentRequest(TextPart(prompt)) { temperature = 0f; topK = 1; maxOutputTokens = 256 })
                     .candidates.firstOrNull()?.text
-            }
+            }.also { if (it == null) why = "timeout" }
         } catch (e: Exception) {
             Log.i(TAG, "Nano in-process refused (${e.message}); trying the lock-screen route")
+            why = e.message ?: e.javaClass.simpleName
             null
         } finally {
             model.close()
         }
-        rowsOf(direct)?.let { return it to "nano" }
+        rowsOf(direct)?.let {
+            attempts += ParseAttempt("nano", true, null, System.currentTimeMillis() - t0)
+            return it to "nano"
+        }
+        attempts += ParseAttempt("nano", false, why ?: "no rows", System.currentTimeMillis() - t0)
 
         // 2) Bring an invisible activity up over the lock screen and ask from there.
-        return rowsOf(viaFullScreen(context, prompt))?.let { it to "nano-screen" }
+        val t1 = System.currentTimeMillis()
+        val viaScreen = rowsOf(viaFullScreen(context, prompt))
+        attempts += ParseAttempt("nano-screen", viaScreen != null, if (viaScreen == null) "no answer within ${SCREEN_TIMEOUT_MS} ms" else null, System.currentTimeMillis() - t1)
+        return viaScreen?.let { it to "nano-screen" }
     }
 
     private fun rowsOf(raw: String?): List<ProposedEntry>? =
@@ -194,16 +235,31 @@ object WatchParse {
         val existing = todayEntries(context, today)
         val now = System.currentTimeMillis()
         var saved = 0; var confirmed = 0; var already = 0
+        val items = mutableListOf<SavedItem>()
         for (op in planWatchSave(decodeSave(json), existing)) when (op) {
             is WatchSaveOp.Insert -> {
-                Journal.insert(context, JournalEntity(day = today, text = op.text, createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY))
+                val row = JournalEntity(day = today, text = op.text, createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY)
+                Journal.insert(context, row)
+                items += SavedItem(op.text, op.text, row.uid, "insert")
                 saved++
             }
-            is WatchSaveOp.Confirm -> { Journal.update(context, op.guess.copy(text = op.text, updatedAtMs = now)); confirmed++ }
-            is WatchSaveOp.Already -> already++
+            is WatchSaveOp.Confirm -> {
+                Journal.update(context, op.guess.copy(text = op.text, updatedAtMs = now))
+                items += SavedItem(op.text, op.text, op.guess.uid, "confirm")
+                confirmed++
+            }
+            is WatchSaveOp.Already -> { items += SavedItem(op.text, op.text, null, "already"); already++ }
         }
         if (saved + confirmed > 0) GlucoseWidget().updateAll(context)
+        val meta = decodeSaveMeta(json)
+        meta.id?.let { InteractionLog.setOutcome(context, it, Outcome(OUTCOME_SAVED, now, items, meta.unticked)) }
         return encodeSaved(saved, confirmed, already)
+    }
+
+    /** /log/outcome: she cancelled, asked again or read an answer — logged against the record. */
+    suspend fun outcome(context: Context, json: String) {
+        val o = decodeWatchOutcome(json) ?: return
+        InteractionLog.setOutcome(context, o.id, Outcome(o.kind, System.currentTimeMillis()))
     }
 
     /**
@@ -221,11 +277,26 @@ object WatchParse {
         val rows = parseSpoken(q.text, spokenAt.toLocalTime().withSecond(0).withNano(0))
         val now = System.currentTimeMillis()
         val texts = planQueuedSave(rows, todayEntries(context, day))
+        val items = mutableListOf<SavedItem>()
         for (text in texts) {
-            Journal.insert(context, JournalEntity(day = day, text = text, createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY))
+            val row = JournalEntity(day = day, text = text, createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY)
+            Journal.insert(context, row)
+            items += SavedItem(text.removeSuffix(GUESS_SUFFIX), text, row.uid, "guess")
         }
         Store.saveWatchQueuedIds(context, remembered)
         if (texts.isNotEmpty()) GlucoseWidget().updateAll(context)
+        // the queued entry is its own record (uid = its id, so a resend can't log it twice) …
+        InteractionLog.record(
+            context, q.id, SOURCE_WATCH_QUEUED, q.text, "rules",
+            interactionData(
+                InteractionLog.context(context, spokenAt.toLocalDate(), spokenAt).copy(currentReading = null),
+                listOf(ParseAttempt("rules", true)),
+                rows.mapNotNull { it.noteText() }.map { ProposalLog(it, if (it + GUESS_SUFFIX in texts) "new" else WatchProtocol.STATUS_ALREADY) },
+            ).put("spokenAtMs", q.spokenAtMs).put("parseId", q.parseId ?: org.json.JSONObject.NULL),
+            Outcome(OUTCOME_GUESSES, now, items, note = "no confirm screen: saved as guesses"),
+        )
+        // … and the live attempt it replaces (if the watch gave up waiting) gets its outcome
+        q.parseId?.let { InteractionLog.setOutcome(context, it, Outcome(OUTCOME_TIMEOUT, now, note = "queued as ${q.id}")) }
         Log.i(TAG, "queued ${q.id} from $spokenAt: \"${q.text}\" → $texts")
         return encodeQueuedAck(q.id, texts.size, duplicate = false)
     }
