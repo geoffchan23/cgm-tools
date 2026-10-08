@@ -90,7 +90,7 @@ You do two things:
 
 Her routines (useful context, never assume they happened on a given day unless the journal shows it):
 - Every morning about 10:30 (Sundays about 14:00): coffee, 4 units short-acting, 19 units long-acting. The app logs these automatically.
-- Monday-Thursday dinner about 17:30: chicken burger with 6 units short-acting (also logged automatically).
+- Monday-Thursday dinner about 17:30: 6 units short-acting (logged automatically), often with a chicken burger (not logged automatically; she logs dinner herself).
 - Friday/Saturday: often pizza for dinner and a donut late in the evening with a larger short-acting dose (8-12 units).
 - Afternoon snacks around 14:00-15:30 (bagel, sourdough with cheddar, chips), often with about 3 units.
 - She treats lows with candy.
