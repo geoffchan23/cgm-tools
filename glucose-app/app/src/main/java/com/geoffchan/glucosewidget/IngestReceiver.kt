@@ -64,6 +64,20 @@ class IngestReceiver : BroadcastReceiver() {
                         GlucoseWidget().updateAll(context)
                     }
                     "report-ready" -> intent.getStringExtra("name")?.let { ReportNotification.show(context, it) }
+                    // Moving phones: hand the Dexcom login from one phone to the other
+                    // through app-private files (adb exec-out | exec-in), never on screen.
+                    "creds-export" -> Store.credentials(context)?.let { (u, pw) ->
+                        java.io.File(context.filesDir, CREDS_HANDOFF).writeText("$u\n$pw")
+                    }
+                    "creds-import" -> java.io.File(context.filesDir, CREDS_HANDOFF).let { f ->
+                        val lines = f.takeIf { it.exists() }?.readLines().orEmpty()
+                        if (lines.size >= 2) {
+                            Store.saveCredentials(context, lines[0], lines[1])
+                            Refresh.enqueue(context)
+                        }
+                        f.delete()
+                    }
+                    "creds-clear" -> java.io.File(context.filesDir, CREDS_HANDOFF).delete()
                     "refresh" -> Refresh.enqueue(context)
                     "sync-setup" -> {
                         val ok = Sync.setup(
@@ -118,3 +132,5 @@ class IngestReceiver : BroadcastReceiver() {
         }
     }
 }
+
+private const val CREDS_HANDOFF = "creds-handoff"
