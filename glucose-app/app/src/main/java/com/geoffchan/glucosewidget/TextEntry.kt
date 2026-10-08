@@ -92,7 +92,7 @@ private fun parseRow(o: JSONObject): ProposedEntry? {
         }
         "event" -> {
             val name = o.optString("name").replace(Regex("""\s+"""), " ").trim()
-            if (name.isEmpty() || name.length > 80 || name.equals("null", ignoreCase = true)) return null
+            if (name.isEmpty() || name.length > MAX_EVENT_NAME || name.equals("null", ignoreCase = true)) return null
             ProposedEntry(isDose = false, name = name, time = time)
         }
         else -> null
@@ -127,6 +127,9 @@ fun matchExisting(p: ProposedEntry, existing: List<JournalEntity>, windowMinutes
  * for her routine, one worked example, JSON only. The defaults mirror the
  * auto routines (10:30 coffee + doses, 17:30 dinner).
  */
+/** Long enough for a whole meal said in one breath. */
+const val MAX_EVENT_NAME = 160
+
 fun describePrompt(paragraph: String): String = """
 You turn a person's description of their day into diabetes log entries.
 The person has type 1 diabetes and takes two insulins:
@@ -142,12 +145,13 @@ Rules:
 - units is a whole number.
 - time is 24-hour "HH:mm". Use a time the person states ("at 7pm" is "19:00"). Otherwise: breakfast or morning coffee "10:30", lunch "13:00", afternoon snack "15:00", dinner "17:30", dessert or evening snack "21:30", bedtime "23:00". A dose taken with a meal gets that meal's time. If you cannot tell the time, use null.
 - A stated time belongs only to the item it is attached to. A meal word wins for its own items: in "dinner was a chicken burger with 6, and a cookie around 7", the chicken burger and the 6 units are "17:30" and only the cookie is "19:00".
-- name is short and lowercase, using the person's words: "pizza hut pizza", "30 min walk". Keep "coffee" and "chicken burger" exactly as written.
+- name is lowercase, in the person's own words, and KEEPS every amount and size they said: "15 g cheddar cheese", "half a medium pizza hut pizza", "2 slices sourdough", "30 min walk". Never drop a number from a food.
+- Foods eaten together at the same time are ONE event with all of them in its name, joined the way the person said them: "sourdough bread with butter and jam and 15 g cheddar cheese" is one event, not four. Only coffee, candy and exercise are always their own events. Keep "coffee" and "chicken burger" exactly as written.
 - Do not log food the person says they did not eat. Do not invent anything.
 
 Example
-Text: had a bagel with cream cheese around 2 and took 3, then pizza for dinner with 7 units and walked 20 min after
-JSON: {"entries":[{"kind":"event","name":"bagel with cream cheese","time":"14:00"},{"kind":"dose","type":"short-acting","units":3,"time":"14:00"},{"kind":"event","name":"pizza","time":"17:30"},{"kind":"dose","type":"short-acting","units":7,"time":"17:30"},{"kind":"event","name":"20 min walk","time":"18:00"}]}
+Text: had a quarter bagel with cream cheese and 20 g of cheddar around 2 and took 3, then half a pizza for dinner with 7 units and walked 20 min after
+JSON: {"entries":[{"kind":"event","name":"quarter bagel with cream cheese and 20 g of cheddar","time":"14:00"},{"kind":"dose","type":"short-acting","units":3,"time":"14:00"},{"kind":"event","name":"half a pizza","time":"17:30"},{"kind":"dose","type":"short-acting","units":7,"time":"17:30"},{"kind":"event","name":"20 min walk","time":"18:00"}]}
 
 Text: ${paragraph.trim().replace("\n", " ")}
 JSON:

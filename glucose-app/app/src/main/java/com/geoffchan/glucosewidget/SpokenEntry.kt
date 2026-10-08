@@ -36,14 +36,14 @@ fun parseSpoken(text: String, now: LocalTime): List<ProposedEntry> {
     // 3) food / activity chunks from what's left
     val foods = findFoods(toks, kind)
     var mealWord: String? = null
-    val events = mutableListOf<Pair<Int, String>>() // token index → name
+    val events = mutableListOf<Triple<Int, String, Boolean>>() // token index → name, is a food (mergeable)
     for (c in foods) {
         val r = cleanChunk(c.words)
         if (r.meal != null && mealWord == null) mealWord = r.meal
-        if (r.name != null) events += c.at to r.name
+        if (r.name != null) events += Triple(c.at, r.name, !r.exercise && r.name !in STANDALONE_FOODS)
     }
     // "had dinner and took 6": the meal word is the only food there is
-    if (events.isEmpty() && mealWord != null) events += (foods.firstOrNull()?.at ?: 0) to mealWord!!
+    if (events.isEmpty() && mealWord != null) events += Triple(foods.firstOrNull()?.at ?: 0, mealWord!!, false)
 
     // 4) assemble in spoken order, each with its time
     fun timeFor(at: Int): LocalTime {
@@ -54,7 +54,21 @@ fun parseSpoken(text: String, now: LocalTime): List<ProposedEntry> {
     }
     val out = mutableListOf<Pair<Int, ProposedEntry>>()
     for (d in doses) out += d.from to ProposedEntry(isDose = true, insulinType = d.type, units = d.units, time = timeFor(d.from))
-    for ((at, name) in events) out += at to ProposedEntry(isDose = false, name = name, time = timeFor(at))
+    // Foods eaten at the same time are one meal, as she logs them by hand:
+    // "sourdough bread with butter and jam and 15 g of cheddar cheese".
+    val merged = mutableListOf<Pair<Int, String>>()
+    var open: Triple<Int, String, Boolean>? = null
+    for (e in events) {
+        val o = open
+        if (o != null && o.third && e.third && timeFor(o.first) == timeFor(e.first)) {
+            open = Triple(o.first, "${o.second} and ${e.second}", true)
+        } else {
+            o?.let { merged += it.first to it.second }
+            open = e
+        }
+    }
+    open?.let { merged += it.first to it.second }
+    for ((at, name) in merged) out += at to ProposedEntry(isDose = false, name = name, time = timeFor(at))
     return out.sortedBy { it.first }.map { it.second }
 }
 
@@ -319,7 +333,10 @@ private val EXERCISE = mapOf(
     "raking" to "raking", "raked" to "raking", "dancing" to "dancing", "danced" to "dancing",
 )
 
-private class Cleaned(val name: String?, val meal: String?)
+private class Cleaned(val name: String?, val meal: String?, val exercise: Boolean = false)
+
+/** Logged on their own, never folded into a meal: standing recipes and low treatment. */
+private val STANDALONE_FOODS = setOf("coffee", "candy")
 
 private fun cleanChunk(words: List<Tok>): Cleaned {
     val w = words.map { it.word }.toMutableList()
@@ -343,12 +360,12 @@ private fun cleanChunk(words: List<Tok>): Cleaned {
                 if (w.getOrNull(k - 1) in setOf("an", "a") && w.getOrNull(k - 2) == "half") minutes = 30
             }
         }
-        return Cleaned(if (minutes != null) "$minutes min $ex" else ex, meal)
+        return Cleaned(if (minutes != null) "$minutes min $ex" else ex, meal, exercise = true)
     }
     while (w.isNotEmpty() && w.first() in LEAD_FILLERS) w.removeAt(0)
     while (w.isNotEmpty() && w.last() in TRAIL_FILLERS) w.removeAt(w.size - 1)
     if (w.isEmpty()) return Cleaned(null, meal)
     if (w.size == 1 && w[0] in MEALS) return Cleaned(null, meal ?: w[0])
-    val name = w.joinToString(" ").take(80)
+    val name = w.joinToString(" ").take(MAX_EVENT_NAME)
     return Cleaned(name, meal)
 }

@@ -106,4 +106,20 @@ class SpokenEntryTest {
 
     @Test fun `ago past midnight clamps to midnight`() =
         assertEquals(listOf("event: candy @ 00:00"), parse("candy 2 hours ago", LocalTime.of(0, 30)))
+
+    @Test fun `a meal stays one entry and keeps its amounts`() {
+        assertEquals(
+            listOf("event: sourdough bread with butter and jam and 15 g of cheddar cheese @ 17:42"),
+            parse("sourdough bread with butter and jam and 15 g of cheddar cheese"),
+        )
+        assertEquals(
+            listOf("event: 2 slices of sourdough and 20 g cheddar @ 17:42", "dose: short-acting 3u @ 17:42"),
+            parse("2 slices of sourdough and 20 g cheddar and 3 units"),
+        )
+    }
+
+    @Test fun `coffee, candy and exercise stay separate from a meal`() {
+        assertEquals(listOf("event: coffee @ 17:42", "event: toast @ 17:42"), parse("coffee and toast"))
+        assertEquals(listOf("event: pizza @ 17:42", "event: 20 min walk @ 17:42"), parse("pizza and walked for 20 minutes"))
+    }
 }

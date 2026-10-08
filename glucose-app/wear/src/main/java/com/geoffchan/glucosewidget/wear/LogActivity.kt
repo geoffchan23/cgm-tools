@@ -64,12 +64,33 @@ class LogActivity : ComponentActivity() {
     private val link by lazy { PhoneLink(this) }
 
     private val speech = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val heard = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+        val heard = heardText(result.data)
         when {
             result.resultCode == Activity.RESULT_OK && !heard.isNullOrBlank() -> parse(heard)
             ui is Ui.Listening -> finish() // backed out of the first prompt: nothing to keep
             // backed out of "Say again": stay on whatever was showing
         }
+    }
+
+    /**
+     * Speech comes back in EXTRA_RESULTS; if she switches the input screen to
+     * the keyboard, Wear returns the typed text as a RemoteInput result instead.
+     */
+    private fun heardText(data: Intent?): String? {
+        data ?: return null
+        // The keyboard path returns CharSequences (or an array) under the same key.
+        @Suppress("DEPRECATION")
+        when (val r = data.extras?.get(RecognizerIntent.EXTRA_RESULTS)) {
+            is List<*> -> r.firstOrNull()
+            is Array<*> -> r.firstOrNull()
+            else -> r
+        }?.toString()?.takeIf { it.isNotBlank() }?.let { return it }
+        android.app.RemoteInput.getResultsFromIntent(data)?.let { b ->
+            b.keySet().firstNotNullOfOrNull { k -> b.getCharSequence(k)?.toString()?.takeIf { it.isNotBlank() } }?.let { return it }
+        }
+        @Suppress("DEPRECATION")
+        android.util.Log.i("WatchLog", "no text in result; extras=${data.extras?.keySet()?.associateWith { data.extras?.get(it)?.javaClass?.simpleName }}")
+        return null
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
