@@ -97,16 +97,15 @@ the same type or an event named coffee that day suppresses its routine
 twin (any time/units), so a 10:25 hand entry doesn't get a 10:30 double.
 Wrong-day entries are just deleted in the app like any other row.
 
-Mon-Thu also gets an **evening routine** at 17:30: `dose: short-acting 6u`
-(added 2026-09-17). It also logged `event: chicken burger` until 2026-10-08,
-when Geoff dropped the assumed meal; dinner is now logged by hand/voice.
-Fri-Sun nothing is logged. Dedupe is windowed at `ROUTINE_SPLIT_MINUTE`
-(15:00) so the morning's short-acting doesn't suppress the evening's. Both
-live in `Routines.kt` with their own DataStore day-marker.
+Only entries before `ROUTINE_SPLIT_MINUTE` (15:00) can suppress it, so an
+afternoon snack dose doesn't. A Mon-Thu **evening routine** (17:30
+`short-acting 6u` + `chicken burger`) ran 2026-09-17 … 10-08 and was
+dropped by Geoff: dinner is logged by hand/voice. `gaps.py` still treats
+those exact rows in that range as routine.
 
 ## Two phones: sync (from 2026-10)
 
-Her Pixel 9 Pro is the **main** phone (runs the 10:30/17:30 routines, takes
+Her Pixel 9 Pro is the **main** phone (runs the morning routine, takes
 watch entries); Geoff's is a **second** phone (`isMainPhone=false`, never
 auto-logs). Both read Dexcom Share themselves, and both can add/edit/delete
 journal rows: changes sync both ways, end-to-end encrypted, through an

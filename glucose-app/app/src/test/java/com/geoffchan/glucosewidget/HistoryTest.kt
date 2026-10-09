@@ -265,7 +265,7 @@ class MorningRoutineTest {
         val expected = listOf("dose: short-acting 4u @ 14:00", "dose: long-acting 19u @ 14:00", "event: coffee @ 14:00")
         assertEquals(expected, morningRoutine(java.time.DayOfWeek.SUNDAY))
         assertEquals("14:00", morningRoutineTime(java.time.DayOfWeek.SUNDAY))
-        // still inside the morning window, so the evening routine can't swallow it
+        // still inside the morning window
         assertTrue(14 * 60 < ROUTINE_SPLIT_MINUTE)
     }
 
@@ -277,41 +277,6 @@ class MorningRoutineTest {
             routineMissing(routine, listOf("dose: short-acting 3u @ 10:25", "event: Coffee @ 11:00")),
         )
         assertTrue(routineMissing(routine, routine).isEmpty())
-    }
-
-    @Test fun `evening routine is 6u, no assumed meal, Mon-Thu only`() {
-        val expected = listOf("dose: short-acting 6u @ 17:30")
-        for (d in listOf(
-            java.time.DayOfWeek.MONDAY, java.time.DayOfWeek.TUESDAY,
-            java.time.DayOfWeek.WEDNESDAY, java.time.DayOfWeek.THURSDAY,
-        )) assertEquals(expected, eveningRoutine(d))
-        for (d in listOf(
-            java.time.DayOfWeek.FRIDAY, java.time.DayOfWeek.SATURDAY, java.time.DayOfWeek.SUNDAY,
-        )) assertTrue(eveningRoutine(d).isEmpty())
-    }
-
-    @Test fun `the morning dose does not suppress the evening one`() {
-        val evening = eveningRoutine(java.time.DayOfWeek.TUESDAY)
-        val morningLogged = morningRoutine(java.time.DayOfWeek.TUESDAY)
-        assertEquals(
-            evening,
-            routineMissing(evening, morningLogged, ROUTINE_SPLIT_MINUTE, 24 * 60, anyEventCovers = true),
-        )
-    }
-
-    @Test fun `a logged dinner leaves the evening dose due`() {
-        val evening = eveningRoutine(java.time.DayOfWeek.WEDNESDAY)
-        assertEquals(
-            listOf("dose: short-acting 6u @ 17:30"),
-            routineMissing(evening, listOf("event: pizza @ 18:00"), ROUTINE_SPLIT_MINUTE, 24 * 60, anyEventCovers = true),
-        )
-        // Dose logged by hand: nothing to add.
-        assertTrue(
-            routineMissing(
-                evening, listOf("event: pizza @ 18:00", "dose: short-acting 5u @ 17:45"),
-                ROUTINE_SPLIT_MINUTE, 24 * 60, anyEventCovers = true,
-            ).isEmpty(),
-        )
     }
 
     @Test fun `an evening entry does not suppress the morning routine`() {

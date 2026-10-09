@@ -51,9 +51,9 @@ class GuessEntryTest {
     }
 
     @Test fun `guesses still cover routines so nothing double-logs`() {
-        val evening = eveningRoutine(java.time.DayOfWeek.MONDAY)
-        val logged = listOf("dose: short-acting 6u @ 17:30 (guess)", "event: pizza @ 18:00 (guess)")
-        assertTrue(routineMissing(evening, logged, ROUTINE_SPLIT_MINUTE, 24 * 60, anyEventCovers = true).isEmpty())
+        val morning = morningRoutine(java.time.DayOfWeek.MONDAY)
+        val logged = morning.map { it + GUESS_SUFFIX }
+        assertTrue(routineMissing(morning, logged, 0, ROUTINE_SPLIT_MINUTE).isEmpty())
     }
 
     @Test fun `chart markers carry the guess flag`() {

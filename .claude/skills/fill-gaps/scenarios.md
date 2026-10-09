@@ -21,8 +21,8 @@ gitignored ledgers in `data/guesses/`.
 - **Afternoon (14:00–15:30):** a small snack — quarter bagel with cream
   cheese, a slice or two of sourdough with cheddar/butter/jam, chips — often
   with 3u. Frequently eaten because she's drifting low after the morning.
-- **Dinner (~17:30):** Mon–Thu is often a chicken burger + 6u. The app
-  auto-logs only the 6u (it stopped assuming the burger on 10-08). Fri/Sat is Pizza Hut, half a medium pizza, + 6–7u.
+- **Dinner (~17:30):** Mon–Thu is often a chicken burger + 6u (the app
+  auto-logged both 09-17 … 10-08; since then dinner is never auto-logged). Fri/Sat is Pizza Hut, half a medium pizza, + 6–7u.
   Sunday varies (grilled cheese, chicken burger and fries).
 - **Evening (19:00–19:30):** a cookie — usually half a chocolate chip
   cookie — typically no insulin.
@@ -66,8 +66,8 @@ gitignored ledgers in `data/guesses/`.
 - **Signature:** a fall starting 17:00–18:15 (her pre-dinner dose acting),
   often from a pre-dinner high, bottoming ~19:00; then a slow rise.
 - **Write:** `event: chicken burger` + `dose: short-acting 6u`, at the fall's
-  start rounded to :15 (the routine's 17:30 when within 15 min). Skip the
-  dose if the routine logged it; skip the meal if any dinner is logged.
+  start rounded to :15 (17:30 when within 15 min). Skip the dose if one is
+  logged; skip the meal if any dinner is logged.
 - **Confidence:** medium-high on Mon–Thu (she eats it most weeknights;
   drumsticks + salad replaced it one week in September).
 
@@ -156,5 +156,5 @@ question with the time and size.
   not the sensor: S11 now needs a rebound to the prior level, not just
   speed. Sep 24's dinner time is unknown (Geoff was away) — guess stays.
   The app now auto-logs Sunday's routine at 14:00.
-- 2026-10-08 — Geoff dropped the auto-logged chicken burger; the evening
-  routine is just the 6u now, so S4 supplies the meal as a guess.
+- 2026-10-08 — Geoff dropped the evening routine (burger and 6u); S4
+  supplies both as guesses on unlogged weeknights.

@@ -125,7 +125,7 @@ fun matchExisting(p: ProposedEntry, existing: List<JournalEntity>, windowMinutes
 /**
  * Instructions for Gemini Nano. Small model, so: one schema, explicit rules
  * for her routine, one worked example, JSON only. The defaults mirror the
- * auto routines (10:30 coffee + doses, 17:30 dinner).
+ * morning routine (10:30 coffee + doses) and her usual 17:30 dinner.
  */
 /**
  * How a description becomes entries — shared by the on-device prompt

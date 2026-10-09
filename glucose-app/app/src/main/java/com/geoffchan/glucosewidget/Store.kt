@@ -71,16 +71,6 @@ object Store {
         context.dataStore.edit { it[KEY_ROUTINE_DAY] = day }
     }
 
-    private val KEY_EVENING_ROUTINE_DAY = stringPreferencesKey("eveningRoutineLoggedDay")
-
-    /** Local date the Mon-Thu evening routine was last auto-logged for. */
-    suspend fun eveningRoutineLoggedDay(context: Context): String? =
-        context.dataStore.data.first()[KEY_EVENING_ROUTINE_DAY]
-
-    suspend fun saveEveningRoutineLoggedDay(context: Context, day: String) {
-        context.dataStore.edit { it[KEY_EVENING_ROUTINE_DAY] = day }
-    }
-
     private val KEY_IS_MAIN = androidx.datastore.preferences.core.booleanPreferencesKey("isMainPhone")
 
     /**

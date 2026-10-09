@@ -13,7 +13,7 @@ analysis/scenarios.md); this script only does the arithmetic: smoothing,
 turning points, and matching logged entries to rises and falls.
 
 A day "needs filling" when everything logged is either an auto-routine
-entry (exact routine text at 10:30 / 17:30) or a guess. Guesses are journal
+entry (exact routine text) or a guess. Guesses are journal
 rows with the suffix " (guess)"; the app draws them hollow and lets Geoff
 Keep (confirm) or delete each one.
 
@@ -43,27 +43,24 @@ DOSE_RE = re.compile(r"^dose: (.+) (\d+)\S* @ (\d{1,2}):(\d{2})( \(guess\))?$")
 EVENT_RE = re.compile(r"^event: (.+?) @ (\d{1,2}):(\d{2})( \(guess\))?$")
 
 # Exactly what Routines.kt inserts; such a row says nothing about the day.
-# The evening routine only exists from 2026-09-17 — earlier identical rows
-# were typed by hand.
+# The evening routine only ran 2026-09-17 … 10-08 (the burger stopped on the
+# last day too) — identical rows outside that were typed by hand.
 MORNING_ROUTINE = {
     "dose: short-acting 4u @ 10:30",
     "dose: long-acting 19u @ 10:30",
     "event: coffee @ 10:30",
 }
-EVENING_ROUTINE = {"dose: short-acting 6u @ 17:30"}
+EVENING_ROUTINE = {
+    "dose: short-acting 6u @ 17:30",
+    "event: chicken burger @ 17:30",
+}
 EVENING_ROUTINE_FROM = dt.date(2026, 9, 17)
-# The routine also auto-logged a chicken burger until it was dropped; after
-# that an exact match was typed by a person.
-EVENING_BURGER = "event: chicken burger @ 17:30"
-EVENING_BURGER_UNTIL = dt.date(2026, 10, 8)
+EVENING_ROUTINE_UNTIL = dt.date(2026, 10, 8)
 
 
 def is_routine(day, text):
-    if text in MORNING_ROUTINE:
-        return True
-    if text in EVENING_ROUTINE:
-        return day >= EVENING_ROUTINE_FROM
-    return text == EVENING_BURGER and EVENING_ROUTINE_FROM <= day <= EVENING_BURGER_UNTIL
+    return text in MORNING_ROUTINE or (
+        text in EVENING_ROUTINE and EVENING_ROUTINE_FROM <= day <= EVENING_ROUTINE_UNTIL)
 
 SWING = 2.0  # mmol/L a turning point must move to count as a rise or fall
 

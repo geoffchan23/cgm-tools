@@ -6,14 +6,15 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 /**
- * Auto-logs Geoff's fixed routines once per local day:
- *  - morning (10:30; Sundays 14:00): short-acting, long-acting, coffee
- *  - evening (Mon-Thu, 17:30): 6u short-acting
+ * Auto-logs the morning routine once per local day: short-acting,
+ * long-acting and coffee at 10:30 (Sundays 14:00). An evening dinner
+ * routine existed 2026-09-17 … 10-08 and was dropped; dinner is logged by
+ * hand or voice.
  *
  * Runs from the 5-minute refresh worker, so entries appear within a few
  * minutes of their time (stamped at the routine time either way) and catch
- * up later if the phone was asleep. Anything already logged in that half of
- * the day is not duplicated — see [routineMissing]. A wrong entry is deleted
+ * up later if the phone was asleep. Anything already logged that morning
+ * is not duplicated — see [routineMissing]. A wrong entry is deleted
  * in the app like any other row.
  */
 object Routines {
@@ -24,36 +25,17 @@ object Routines {
         val nowMinute = now.toLocalTime().toSecondOfDay() / 60
         val dao = GlucoseDb.get(context).dao()
 
-        suspend fun run(
-            routine: List<String>,
-            due: String,
-            from: Int,
-            to: Int,
-            anyEventCovers: Boolean,
-            loggedDay: String?,
-            markDone: suspend (String) -> Unit,
-        ) {
-            if (routine.isEmpty() || loggedDay == today) return
-            if (nowMinute < LocalTime.parse(due).toSecondOfDay() / 60) return
-            val texts = dao.dayJournalSince(today).filter { it.day == today }.map { it.text }
-            val nowMs = System.currentTimeMillis()
-            for (text in routineMissing(routine, texts, from, to, anyEventCovers)) {
-                Journal.insert(
-                    context,
-                    JournalEntity(day = today, text = text, createdAtMs = nowMs, updatedAtMs = nowMs, scope = SCOPE_DAY),
-                )
-            }
-            markDone(today)
+        if (Store.routineLoggedDay(context) == today) return
+        val routine = morningRoutine(now.dayOfWeek)
+        if (nowMinute < LocalTime.parse(morningRoutineTime(now.dayOfWeek)).toSecondOfDay() / 60) return
+        val texts = dao.dayJournalSince(today).filter { it.day == today }.map { it.text }
+        val nowMs = System.currentTimeMillis()
+        for (text in routineMissing(routine, texts, 0, ROUTINE_SPLIT_MINUTE)) {
+            Journal.insert(
+                context,
+                JournalEntity(day = today, text = text, createdAtMs = nowMs, updatedAtMs = nowMs, scope = SCOPE_DAY),
+            )
         }
-
-        run(
-            morningRoutine(now.dayOfWeek), morningRoutineTime(now.dayOfWeek), 0, ROUTINE_SPLIT_MINUTE, false,
-            Store.routineLoggedDay(context),
-        ) { Store.saveRoutineLoggedDay(context, it) }
-
-        run(
-            eveningRoutine(now.dayOfWeek), EVENING_ROUTINE_TIME, ROUTINE_SPLIT_MINUTE, 24 * 60, true,
-            Store.eveningRoutineLoggedDay(context),
-        ) { Store.saveEveningRoutineLoggedDay(context, it) }
+        Store.saveRoutineLoggedDay(context, today)
     }
 }
