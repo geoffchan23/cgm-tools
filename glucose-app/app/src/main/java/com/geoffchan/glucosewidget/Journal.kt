@@ -29,4 +29,38 @@ object Journal {
         dao.insertTombstone(t)
         Sync.localChanged(context, emptyList(), listOf(t))
     }
+
+    /**
+     * Applies the changes she ticked (see [planChange]: rows edited or
+     * deleted since are skipped). Returns what happened to each, for the
+     * interaction log's outcome.
+     */
+    suspend fun applyChanges(context: Context, ops: List<ChangeOp>): List<SavedItem> {
+        val dao = GlucoseDb.get(context).dao()
+        val now = System.currentTimeMillis()
+        return ops.map { op ->
+            val current = when (op) {
+                is ChangeOp.Edit -> dao.journalByUid(op.uid)
+                is ChangeOp.Delete -> dao.journalByUid(op.uid)
+                is ChangeOp.Add -> null
+            }
+            val dayTexts = if (op is ChangeOp.Add) dao.dayJournalBetween(op.day, op.day).map { it.text } else emptyList()
+            when (val step = planChange(op, current, dayTexts)) {
+                is ChangeStep.Insert -> {
+                    val row = JournalEntity(day = step.day, text = step.text, createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY)
+                    insert(context, row)
+                    SavedItem(changeLogText(op), step.text, row.uid, "add")
+                }
+                is ChangeStep.Update -> {
+                    update(context, step.row.copy(text = step.text, updatedAtMs = now))
+                    SavedItem(changeLogText(op), step.text, step.row.uid, "edit")
+                }
+                is ChangeStep.Remove -> {
+                    delete(context, step.row)
+                    SavedItem(changeLogText(op), "", step.row.uid, "delete")
+                }
+                is ChangeStep.Skip -> SavedItem(changeLogText(op), "", null, "skipped: ${step.why}")
+            }
+        }
+    }
 }

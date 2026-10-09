@@ -53,8 +53,8 @@ class LogActivity : ComponentActivity() {
     private sealed interface Ui {
         data object Listening : Ui
         data class Thinking(val transcript: String, val saving: Boolean = false) : Ui
-        data class Confirm(val transcript: String, val rows: List<Row>, val answer: String = "") : Ui
-        data class Answer(val transcript: String, val answer: String) : Ui
+        data class Confirm(val transcript: String, val rows: List<Row>, val answer: String = "", val changes: Int = 0) : Ui
+        data class Answer(val transcript: String, val answer: String, val changes: Int = 0, val awaiting: Boolean = false) : Ui
         data class Done(val summary: String) : Ui
         data class Queued(val transcript: String) : Ui
         data class Error(val message: String) : Ui
@@ -64,12 +64,20 @@ class LogActivity : ComponentActivity() {
     /** The phone's interaction-log record for what's on screen; cleared once an outcome is sent. */
     private var interactionId: String? = null
     private val checked = mutableStateListOf<Boolean>()
+    /** Set by Reply: the next thing she says answers this record's question. */
+    private var replyTo: String? = null
     private val link by lazy { PhoneLink(this) }
 
     private val speech = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val heard = heardText(result.data)
         when {
-            result.resultCode == Activity.RESULT_OK && !heard.isNullOrBlank() -> { tellOutcome(Protocol.OUTCOME_ASK_AGAIN); parse(heard) }
+            result.resultCode == Activity.RESULT_OK && !heard.isNullOrBlank() -> {
+                val replying = replyTo
+                replyTo = null
+                // a reply's outcome is set by the phone when the reply arrives
+                if (replying != null) interactionId = null else tellOutcome(Protocol.OUTCOME_ASK_AGAIN)
+                parse(heard, replying)
+            }
             ui is Ui.Listening -> finish() // backed out of the first prompt: nothing to keep
             // backed out of "Say again" / "Ask again": stay on whatever was showing
         }
@@ -104,10 +112,11 @@ class LogActivity : ComponentActivity() {
         if (WatchQueue.all(this).isNotEmpty()) lifecycleScope.launch { runCatching { WatchQueue.flush(applicationContext) } }
     }
 
-    private fun listen() {
+    private fun listen(replying: String? = null) {
+        replyTo = replying
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            .putExtra(RecognizerIntent.EXTRA_PROMPT, "Log something or ask")
+            .putExtra(RecognizerIntent.EXTRA_PROMPT, if (replying != null) "Your answer" else "Log something or ask")
         try {
             speech.launch(intent)
         } catch (e: ActivityNotFoundException) {
@@ -129,22 +138,22 @@ class LogActivity : ComponentActivity() {
         }
     }
 
-    private fun parse(transcript: String) {
+    private fun parse(transcript: String, replying: String? = null) {
         ui = Ui.Thinking(transcript)
         val id = java.util.UUID.randomUUID().toString().replace("-", "")
         lifecycleScope.launch {
             ui = try {
                 // the assistant may look things up before answering: give it longer
-                val p = decodeProposal(link.request(Protocol.PATH_PARSE, encodeParse(id, transcript), Protocol.PATH_PROPOSAL, timeoutMs = 30_000))
+                val p = decodeProposal(link.request(Protocol.PATH_PARSE, encodeParse(id, transcript, replying), Protocol.PATH_PROPOSAL, timeoutMs = 30_000))
                 interactionId = p.id ?: id
                 when {
                     !p.ok -> Ui.Error(p.error ?: READ_FAILED)
-                    p.rows.isEmpty() && p.answer.isNotBlank() -> Ui.Answer(transcript, p.answer)
+                    p.rows.isEmpty() && (p.answer.isNotBlank() || p.changes > 0) -> Ui.Answer(transcript, p.answer, p.changes, p.awaiting)
                     p.rows.isEmpty() -> Ui.Error("Didn't catch any doses or food — try again.\n\n“$transcript”")
                     else -> {
                         checked.clear()
                         checked.addAll(p.rows.map { it.status != Protocol.STATUS_ALREADY })
-                        Ui.Confirm(transcript, p.rows, p.answer)
+                        Ui.Confirm(transcript, p.rows, p.answer, p.changes)
                     }
                 }
             } catch (e: PhoneUnreachable) {
@@ -209,9 +218,19 @@ class LogActivity : ComponentActivity() {
                         style = MaterialTheme.typography.caption2, color = MaterialTheme.colors.onSurfaceVariant,
                     )
                 }
-                item { Text(s.answer, textAlign = TextAlign.Center, style = MaterialTheme.typography.body1, modifier = Modifier.padding(vertical = 6.dp)) }
-                item { Chip(onClick = { tellOutcome(Protocol.OUTCOME_ANSWERED); finish() }, label = { Text("Done") }, colors = ChipDefaults.primaryChipColors(), modifier = Modifier.fillMaxWidth()) }
-                item { Chip(onClick = { listen() }, label = { Text("Ask again") }, colors = ChipDefaults.secondaryChipColors(), modifier = Modifier.fillMaxWidth()) }
+                if (s.answer.isNotBlank()) {
+                    item { Text(s.answer, textAlign = TextAlign.Center, style = MaterialTheme.typography.body1, modifier = Modifier.padding(vertical = 6.dp)) }
+                }
+                if (s.changes > 0) {
+                    item { Text(changesNote(s.changes), textAlign = TextAlign.Center, style = MaterialTheme.typography.body2, color = MaterialTheme.colors.primary, modifier = Modifier.padding(vertical = 4.dp)) }
+                }
+                if (s.awaiting) {
+                    item { Chip(onClick = { listen(replying = interactionId) }, label = { Text("Reply") }, colors = ChipDefaults.primaryChipColors(), modifier = Modifier.fillMaxWidth()) }
+                    item { Chip(onClick = { tellOutcome(Protocol.OUTCOME_ANSWERED); finish() }, label = { Text("Done") }, colors = ChipDefaults.secondaryChipColors(), modifier = Modifier.fillMaxWidth()) }
+                } else {
+                    item { Chip(onClick = { tellOutcome(Protocol.OUTCOME_ANSWERED); finish() }, label = { Text("Done") }, colors = ChipDefaults.primaryChipColors(), modifier = Modifier.fillMaxWidth()) }
+                    item { Chip(onClick = { listen() }, label = { Text("Ask again") }, colors = ChipDefaults.secondaryChipColors(), modifier = Modifier.fillMaxWidth()) }
+                }
             }
             is Ui.Done -> Centered {
                 Text("✓", fontSize = 48.sp, color = MaterialTheme.colors.primary)
@@ -265,6 +284,9 @@ class LogActivity : ComponentActivity() {
             }
             if (s.answer.isNotBlank()) {
                 item { Text(s.answer, textAlign = TextAlign.Center, style = MaterialTheme.typography.body2, modifier = Modifier.padding(vertical = 4.dp)) }
+            }
+            if (s.changes > 0) {
+                item { Text(changesNote(s.changes), textAlign = TextAlign.Center, style = MaterialTheme.typography.caption1, color = MaterialTheme.colors.primary, modifier = Modifier.padding(vertical = 4.dp)) }
             }
             itemsIndexed(s.rows) { i, row ->
                 val on = checked.getOrElse(i) { false }

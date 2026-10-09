@@ -57,10 +57,22 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+/** Intent extra: an interaction-log record whose proposed changes to review. */
+const val EXTRA_REVIEW_CHANGES = "reviewChanges"
+
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
+    /** Set when opened from the "review changes from your watch" notification. */
+    private var reviewId by mutableStateOf<String?>(null)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intent.getStringExtra(EXTRA_REVIEW_CHANGES)?.let { reviewId = it }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null) reviewId = intent.getStringExtra(EXTRA_REVIEW_CHANGES)
         val dao = GlucoseDb.get(this).dao()
         val zone = ZoneId.systemDefault()
         Refresh.enqueue(this) // opening the app freshens the data
@@ -535,6 +547,7 @@ class MainActivity : ComponentActivity() {
                                     Journal.update(this@MainActivity, guess.copy(text = text, updatedAtMs = now))
                                     items += SavedItem(proposed, text, guess.uid, "confirm")
                                 }
+                                items += Journal.applyChanges(this@MainActivity, save.changes)
                                 GlucoseWidget().updateAll(this@MainActivity)
                                 save.interactionId?.let {
                                     InteractionLog.setOutcomeLater(this@MainActivity, it, Outcome(OUTCOME_SAVED, now, items, save.unticked))
@@ -544,6 +557,8 @@ class MainActivity : ComponentActivity() {
                         },
                     )
                 }
+
+                reviewId?.let { id -> ChangesDialog(id) { reviewId = null } }
 
                 deleting?.let { doomed ->
                     AlertDialog(

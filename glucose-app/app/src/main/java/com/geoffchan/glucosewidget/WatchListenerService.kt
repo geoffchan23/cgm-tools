@@ -99,13 +99,15 @@ object WatchParse {
         val attempts = mutableListOf<ParseAttempt>()
         val trace = org.json.JSONArray()
         var aiError: String? = null
+        val history = InteractionLog.history(context, req.replyTo)
+        req.replyTo?.let { InteractionLog.setOutcome(context, it, Outcome(OUTCOME_REPLIED, System.currentTimeMillis(), note = "reply $id")) }
         val configured = Assistant.configured(context)
         val online = configured && Assistant.online(context)
         if (configured && !online) attempts += ParseAttempt("openai", false, "offline")
         val ai = if (online) {
             val ta = System.currentTimeMillis()
             try {
-                Assistant.ask(context, transcript, today, fromWatch = true, timeoutMs = ASSISTANT_TIMEOUT_MS, zone = zone, trace = trace)
+                Assistant.ask(context, transcript, today, fromWatch = true, timeoutMs = ASSISTANT_TIMEOUT_MS, zone = zone, trace = trace, history = history)
                     .also { attempts += ParseAttempt("openai", true, null, System.currentTimeMillis() - ta) }
             } catch (e: Exception) {
                 val reason = if (e is kotlinx.coroutines.TimeoutCancellationException) "timeout after ${ASSISTANT_TIMEOUT_MS} ms" else e.message ?: e.javaClass.simpleName
@@ -131,10 +133,42 @@ object WatchParse {
             interactionData(
                 InteractionLog.context(context, today, nowZ, ai?.userTurn), attempts,
                 rows.map { ProposalLog(it.text, it.status) }, answer, ai?.detail, ai?.rejected ?: 0, ai,
-                trace.takeIf { it.length() > 0 }, if (ai == null) aiError else null,
-            ),
+                trace.takeIf { it.length() > 0 }, if (ai == null) aiError else null, history,
+            ).apply { req.replyTo?.let { put("replyTo", it) } },
         )
-        return encodeProposal(rows, parser, answer = answer, id = id)
+        val changes = ai?.changes.orEmpty()
+        // other days' edits are reviewed on the phone, not on the watch's small screen
+        if (changes.isNotEmpty() && source != SOURCE_DEBUG) notifyChanges(context, id, changes.size)
+        return encodeProposal(rows, parser, answer = answer, id = id, changes = changes.size, awaiting = ai?.awaitingAnswer == true)
+    }
+
+    private const val CHANGES_CHANNEL = "watch-changes"
+
+    /** "Review 3 changes from your watch" → the app's review dialog for record [id]. */
+    private fun notifyChanges(context: Context, id: String, count: Int) {
+        val nm = context.getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(
+            NotificationChannel(CHANGES_CHANNEL, "Changes to review", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Edits to past entries asked for from your watch, to confirm on the phone"
+            },
+        )
+        val open = PendingIntent.getActivity(
+            context, id.hashCode(),
+            Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                .putExtra(EXTRA_REVIEW_CHANGES, id),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        nm.notify(
+            id.hashCode(),
+            Notification.Builder(context, CHANGES_CHANNEL)
+                .setSmallIcon(android.R.drawable.ic_menu_edit)
+                .setContentTitle(if (count == 1) "1 change to review" else "$count changes to review")
+                .setContentText("From your watch — tap to check and save")
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .build(),
+        )
     }
 
     /** Rows from Gemini Nano with the parser name, or null to fall back to rules; each try lands in [attempts]. */

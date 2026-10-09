@@ -27,6 +27,7 @@ private fun day(values: (Int) -> Double, day: LocalDate = DAY) = (0 until 288).m
 private class FakeData(val rs: List<ReadingEntity>, val js: List<JournalEntity>) : AssistantData {
     override suspend fun readings(startMs: Long, endMs: Long) = rs.filter { it.timestampMs in startMs until endMs }
     override suspend fun journal(firstDay: String, lastDay: String) = js.filter { it.day in firstDay..lastDay }
+    override suspend fun journalById(id: Long) = js.firstOrNull { it.id == id }
 }
 
 private fun j(day: LocalDate, text: String) = JournalEntity(day = day.toString(), text = text, createdAtMs = 0, updatedAtMs = 0)
@@ -116,7 +117,7 @@ class AssistantToolsTest {
         val names = (0 until defs.length()).map { defs.getJSONObject(it) }.onEach {
             assertTrue(it.getBoolean("strict")); check(it.getJSONObject("parameters"))
         }.map { it.getString("name") }
-        assertEquals(listOf("get_readings", "get_stats", "get_journal", "get_lows", "propose_entries", "reply"), names)
+        assertEquals(listOf("get_readings", "get_stats", "get_journal", "get_lows", "propose_entries", "propose_changes", "reply"), names)
     }
 
     @Test fun `proposals go through the same strict validation as the on-device path`() {
@@ -230,5 +231,42 @@ class AssistantLoopTest {
         val r = Assistant.run(cfg, "Francine: how am I doing?", "medium", FakeData(emptyList(), emptyList()), ZONE) { _, _ -> response(msg) }
         assertEquals("Mostly in range today.", r.answer)
         assertTrue(r.entries.isEmpty())
+    }
+
+    @Test fun `changes are validated, history is replayed first, and a question waits for her answer`() = runBlocking {
+        val coffee = JournalEntity(id = 7, day = "2026-10-06", text = "event: coffee @ 10:30", createdAtMs = 0, updatedAtMs = 0)
+        val sent = mutableListOf<JSONObject>()
+        val replies = ArrayDeque(listOf(
+            response(
+                call("c1", "propose_changes", """{"changes":[
+                    {"action":"delete","id":7,"day":null,"kind":null,"type":null,"units":null,"name":null,"time":null},
+                    {"action":"add","id":null,"day":"2026-10-05","kind":"event","type":null,"units":null,"name":"1 cup rice and half cup chicken stir fry","time":"17:30"},
+                    {"action":"delete","id":99,"day":null,"kind":null,"type":null,"units":null,"name":null,"time":null}]}"""),
+                call("c2", "reply", """{"answer":"Removed yesterday's coffee and added Monday's dinner.","detail":null,"awaiting_answer":false}"""),
+            ),
+        ))
+        val history = listOf(Turn("past few days I had rice and stir fry", "Which days, and was it dinner?"))
+        val r = Assistant.run(
+            cfg, "Francine: Monday dinner, and no coffee yesterday", "medium", FakeData(emptyList(), listOf(coffee)), ZONE,
+            history = history, today = DAY,
+        ) { _, body -> sent += JSONObject(body.toString()); replies.removeFirst() }
+        assertEquals(
+            listOf("add 2026-10-05 event: 1 cup rice and half cup chicken stir fry @ 17:30", "delete 2026-10-06 event: coffee @ 10:30"),
+            r.changes.map { changeLogText(it) },
+        )
+        assertEquals(1, r.changeRejects.size)
+        assertFalse(r.awaitingAnswer)
+        val input = sent[0].getJSONArray("input")
+        assertEquals(listOf("user", "assistant", "user"), (0 until input.length()).map { input.getJSONObject(it).getString("role") })
+        assertTrue(input.getJSONObject(0).getString("content").contains("past few days"))
+        // the model hears which change was dropped and why
+        val out = JSONObject(sent.size.let { r.trace.getJSONObject(0).getJSONArray("calls").getJSONObject(0).getString("result") })
+        assertEquals(2, out.getInt("shown_to_her"))
+        assertTrue(out.getJSONArray("rejected").getString(0).contains("99"))
+
+        val asking = Assistant.run(cfg, "Francine: past few days rice", "medium", FakeData(emptyList(), emptyList()), ZONE, today = DAY) { _, _ ->
+            response(call("c1", "reply", """{"answer":"Which days?","detail":null,"awaiting_answer":true}"""))
+        }
+        assertTrue(asking.awaitingAnswer)
     }
 }

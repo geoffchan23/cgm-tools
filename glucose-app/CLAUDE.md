@@ -164,10 +164,25 @@ The old "no cloud / never an LLM API" rule is gone (Geoff, 2026-10-08).
   tool (`answer` = watch-sized, `detail` = phone), or plain text if the
   model skips it.
 - Tools: `get_readings` (≤150 points), `get_stats` (report.py metrics),
-  `get_journal` (guesses flagged), `get_lows` (each low + 3 h before),
-  `propose_entries`, `reply`. Instructions (`ASSISTANT_INSTRUCTIONS`) are a
+  `get_journal` (ids, guesses flagged), `get_lows` (each low + 3 h before),
+  `propose_entries`, `propose_changes`, `reply`. Instructions (`ASSISTANT_INSTRUCTIONS`) are a
   stable, cacheable prefix built on the shared `LOGGING_RULES`; now, the
   current reading and the target day go in the user turn.
+- **Broad edits** (`Changes.kt`, from 2026-10-08): `propose_changes` edits
+  or deletes existing rows (by the Room id get_journal showed) and adds rows
+  on any of the last 14 days (`MAX_CHANGE_DAYS`, never the future). Strictly
+  validated (`parseChanges`; rejects go back to the model with reasons),
+  carried by uid, and applied by `Journal.applyChanges`, which skips a row
+  edited/deleted since it was proposed (`planChange`). Phone: the change
+  list sits under the new rows in the Ask dialog, grouped by day, all ticked.
+  Watch: today's rows are confirmed on the watch as before; other changes
+  post a "N changes to review" notification that opens `ChangesDialog`.
+- **Replies**: when something's unclear the model asks one question
+  (`reply.awaiting_answer`, proposing nothing). Reply (phone button / watch
+  chip; `/log/parse` `replyTo`) sends her answer with up to 4 earlier
+  exchanges rebuilt from the interaction log (`historyAfter`); the asking
+  record's outcome becomes `replied`. Still no chat UI or stored thread.
+  ADB: `ask-test … --es replyTo <id>` (the id is logged).
 - Safety: explains patterns, never recommends doses or treatment changes
   (refers to her endo); tells her to treat a low first.
 - **What goes to OpenAI:** her message, the current reading, and whatever

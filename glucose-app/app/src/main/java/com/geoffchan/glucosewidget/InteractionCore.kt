@@ -22,6 +22,7 @@ const val OUTCOME_ANSWERED = "answered" // read an answer with nothing to save
 const val OUTCOME_CANCELLED = "cancelled"
 const val OUTCOME_ASK_AGAIN = "ask-again" // threw it away and spoke/typed again
 const val OUTCOME_TIMEOUT = "timeout" // the watch gave up waiting for the phone
+const val OUTCOME_REPLIED = "replied" // answered the assistant's question (the reply is its own record)
 
 /** Tool results bigger than this are cut in the local trace. */
 const val MAX_TOOL_RESULT_CHARS = 20_000
@@ -70,6 +71,7 @@ fun interactionData(
     ai: AssistantResult? = null,
     trace: JSONArray? = null,
     error: String? = null,
+    history: List<Turn> = emptyList(),
 ): JSONObject {
     val o = JSONObject()
         .put(
@@ -95,6 +97,11 @@ fun interactionData(
             )
             .put("costUsd", ai.estimatedCostUsd)
     }
+    if (ai != null && (ai.changes.isNotEmpty() || ai.changeRejects.isNotEmpty())) {
+        o.put("changes", encodeChanges(ai.changes)).put("changeRejects", JSONArray(ai.changeRejects))
+    }
+    if (ai?.awaitingAnswer == true) o.put("awaitingAnswer", true)
+    if (history.isNotEmpty()) o.put("history", encodeHistory(history))
     if (trace != null && trace.length() > 0) o.put("trace", trace)
     return o
 }
@@ -130,7 +137,8 @@ fun decodeOutcome(json: String?): Outcome? = runCatching {
  * Which outcome a record keeps when a second one arrives. What she saved is
  * the label that matters: a save is never replaced by a later cancel/ask
  * again/timeout (e.g. the watch gave up but the phone had already saved);
- * otherwise the later outcome wins.
+ * two saves combine (today's rows saved on the watch, then the other days'
+ * changes reviewed on the phone); otherwise the later outcome wins.
  */
 fun mergeOutcome(current: String?, incoming: String?): String? {
     val cur = decodeOutcome(current) ?: return incoming
@@ -140,6 +148,15 @@ fun mergeOutcome(current: String?, incoming: String?): String? {
     return when {
         curSaved && !incSaved -> current
         !curSaved && incSaved -> incoming
+        curSaved && incSaved -> encodeOutcome(
+            Outcome(
+                kind = if (cur.kind == OUTCOME_SAVED || inc.kind == OUTCOME_SAVED) OUTCOME_SAVED else OUTCOME_GUESSES,
+                atMs = maxOf(cur.atMs, inc.atMs),
+                saved = (cur.saved + inc.saved).distinct(),
+                unticked = (cur.unticked + inc.unticked).distinct(),
+                note = listOfNotNull(cur.note, inc.note).distinct().joinToString("; ").ifEmpty { null },
+            ),
+        )
         else -> if (inc.atMs >= cur.atMs) incoming else current
     }
 }
@@ -271,14 +288,20 @@ fun applyRemoteInteraction(remote: SyncInteraction, local: AssistantLogEntity?):
 
 // ---------------------------------------------------------------- watch protocol bits
 
-/** /log/parse body: {"id","text"} from current watches, or the bare transcript from older ones. */
-data class ParseRequest(val id: String?, val text: String)
+/**
+ * /log/parse body: {"id","text","replyTo"?} from current watches, or the bare
+ * transcript from older ones. [replyTo]: the record whose question she's answering.
+ */
+data class ParseRequest(val id: String?, val text: String, val replyTo: String? = null)
 
 fun decodeParseRequest(body: String): ParseRequest {
     val t = body.trim()
     if (t.startsWith("{")) runCatching {
         val o = JSONObject(t)
-        if (o.has("text")) return ParseRequest(o.optNullableString("id")?.takeIf { it.isNotBlank() }, o.getString("text"))
+        if (o.has("text")) return ParseRequest(
+            o.optNullableString("id")?.takeIf { it.isNotBlank() }, o.getString("text"),
+            o.optNullableString("replyTo")?.takeIf { it.isNotBlank() },
+        )
     }
     return ParseRequest(null, body)
 }

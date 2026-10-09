@@ -28,7 +28,11 @@ data class Row(val text: String, val label: String, val time: String, val status
 
 /** [answer]: the assistant's reply for the watch screen ("" when it only logged). */
 /** [id]: the phone's interaction-log record (our parse id echoed back; null from older phones). */
-data class Proposal(val ok: Boolean, val error: String?, val parser: String, val rows: List<Row>, val answer: String = "", val id: String? = null)
+/** [changes]: edits to other days waiting on the phone for review; [awaiting]: the answer is a question. */
+data class Proposal(
+    val ok: Boolean, val error: String?, val parser: String, val rows: List<Row>, val answer: String = "", val id: String? = null,
+    val changes: Int = 0, val awaiting: Boolean = false,
+)
 
 data class Saved(val ok: Boolean, val error: String?, val saved: Int, val confirmed: Int, val already: Int)
 
@@ -44,11 +48,23 @@ fun decodeProposal(json: String): Proposal {
     return Proposal(
         o.optBoolean("ok"), o.optNullableString("error"), o.optString("parser"), rows, o.optString("answer", ""),
         if (o.has("id")) o.optNullableString("id") else null,
+        o.optInt("changes"), o.optBoolean("awaiting"),
     )
 }
 
-/** /log/parse body: the id lets every later message (save, outcome, a queued resend) find the record. */
-fun encodeParse(id: String, text: String): String = JSONObject().put("id", id).put("text", text).toString()
+/**
+ * /log/parse body: the id lets every later message (save, outcome, a queued
+ * resend) find the record; [replyTo] is the record whose question she's answering.
+ */
+fun encodeParse(id: String, text: String, replyTo: String? = null): String =
+    JSONObject().put("id", id).put("text", text).apply { replyTo?.let { put("replyTo", it) } }.toString()
+
+/** "3 changes to review on your phone", or "" for none. */
+fun changesNote(n: Int): String = when (n) {
+    0 -> ""
+    1 -> "1 change to review on your phone."
+    else -> "$n changes to review on your phone."
+}
 
 fun encodeSave(texts: List<String>, id: String? = null, unticked: List<String> = emptyList()): String = JSONObject()
     .put("texts", JSONArray(texts)).put("id", id ?: JSONObject.NULL).put("unticked", JSONArray(unticked)).toString()

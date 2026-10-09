@@ -71,6 +71,24 @@ object InteractionLog {
         }
     }
 
+    /** The conversation so far when she replies to record [replyTo] (empty if none or unknown). */
+    suspend fun history(context: Context, replyTo: String?): List<Turn> {
+        replyTo ?: return emptyList()
+        return try {
+            GlucoseDb.get(context).dao().interaction(replyTo)?.let { historyAfter(it.input, it.data) }.orEmpty()
+        } catch (e: Exception) {
+            Log.w(TAG, "history failed", e); emptyList()
+        }
+    }
+
+    /** The other-day changes record [uid] proposed, for the phone's review screen. */
+    suspend fun proposedChanges(context: Context, uid: String): List<ChangeOp> = try {
+        GlucoseDb.get(context).dao().interaction(uid)
+            ?.let { decodeChanges(org.json.JSONObject(it.data).optJSONArray("changes")) }.orEmpty()
+    } catch (e: Exception) {
+        Log.w(TAG, "changes failed", e); emptyList()
+    }
+
     /** For callers about to leave (a dialog closing): don't tie the write to their scope. */
     fun setOutcomeLater(context: Context, uid: String?, outcome: Outcome) {
         uid ?: return

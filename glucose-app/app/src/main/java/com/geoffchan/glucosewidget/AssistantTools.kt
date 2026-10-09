@@ -11,13 +11,14 @@ import kotlin.math.sqrt
 
 /**
  * The assistant's tools (see [Assistant]): read-only views of her readings and
- * journal, plus [PROPOSE] which only collects rows for her to confirm — the
- * model never writes anything. Handlers are pure over [AssistantData], so the
+ * journal, plus [PROPOSE] and [PROPOSE_CHANGES] which only collect rows and
+ * changes for her to confirm — the model never writes anything. Handlers are pure over [AssistantData], so the
  * phone uses Room and tests use lists.
  */
 interface AssistantData {
     suspend fun readings(startMs: Long, endMs: Long): List<ReadingEntity>
     suspend fun journal(firstDay: String, lastDay: String): List<JournalEntity>
+    suspend fun journalById(id: Long): JournalEntity?
 }
 
 const val LOW_MMOL = 3.9
@@ -36,6 +37,7 @@ object AssistantTools {
     const val JOURNAL = "get_journal"
     const val LOWS = "get_lows"
     const val PROPOSE = "propose_entries"
+    const val PROPOSE_CHANGES = "propose_changes"
     const val REPLY = "reply"
 
     private fun obj(vararg props: Pair<String, JSONObject>, required: List<String> = props.map { it.first }) = JSONObject()
@@ -56,25 +58,37 @@ object AssistantTools {
         "to_day" to str("Last local day, YYYY-MM-DD (inclusive)"),
     )
 
+    /** A dose or event; for propose_changes the new values (delete: all null). */
+    private val ENTRY_FIELDS = arrayOf(
+        "kind" to JSONObject().put("type", JSONArray(listOf("string", "null"))).put("enum", JSONArray(listOf("dose", "event", JSONObject.NULL))),
+        "type" to JSONObject().put("type", JSONArray(listOf("string", "null"))).put("enum", JSONArray(listOf("short-acting", "long-acting", JSONObject.NULL)))
+            .put("description", "Insulin type for doses; null for events"),
+        "units" to nullable("integer", "Whole insulin units 1-100 for doses; null for events"),
+        "name" to nullable("string", "Food/drink/activity for events, in her words with every amount kept; null for doses"),
+        "time" to nullable("string", "24-hour HH:mm, or null if it can't be told"),
+    )
+
     /** Responses API `tools` array. Stable order and text: part of the cached prefix. */
     val definitions: JSONArray = JSONArray(listOf(
         fn(READINGS, "CGM readings (mmol/L, local time) between two local times, downsampled to at most $MAX_POINTS points, with min/max/mean.",
             obj("from" to str("Start, local \"YYYY-MM-DD HH:mm\""), "to" to str("End, local \"YYYY-MM-DD HH:mm\""))),
         fn(STATS, "Standard CGM metrics for a range of days: time in range 3.9-10, below 3.9 / 3.0, above 10 / 13.9, mean, CV, GMI, coverage.", DAY_RANGE),
-        fn(JOURNAL, "Logged doses and food/activity for a range of days, in time order. Entries marked guess=true were inferred from the glucose curve and not confirmed.", DAY_RANGE),
+        fn(JOURNAL, "Logged doses and food/activity for a range of days, in time order, each with its id (for propose_changes). Entries marked guess=true were inferred from the glucose curve and not confirmed.", DAY_RANGE),
         fn(LOWS, "Every low (below 3.9) in a range of days with its nadir and duration, what was logged in the 3 hours before it, and the glucose 3h/2h/1h before.", DAY_RANGE),
-        fn(PROPOSE, "Propose journal entries for her to confirm on screen. Call once with every entry from the message. Nothing is saved unless she confirms.",
-            obj("entries" to JSONObject().put("type", "array").put("items", obj(
-                "kind" to JSONObject().put("type", "string").put("enum", JSONArray(listOf("dose", "event"))),
-                "type" to JSONObject().put("type", JSONArray(listOf("string", "null"))).put("enum", JSONArray(listOf("short-acting", "long-acting", JSONObject.NULL)))
-                    .put("description", "Insulin type for doses; null for events"),
-                "units" to nullable("integer", "Whole insulin units 1-100 for doses; null for events"),
-                "name" to nullable("string", "Food/drink/activity for events, in her words with every amount kept; null for doses"),
-                "time" to nullable("string", "24-hour HH:mm, or null if it can't be told"),
+        fn(PROPOSE, "Propose new journal entries for the day entries go on, for her to confirm on screen. Call once with every entry from the message. Nothing is saved unless she confirms.",
+            obj("entries" to JSONObject().put("type", "array").put("items", obj(*ENTRY_FIELDS)))),
+        fn(PROPOSE_CHANGES, "Propose changes to her log for her to confirm on screen: edit or delete existing entries (by id from get_journal), or add entries on any of the last $MAX_CHANGE_DAYS days. Call once with every change. Nothing is saved unless she confirms.",
+            obj("changes" to JSONObject().put("type", "array").put("items", obj(
+                "action" to JSONObject().put("type", "string").put("enum", JSONArray(listOf("add", "edit", "delete"))),
+                "id" to nullable("integer", "The entry's id from get_journal for edit/delete; null for add"),
+                "day" to nullable("string", "YYYY-MM-DD for add; null for edit/delete"),
+                *ENTRY_FIELDS,
             )))),
         fn(REPLY, "Your final reply. Call exactly once, last.",
             obj("answer" to str("One or two short sentences for a watch screen. Empty string if she only logged something and there's nothing to add."),
-                "detail" to nullable("string", "Optional fuller explanation for the phone; null if none"))),
+                "detail" to nullable("string", "Optional fuller explanation for the phone; null if none"),
+                "awaiting_answer" to JSONObject().put("type", "boolean")
+                    .put("description", "true only if answer asks her a question you need answered before you can log or change anything"))),
     ))
 
     /** Runs one tool call; returns the JSON string handed back to the model. */
@@ -151,11 +165,11 @@ object AssistantTools {
     fun entryJson(e: JournalEntity): JSONObject? {
         val guess = isGuessEntry(e.text)
         parseDoseNote(e.text)?.let { d ->
-            return JSONObject().put("day", e.day).put("time", "%02d:%02d".format(d.time.hour, d.time.minute))
+            return JSONObject().put("id", e.id).put("day", e.day).put("time", "%02d:%02d".format(d.time.hour, d.time.minute))
                 .put("kind", "dose").put("type", d.insulinType).put("units", d.units).put("guess", guess)
         }
         parseEventNote(e.text)?.let { ev ->
-            return JSONObject().put("day", e.day).put("time", "%02d:%02d".format(ev.time.hour, ev.time.minute))
+            return JSONObject().put("id", e.id).put("day", e.day).put("time", "%02d:%02d".format(ev.time.hour, ev.time.minute))
                 .put("kind", "event").put("name", ev.name).put("guess", guess)
         }
         return null

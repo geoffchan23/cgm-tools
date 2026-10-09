@@ -26,6 +26,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.glance.appwidget.updateAll
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -52,6 +53,7 @@ data class ReviewedSave(
     val confirms: List<Triple<JournalEntity, String?, String>>, // (guess, as proposed, text to save)
     val unticked: List<String>, // proposals she left unchecked
     val interactionId: String?,
+    val changes: List<ChangeOp> = emptyList(), // ticked edits/deletes/adds on other days
 )
 
 private fun ReviewRow.statusForLog(): String = when {
@@ -74,9 +76,11 @@ private fun reviewRow(entry: ProposedEntry, existing: List<JournalEntity>): Revi
  * ([Assistant], when set up and online) answers and/or breaks it into doses
  * and food/exercise logs; otherwise on-device Gemini Nano does the breakdown.
  * The user checks each row, then Save. [existing] is [day]'s journal, for
- * dedupe. [onSave] gets new texts to insert and guess rows to replace
- * (confirmed). Each Send is recorded in the interaction log, and what she
- * does next (save / back / cancel) becomes its outcome.
+ * dedupe. [onSave] gets new texts to insert, guess rows to replace
+ * (confirmed) and changes to past entries/other days. If the assistant asks
+ * a question, Reply sends her answer with the conversation so far. Each
+ * Send is recorded in the interaction log, and what she does next (save /
+ * back / reply / cancel) becomes its outcome.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -103,6 +107,10 @@ fun DescribeDialog(
     val originals = remember { mutableStateListOf<String>() } // each row's text as proposed, before edits
     var interactionId by remember { mutableStateOf<String?>(null) }
     var reviewing by remember { mutableStateOf(false) }
+    val changes = remember { mutableStateListOf<CheckedChange>() }
+    var awaiting by remember { mutableStateOf(false) }
+    var replyTo by remember { mutableStateOf<String?>(null) } // the record whose answer she's replying to
+    var replyingTo by remember { mutableStateOf<String?>(null) } // its answer, shown above the box
 
     /** Leaving without saving: the open record gets [kind] (answered if there was only an answer). */
     fun leave(kind: String) {
@@ -135,24 +143,28 @@ fun DescribeDialog(
         }
     }
 
-    fun showRows(entries: List<ProposedEntry>, skipped: Int) {
+    fun showRows(entries: List<ProposedEntry>, skipped: Int, proposedChanges: List<ChangeOp> = emptyList()) {
         rows.clear()
         rows += entries.map { reviewRow(it, existing) }
         originals.clear()
         originals += rows.map { it.entry.logText() }
+        changes.clear()
+        changes += proposedChanges.map { CheckedChange(it, true) }
         status = when {
-            entries.isEmpty() && answer.isNullOrBlank() -> "Couldn't find any doses or food in that. Try saying it differently."
+            entries.isEmpty() && proposedChanges.isEmpty() && answer.isNullOrBlank() -> "Couldn't find any doses or food in that. Try saying it differently."
             skipped > 0 -> "Skipped $skipped item(s) that didn't make sense."
             else -> null
         }
-        reviewing = entries.isNotEmpty() || !answer.isNullOrBlank()
+        reviewing = entries.isNotEmpty() || proposedChanges.isNotEmpty() || !answer.isNullOrBlank()
     }
 
     fun breakDown() {
         working = true
         status = null
-        answer = null; detail = null
+        answer = null; detail = null; awaiting = false
         val said = paragraph
+        val replying = replyTo
+        var history = emptyList<Turn>()
         val attempts = mutableListOf<ParseAttempt>()
         val trace = org.json.JSONArray()
         var aiError: String? = null
@@ -165,20 +177,22 @@ fun DescribeDialog(
                 interactionData(
                     InteractionLog.context(context, day, userTurn = ai?.userTurn), attempts,
                     rows.map { ProposalLog(it.entry.logText(), it.statusForLog()) },
-                    answer.orEmpty(), detail, rejected, ai, trace.takeIf { it.length() > 0 }, aiError,
-                ).apply(extra),
+                    answer.orEmpty(), detail, rejected, ai, trace.takeIf { it.length() > 0 }, aiError, history,
+                ).apply { replying?.let { put("replyTo", it) } }.apply(extra),
             )
         }
         scope.launch {
+            history = InteractionLog.history(context, replying)
             if (useAssistant && !Assistant.online(context)) attempts += ParseAttempt("openai", false, "offline")
             if (useAssistant && Assistant.online(context)) {
                 val ta = System.currentTimeMillis()
                 try {
-                    val r = Assistant.ask(context, said, day, fromWatch = false, timeoutMs = 45_000, trace = trace)
+                    val r = Assistant.ask(context, said, day, fromWatch = false, timeoutMs = 45_000, trace = trace, history = history)
                     attempts += ParseAttempt("openai", true, null, System.currentTimeMillis() - ta)
                     answer = r.answer.takeIf { it.isNotBlank() }
                     detail = r.detail
-                    showRows(r.entries, r.rejected)
+                    awaiting = r.awaitingAnswer
+                    showRows(r.entries, r.rejected, r.changes)
                     log("openai", r, r.rejected)
                     working = false
                     return@launch
@@ -221,7 +235,18 @@ fun DescribeDialog(
     }
 
     val toSave = rows.filter { it.checked }
-    val canSave = toSave.isNotEmpty() && toSave.all { it.entry.time != null }
+    val changesToSave = changes.filter { it.checked }
+    val saveCount = toSave.size + changesToSave.size
+    val canSave = saveCount > 0 && toSave.all { it.entry.time != null }
+
+    fun reply() {
+        replyTo = interactionId
+        replyingTo = answer
+        leave(OUTCOME_REPLIED)
+        paragraph = ""
+        reviewing = false
+        status = null
+    }
 
     AlertDialog(
         onDismissRequest = { close() },
@@ -232,6 +257,7 @@ fun DescribeDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 if (!reviewing) {
+                    replyingTo?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary) }
                     OutlinedTextField(
                         paragraph, { paragraph = it },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp),
@@ -251,6 +277,7 @@ fun DescribeDialog(
                         // an edited time or name can start or stop matching a logged entry
                         ReviewRowItem(row) { rows[i] = it.copy(match = matchExisting(it.entry, existing)) }
                     }
+                    if (changes.isNotEmpty()) ChangeList(changes)
                 }
                 status?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary) }
                 if (working) Text(if (useAssistant) "Thinking…" else "Thinking (on this phone)…", style = MaterialTheme.typography.bodySmall)
@@ -259,8 +286,8 @@ fun DescribeDialog(
         confirmButton = {
             if (!reviewing) {
                 Button(enabled = ready && !working && paragraph.isNotBlank(), onClick = { breakDown() }) { Text(if (useAssistant) "Send" else "Break down") }
-            } else if (rows.isEmpty()) {
-                Button(onClick = { close() }) { Text("Done") }
+            } else if (rows.isEmpty() && changes.isEmpty()) {
+                if (awaiting) Button(onClick = { reply() }) { Text("Reply") } else Button(onClick = { close() }) { Text("Done") }
             } else {
                 Button(
                     enabled = canSave,
@@ -271,16 +298,19 @@ fun DescribeDialog(
                         val firstPerGuess = confirming.distinctBy { it.match!!.id }
                         val confirms = firstPerGuess.map { Triple(it.match!!, proposedOf(it), it.entry.noteText()!!) }
                         val inserts = (inserting + (confirming - firstPerGuess.toSet())).map { proposedOf(it) to it.entry.noteText()!! }
-                        val unticked = rows.filter { !it.checked }.map { proposedOf(it) ?: it.entry.logText() }
-                        onSave(ReviewedSave(inserts, confirms, unticked, interactionId))
+                        val unticked = rows.filter { !it.checked }.map { proposedOf(it) ?: it.entry.logText() } +
+                            changes.filter { !it.checked }.map { changeLogText(it.op) }
+                        onSave(ReviewedSave(inserts, confirms, unticked, interactionId, changesToSave.map { it.op }))
                         interactionId = null
                     },
-                ) { Text("Save ${toSave.size}") }
+                ) { Text("Save $saveCount") }
             }
         },
         dismissButton = {
             Row {
-                if (reviewing) TextButton(onClick = { leave(OUTCOME_ASK_AGAIN); reviewing = false; status = null }) { Text("Back") }
+                // Reply keeps the conversation (the assistant asked or said something); Back starts over
+                if (reviewing && !answer.isNullOrBlank() && !(awaiting && rows.isEmpty() && changes.isEmpty())) TextButton(onClick = { reply() }) { Text("Reply") }
+                if (reviewing) TextButton(onClick = { leave(OUTCOME_ASK_AGAIN); replyTo = null; replyingTo = null; reviewing = false; status = null }) { Text("Back") }
                 TextButton(onClick = { close() }) { Text("Cancel") }
             }
         },
@@ -344,4 +374,84 @@ private fun ReviewRowItem(row: ReviewRow, onChange: (ReviewRow) -> Unit) {
             dismissButton = { TextButton(onClick = { pickTime = false }) { Text("Cancel") } },
         )
     }
+}
+
+/** A proposed change and whether she's keeping it ticked. */
+data class CheckedChange(val op: ChangeOp, val checked: Boolean)
+
+/** Changes to past entries / other days, grouped by day, each with a tick box. */
+@Composable
+fun ChangeList(changes: androidx.compose.runtime.snapshots.SnapshotStateList<CheckedChange>) {
+    val fmt = java.time.format.DateTimeFormatter.ofPattern("EEE MMM d", java.util.Locale.CANADA)
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text("Changes to your log:", style = MaterialTheme.typography.labelLarge)
+        changes.withIndex().groupBy { it.value.op.day }.forEach { (day, items) ->
+            Text(
+                runCatching { java.time.LocalDate.parse(day).format(fmt) }.getOrDefault(day),
+                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary,
+            )
+            items.forEach { (i, c) ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = c.checked, onCheckedChange = { changes[i] = c.copy(checked = it) })
+                    Text(changeLabel(c.op), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Review of changes proposed from her watch (opened from the "review on
+ * your phone" notification): the record [interactionId]'s changes, ticked;
+ * Save applies them and labels the record.
+ */
+@Composable
+fun ChangesDialog(interactionId: String, onDone: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    val changes = remember { mutableStateListOf<CheckedChange>() }
+    var loaded by remember { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
+    LaunchedEffect(interactionId) {
+        changes.clear()
+        changes += InteractionLog.proposedChanges(context, interactionId).map { CheckedChange(it, true) }
+        loaded = true
+    }
+    val picked = changes.filter { it.checked }
+    AlertDialog(
+        onDismissRequest = onDone,
+        title = { Text("Changes from your watch") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                when {
+                    !loaded -> Text("Loading…")
+                    changes.isEmpty() -> Text("Nothing to review.")
+                    else -> ChangeList(changes)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = picked.isNotEmpty() && !saving,
+                onClick = {
+                    saving = true
+                    scope.launch {
+                        val items = Journal.applyChanges(context, picked.map { it.op })
+                        GlucoseWidget().updateAll(context)
+                        InteractionLog.setOutcome(
+                            context, interactionId,
+                            Outcome(OUTCOME_SAVED, System.currentTimeMillis(), items, changes.filter { !it.checked }.map { changeLogText(it.op) }),
+                        )
+                        onDone()
+                    }
+                },
+            ) { Text("Save ${picked.size}") }
+        },
+        dismissButton = {
+            TextButton(onClick = {
+                if (loaded && changes.isNotEmpty()) InteractionLog.setOutcomeLater(context, interactionId, Outcome(OUTCOME_CANCELLED, System.currentTimeMillis(), note = "phone review"))
+                onDone()
+            }) { Text("Cancel") }
+        },
+    )
 }

@@ -40,7 +40,8 @@ import kotlinx.coroutines.launch
  *   adb exec-in run-as <pkg> sh -c 'cat > files/ai-handoff' < key-file
  *   … --es op ai-setup [--es model gpt-6-luna] [--es effort low|medium|auto]
  *   … --es op ai-clear
- *   … --es op ask-test --es text '…' [--ez watch true]   (runs it, saves nothing, logs to tag Assistant)
+ *   … --es op ask-test --es text '…' [--ez watch true] [--es replyTo <id>]
+ *     (runs it, saves nothing, logs to tag Assistant with the record id; replyTo continues that conversation)
  *
  * Delete is by single row id only; there is deliberately no bulk delete,
  * since `event:` rows are user-logged data.
@@ -110,7 +111,7 @@ class IngestReceiver : BroadcastReceiver() {
                     }
                     "ai-clear" -> { Store.clearAiConfig(context); android.util.Log.i("Assistant", "cleared") }
                     // Runs the assistant on --es text without saving anything; logs the result.
-                    "ask-test" -> askTest(context, intent.getStringExtra("text").orEmpty(), intent.getBooleanExtra("watch", false))
+                    "ask-test" -> askTest(context, intent.getStringExtra("text").orEmpty(), intent.getBooleanExtra("watch", false), intent.getStringExtra("replyTo"))
                     "describe-test" -> describeTest(context, intent.getStringExtra("text").orEmpty())
                     "watch-parse-test" -> android.util.Log.i(
                         WatchParse.TAG,
@@ -128,21 +129,26 @@ class IngestReceiver : BroadcastReceiver() {
     }
 
     /** Runs the assistant without saving; recorded in the interaction log as source=debug. */
-    private suspend fun askTest(context: Context, text: String, fromWatch: Boolean) {
+    private suspend fun askTest(context: Context, text: String, fromWatch: Boolean, replyTo: String?) {
         val today = java.time.LocalDate.now()
         val trace = org.json.JSONArray()
         val t0 = System.currentTimeMillis()
+        val history = InteractionLog.history(context, replyTo)
+        val id = newUid()
         try {
-            val r = Assistant.ask(context, text, today, fromWatch, timeoutMs = 50_000, trace = trace)
-            android.util.Log.i("Assistant", "ask-test answer: ${r.answer}")
+            val r = Assistant.ask(context, text, today, fromWatch, timeoutMs = 50_000, trace = trace, history = history)
+            android.util.Log.i("Assistant", "ask-test id: $id (history ${history.size})")
+            android.util.Log.i("Assistant", "ask-test answer: ${r.answer}" + if (r.awaitingAnswer) " [awaiting answer]" else "")
             r.detail?.let { android.util.Log.i("Assistant", "ask-test detail: $it") }
             android.util.Log.i("Assistant", "ask-test rows: ${r.entries.map { it.noteText() ?: "$it (no time)" }} rejected=${r.rejected}")
+            r.changes.forEach { android.util.Log.i("Assistant", "ask-test change: ${changeLogText(it)}") }
+            r.changeRejects.forEach { android.util.Log.i("Assistant", "ask-test change rejected: $it") }
             InteractionLog.record(
-                context, newUid(), SOURCE_DEBUG, text, "openai",
+                context, id, SOURCE_DEBUG, text, "openai",
                 interactionData(
                     InteractionLog.context(context, today, userTurn = r.userTurn), listOf(ParseAttempt("openai", true, null, r.ms)),
                     r.entries.map { ProposalLog(it.noteText() ?: "${it.name ?: it.insulinType} (no time)", "new") },
-                    r.answer, r.detail, r.rejected, r, trace,
+                    r.answer, r.detail, r.rejected, r, trace, history = history,
                 ).put("debugOp", "ask-test"),
             )
         } catch (e: Exception) {

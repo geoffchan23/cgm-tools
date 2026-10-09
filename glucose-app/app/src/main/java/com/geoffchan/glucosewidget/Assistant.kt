@@ -50,6 +50,11 @@ data class AssistantResult(
     val userTurn: String? = null,
     /** Per round: usage, each tool call (args + result, results cut at [MAX_TOOL_RESULT_CHARS]), any text. */
     val trace: JSONArray = JSONArray(),
+    /** Edits/deletes/adds on other days (propose_changes), and why any were dropped. */
+    val changes: List<ChangeOp> = emptyList(),
+    val changeRejects: List<String> = emptyList(),
+    /** The answer is a question she needs to answer before anything can be logged. */
+    val awaitingAnswer: Boolean = false,
 ) {
     val estimatedCostUsd: Double get() = aiCostUsd(model, inputTokens, cachedTokens, outputTokens)
 }
@@ -85,7 +90,7 @@ val ASSISTANT_INSTRUCTIONS = """
 You are Francine's personal diabetes assistant, living in her phone and watch. She has had type 1 diabetes since she was 2. She uses a Dexcom G7. Glucose is in mmol/L; her target range is 3.9-10.0. She lives in Toronto (America/Toronto); all times are local.
 
 You do two things:
-1. Log what she tells you: doses and food/drink/activity. Call propose_entries once with every entry. She confirms each one on screen before anything is saved, so propose, don't ask.
+1. Log what she tells you: doses and food/drink/activity. Call propose_entries once with every entry. She confirms each one on screen before anything is saved, so propose, don't ask. Corrections and changes to what's already logged, or to other days, go through propose_changes (below).
 2. Answer questions about her glucose using her real data. Always look things up with the tools (get_readings, get_stats, get_journal, get_lows) before answering; never guess numbers. Be specific: times, values, what she logged.
 
 Her routines (useful context, never assume they happened on a given day unless the journal shows it):
@@ -100,7 +105,15 @@ Her routines (useful context, never assume they happened on a given day unless t
 How to turn what she says into entries:
 $LOGGING_RULES
 - When she is talking in the moment (from her watch), anything without a stated or implied time happened now. The current time is in her message.
-- Only propose entries for the day her message says entries go on. If she describes another day, answer in words and say she can log it from that day in the app.
+- propose_entries only adds to the day her message says entries go on.
+
+Changing her log (propose_changes):
+- Use it when she corrects, removes or changes entries already logged ("I didn't have coffee yesterday", "that was 3 units not 4"), or tells you about other days ("the past 3 days I had rice for dinner"). It reaches back $MAX_CHANGE_DAYS days, today included, never the future.
+- First call get_journal for every day involved, so you edit or delete real entries by their id and don't add something already there. Then call propose_changes once with every change: "edit" (id + the full new entry; a null time keeps its time), "delete" (id only), or "add" (day + the entry).
+- Work out days from the date in her message ("Now"): "yesterday" is the day before today; "the past 3 days" is the 3 days before today. A meal replacing what's logged is an edit of that entry; a meal where nothing is logged is an add at that meal's usual time.
+- Change only what she mentions. Auto-logged routine entries (the 10:30 coffee and doses) are ordinary entries: delete or edit them when she says they didn't happen or were different.
+- If she says something didn't happen and there's no such entry, tell her, and change nothing.
+- If which days, which entries or what amounts is genuinely unclear ("the past few days", "my usual"), don't guess: ask one short question, set awaiting_answer, and propose nothing at all for this message, not even the parts that are clear. Her reply comes with the conversation so far; then propose everything from the whole conversation together.
 
 Safety:
 - You can explain patterns, compare periods and point out what tends to happen. Never recommend an insulin dose, a dose change, a ratio or any change to her treatment; if she asks, say that's one to work out with her endocrinologist, and offer the data that would help that conversation.
@@ -114,6 +127,14 @@ Replying:
 private val CLOCK = DateTimeFormatter.ofPattern("EEEE yyyy-MM-dd HH:mm", Locale.CANADA)
 
 /** The per-request user turn: the context that changes, then her words. */
+/** Earlier exchanges replayed before the new user turn, oldest first. */
+fun historyInput(history: List<Turn>): List<JSONObject> = history.flatMap { t ->
+    listOf(
+        JSONObject().put("role", "user").put("content", "Francine (earlier): ${t.said.trim()}"),
+        JSONObject().put("role", "assistant").put("content", t.answered.ifBlank { "(logged it; no reply)" }),
+    )
+}
+
 fun assistantUserTurn(message: String, now: ZonedDateTime, targetDay: LocalDate, fromWatch: Boolean, current: String?): String = buildString {
     appendLine("Now: ${CLOCK.format(now)} (America/Toronto).")
     appendLine("Current glucose: ${current ?: "unknown"}.")
@@ -154,13 +175,15 @@ object Assistant {
         private val dao = GlucoseDb.get(context).dao()
         override suspend fun readings(startMs: Long, endMs: Long) = dao.readingsIn(startMs, endMs)
         override suspend fun journal(firstDay: String, lastDay: String) = dao.dayJournalBetween(firstDay, lastDay)
+        override suspend fun journalById(id: Long) = dao.journalById(id)
     }
 
     /**
      * One exchange: her [message] → answer + proposed rows. Throws
      * [AssistantException] (or times out) so callers can fall back. [trace]
      * collects the rounds as they happen, so a caller logging a failure
-     * still has what got that far.
+     * still has what got that far. [history]: the conversation so far when
+     * she's replying to an earlier answer.
      */
     suspend fun ask(
         context: Context,
@@ -170,10 +193,14 @@ object Assistant {
         timeoutMs: Long,
         zone: ZoneId = ZoneId.systemDefault(),
         trace: JSONArray = JSONArray(),
+        history: List<Turn> = emptyList(),
     ): AssistantResult = withTimeout(timeoutMs) {
         val cfg = Store.aiConfig(context) ?: throw AssistantException("assistant not configured")
-        val turn = assistantUserTurn(message, ZonedDateTime.now(zone), targetDay, fromWatch, InteractionLog.currentReading(context))
-        run(cfg, turn, cfg.effort ?: defaultEffort(message), roomData(context), zone, trace = trace)
+        val now = ZonedDateTime.now(zone)
+        val turn = assistantUserTurn(message, now, targetDay, fromWatch, InteractionLog.currentReading(context))
+        // a reply to a question, or anything touching other days, deserves more thought than a plain log
+        val effort = cfg.effort ?: if (history.isNotEmpty()) "medium" else defaultEffort(message)
+        run(cfg, turn, effort, roomData(context), zone, trace = trace, history = history, today = now.toLocalDate())
     }
 
     /**
@@ -187,11 +214,16 @@ object Assistant {
         data: AssistantData,
         zone: ZoneId,
         trace: JSONArray = JSONArray(),
+        history: List<Turn> = emptyList(),
+        today: LocalDate = LocalDate.now(zone),
         transport: suspend (key: String, body: JSONObject) -> JSONObject = ::post,
     ): AssistantResult {
         val t0 = System.currentTimeMillis()
-        val input = JSONArray().put(JSONObject().put("role", "user").put("content", userTurn))
+        val input = JSONArray(historyInput(history)).put(JSONObject().put("role", "user").put("content", userTurn))
         val proposed = mutableListOf<ProposedEntry>()
+        val changes = mutableListOf<ChangeOp>()
+        val changeRejects = mutableListOf<String>()
+        var awaiting = false
         var rejected = 0
         var answer: String? = null
         var detail: String? = null
@@ -244,10 +276,16 @@ object Assistant {
                         proposed += b.entries; rejected += b.rejected
                         JSONObject().put("shown_to_her", b.entries.size).put("rejected", b.rejected).toString()
                     }
+                    AssistantTools.PROPOSE_CHANGES -> {
+                        val cs = parseChanges(args, today) { data.journalById(it) }
+                        changes += cs.ops; changeRejects += cs.rejected
+                        JSONObject().put("shown_to_her", cs.ops.size).put("rejected", JSONArray(cs.rejected)).toString()
+                    }
                     AssistantTools.REPLY -> {
                         val a = runCatching { JSONObject(args) }.getOrNull()
                         answer = a?.optString("answer").orEmpty()
                         detail = a?.takeIf { !it.isNull("detail") }?.optString("detail")?.takeIf { it.isNotBlank() }
+                        awaiting = a?.optBoolean("awaiting_answer") ?: false
                         replied = true
                         "{\"ok\":true}"
                     }
@@ -270,10 +308,12 @@ object Assistant {
             model = cfg.model, inputTokens = inTok, cachedTokens = cachedTok, outputTokens = outTok,
             ms = System.currentTimeMillis() - t0,
             reasoningTokens = reasoningTok, effort = effort, userTurn = userTurn, trace = trace,
+            changes = changes, changeRejects = changeRejects, awaitingAnswer = awaiting && proposed.isEmpty() && changes.isEmpty(),
         )
         log(
             "model=${cfg.model} effort=$effort ms=${result.ms} tokens in=$inTok (cached $cachedTok) out=$outTok " +
-                "cost≈$${"%.5f".format(result.estimatedCostUsd)} rows=${proposed.size} rejected=$rejected",
+                "cost≈$${"%.5f".format(result.estimatedCostUsd)} rows=${proposed.size} rejected=$rejected " +
+                "changes=${changes.size} changeRejects=${changeRejects.size} awaiting=${result.awaitingAnswer} history=${history.size}",
         )
         return result
     }

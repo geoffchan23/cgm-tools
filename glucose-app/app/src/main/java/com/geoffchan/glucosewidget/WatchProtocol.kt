@@ -9,9 +9,12 @@ import org.json.JSONObject
  * wear/…/Protocol.kt — change both together.
  *
  *   watch → phone  /log/parse     {"id","text"} (older watches: the bare UTF-8 transcript)
- *   phone → watch  /log/proposal  {"ok","error","parser","answer","id","rows":[{text,label,time,status}]}
+ *   watch → phone  /log/parse     {"id","text","replyTo"?}  replyTo: the record whose question she's answering
+ *   phone → watch  /log/proposal  {"ok","error","parser","answer","id","rows":[{text,label,time,status}],"changes","awaiting"}
  *                  answer: the assistant's watch-sized reply ("" when none; then rows only)
  *                  id: the interaction log record (the watch's id echoed, or a new one)
+ *                  changes: how many edits to past entries/other days await review on the phone
+ *                  awaiting: the answer is a question; the watch offers Reply
  *   watch → phone  /log/save      {"texts":[...],"id","unticked":[...]}  (canonical texts, as proposed;
  *                                 id + unticked are optional and only feed the interaction log)
  *   phone → watch  /log/saved     {"ok","error","saved","confirmed","already"}
@@ -55,13 +58,18 @@ fun watchRow(p: ProposedEntry, existing: List<JournalEntity>): WatchRow? {
     return WatchRow(text, watchLabel(p), time12(p.time!!), status)
 }
 
-fun encodeProposal(rows: List<WatchRow>, parser: String, error: String? = null, answer: String = "", id: String? = null): String = JSONObject()
+fun encodeProposal(
+    rows: List<WatchRow>, parser: String, error: String? = null, answer: String = "", id: String? = null,
+    changes: Int = 0, awaiting: Boolean = false,
+): String = JSONObject()
     .put("ok", error == null)
     .put("error", error ?: JSONObject.NULL)
     .put("parser", parser)
     .put("answer", answer)
     .put("id", id ?: JSONObject.NULL)
     .put("rows", JSONArray(rows.map { JSONObject().put("text", it.text).put("label", it.label).put("time", it.time).put("status", it.status) }))
+    .put("changes", changes)
+    .put("awaiting", awaiting)
     .toString()
 
 fun encodeSave(texts: List<String>, id: String? = null, unticked: List<String> = emptyList()): String = JSONObject()

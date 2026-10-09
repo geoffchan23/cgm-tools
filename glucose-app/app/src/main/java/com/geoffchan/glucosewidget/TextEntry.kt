@@ -57,7 +57,7 @@ fun parseBreakdown(raw: String): Breakdown {
     var rejected = 0
     for (i in 0 until rows.length()) {
         val row = rows.optJSONObject(i)
-        val parsed = row?.let { parseRow(it) }
+        val parsed = row?.let { parseEntryRow(it) }
         if (parsed == null) rejected++ else ok += parsed
     }
     return Breakdown(ok, rejected)
@@ -74,7 +74,8 @@ private fun extractRows(raw: String): JSONArray? {
     return runCatching { JSONArray(text.substring(arrStart, text.lastIndexOf(']') + 1)) }.getOrNull()
 }
 
-private fun parseRow(o: JSONObject): ProposedEntry? {
+/** One dose/event row from a model, strictly validated (shared with propose_changes). */
+fun parseEntryRow(o: JSONObject): ProposedEntry? {
     val time = parseHhmm(o.optString("time", ""))
     return when (o.optString("kind").trim().lowercase()) {
         "dose" -> {
