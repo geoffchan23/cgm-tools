@@ -248,8 +248,11 @@ the main phone, Geoff on the other; ADB `op chat-author --es author geoff`).
 - Live check 2026-10-10 (thread `raytest1`, as Geoff): SQL count +
   30-day comparison ($0.0005), a JS analysis he debugged himself ($0.0013),
   and a lows report for her endo ($0.0019).
+- Both phones have the key and the chat (2026-10-10); sync verified both
+  ways. A phone upgraded after messages were sent misses them (the old app
+  skipped "chat"): run `op sync-resend` on the phone that has them.
 - Not built yet (Geoff chose to wait): Ray asking Claude Code for work on
-  the Mac. Geoff's phone needs the OpenAI key before Ray can answer there.
+  the Mac.
 
 ## Interaction log (for evals and skills, from 2026-10-08)
 
