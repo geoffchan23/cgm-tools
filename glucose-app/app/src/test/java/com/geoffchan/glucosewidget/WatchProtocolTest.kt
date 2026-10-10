@@ -11,7 +11,7 @@ class WatchProtocolTest {
     private fun row(text: String) = JournalEntity(day = "2026-10-07", text = text, createdAtMs = 0, updatedAtMs = 0)
 
     @Test fun `proposal rows carry label, 12h time and status`() {
-        val existing = listOf(row("dose: long-acting 19u @ 10:30"), row("event: coffee @ 10:30 (guess)"))
+        val existing = listOf(row("dose: long-acting 19u @ 10:35"), row("event: coffee @ 10:30 (guess)"))
         val rows = parseSpoken("coffee and 19 and 4", LocalTime.of(10, 40)).mapNotNull { watchRow(it, existing) }
         assertEquals(
             listOf(
@@ -43,7 +43,7 @@ class WatchProtocolTest {
 
     @Test fun `save plan inserts new rows, confirms guesses, skips duplicates`() {
         val guess = row("event: coffee @ 10:30 (guess)")
-        val existing = listOf(row("dose: long-acting 19u @ 10:30"), guess)
+        val existing = listOf(row("dose: long-acting 19u @ 10:35"), guess)
         val plan = planWatchSave(
             listOf("event: coffee @ 10:40", "dose: long-acting 19u @ 10:40", "dose: short-acting 4u @ 10:40", "dose: short-acting 4u @ 10:40"),
             existing,
@@ -56,6 +56,27 @@ class WatchProtocolTest {
                 WatchSaveOp.Already("dose: short-acting 4u @ 10:40"),
             ),
             plan,
+        )
+    }
+
+    @Test fun `her own account replaces the auto-logged routine, any units`() {
+        // Sat 2026-10-10: the routine logged 19u long + 4u short at 10:30, she said "23 long + 4 short" at 10:33
+        val day = "2026-10-10"
+        val long = row("dose: long-acting 19u @ 10:30").copy(day = day)
+        val short = row("dose: short-acting 4u @ 10:30").copy(day = day)
+        val rows = parseSpoken("23 long and 4 short", LocalTime.of(10, 33)).mapNotNull { watchRow(it, listOf(long, short)) }
+        assertEquals(listOf(WatchProtocol.STATUS_REPLACE, WatchProtocol.STATUS_REPLACE), rows.map { it.status })
+        assertEquals(
+            listOf(WatchSaveOp.Confirm(long, "dose: long-acting 23u @ 10:33"), WatchSaveOp.Confirm(short, "dose: short-acting 4u @ 10:33")),
+            planWatchSave(listOf("dose: long-acting 23u @ 10:33", "dose: short-acting 4u @ 10:33"), listOf(long, short)),
+        )
+        // exactly the routine row: nothing to change
+        assertEquals(listOf(WatchSaveOp.Already("dose: short-acting 4u @ 10:30")), planWatchSave(listOf("dose: short-acting 4u @ 10:30"), listOf(short)))
+        // once she's changed it, it's hers: a different dose is a second dose, the same one a duplicate
+        val mine = long.copy(text = "dose: long-acting 23u @ 10:33")
+        assertEquals(
+            listOf(WatchSaveOp.Insert("dose: long-acting 5u @ 10:50"), WatchSaveOp.Already("dose: long-acting 23u @ 10:40")),
+            planWatchSave(listOf("dose: long-acting 5u @ 10:50", "dose: long-acting 23u @ 10:40"), listOf(mine)),
         )
     }
 

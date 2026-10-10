@@ -101,18 +101,20 @@ fun parseEntryRow(o: JSONObject): ProposedEntry? {
 }
 
 /**
- * The logged entry this proposal duplicates, if any: a dose of the same type,
- * or an event of the same name (case-insensitive), within [windowMinutes].
- * The auto routines usually already logged the morning, so "coffee and 19+4"
- * mostly matches. A confirmed match wins over a guess, so a real duplicate
- * is reported as such; a guess-only match lets the caller confirm the guess.
+ * The logged entry this proposal duplicates or replaces, if any: a dose of the
+ * same type and units, or an event of the same name (case-insensitive),
+ * within [windowMinutes]. A guess or an untouched routine row ([isReplaceable])
+ * matches a dose of any units, so "23 long" after the routine's 19u replaces
+ * it rather than adding a second dose. A plain duplicate wins over a
+ * replaceable row, so a real duplicate is reported as such.
  */
 fun matchExisting(p: ProposedEntry, existing: List<JournalEntity>, windowMinutes: Int = 60): JournalEntity? {
     val minute = p.minuteOfDay ?: return null
     val matches = existing.filter { e ->
         if (p.isDose) {
             parseDoseNote(e.text)?.let { d ->
-                d.insulinType == p.insulinType && kotlin.math.abs(d.minuteOfDay - minute) <= windowMinutes
+                d.insulinType == p.insulinType && kotlin.math.abs(d.minuteOfDay - minute) <= windowMinutes &&
+                    (d.units == p.units || isReplaceable(e))
             } ?: false
         } else {
             parseEventNote(e.text)?.let { ev ->
@@ -120,8 +122,15 @@ fun matchExisting(p: ProposedEntry, existing: List<JournalEntity>, windowMinutes
             } ?: false
         }
     }
-    return matches.firstOrNull { !isGuessEntry(it.text) } ?: matches.firstOrNull()
+    return matches.firstOrNull { !isReplaceable(it) } ?: matches.firstOrNull()
 }
+
+/** A morning-routine row exactly as [Routines] auto-logged it on its day. */
+fun isRoutineEntry(e: JournalEntity): Boolean =
+    runCatching { java.time.LocalDate.parse(e.day).dayOfWeek }.getOrNull()?.let { e.text in morningRoutine(it) } ?: false
+
+/** Her own account of this row updates it: a guess, or an untouched routine row. */
+fun isReplaceable(e: JournalEntity): Boolean = isGuessEntry(e.text) || isRoutineEntry(e)
 
 /**
  * Instructions for Gemini Nano. Small model, so: one schema, explicit rules

@@ -42,9 +42,12 @@ import java.time.LocalTime
 private data class ReviewRow(
     val entry: ProposedEntry,
     val checked: Boolean,
-    val match: JournalEntity?, // already-logged duplicate, or a guess this confirms
+    val match: JournalEntity?, // already-logged duplicate, a guess this confirms, or a routine row it replaces
 ) {
-    val confirmsGuess: Boolean get() = match != null && isGuessEntry(match.text)
+    val status: String get() = matchStatus(entry.noteText(), match)
+
+    /** Saving updates [match] (a guess or routine row) instead of inserting. */
+    val confirmsGuess: Boolean get() = status == WatchProtocol.STATUS_CONFIRM || status == WatchProtocol.STATUS_REPLACE
 }
 
 /** What was saved from the dialog, for [MainActivity] to write and the interaction log to label. */
@@ -56,19 +59,14 @@ data class ReviewedSave(
     val changes: List<ChangeOp> = emptyList(), // ticked edits/deletes/adds on other days
 )
 
-private fun ReviewRow.statusForLog(): String = when {
-    match == null -> WatchProtocol.STATUS_NEW
-    isGuessEntry(match.text) -> WatchProtocol.STATUS_CONFIRM
-    else -> WatchProtocol.STATUS_ALREADY
-}
 
 private fun ProposedEntry.logText(): String = noteText() ?: "${name ?: "${units}u $insulinType"} (no time)"
 
 private fun reviewRow(entry: ProposedEntry, existing: List<JournalEntity>): ReviewRow {
     val match = matchExisting(entry, existing)
-    // A plain duplicate starts unchecked; matching one of Claude's guesses
-    // starts checked, and saving confirms the guess with these values.
-    return ReviewRow(entry, checked = match == null || isGuessEntry(match.text), match = match)
+    // A plain duplicate starts unchecked; matching a guess or an auto-logged
+    // routine row starts checked, and saving updates that row to these values.
+    return ReviewRow(entry, checked = matchStatus(entry.noteText(), match) != WatchProtocol.STATUS_ALREADY, match = match)
 }
 
 /**
@@ -176,7 +174,7 @@ fun DescribeDialog(
                 context, id, SOURCE_PHONE, said, parser,
                 interactionData(
                     InteractionLog.context(context, day, userTurn = ai?.userTurn), attempts,
-                    rows.map { ProposalLog(it.entry.logText(), it.statusForLog()) },
+                    rows.map { ProposalLog(it.entry.logText(), it.status) },
                     answer.orEmpty(), detail, rejected, ai, trace.takeIf { it.length() > 0 }, aiError, history,
                 ).apply { replying?.let { put("replyTo", it) } }.apply(extra),
             )
@@ -341,7 +339,8 @@ private fun ReviewRowItem(row: ReviewRow, onChange: (ReviewRow) -> Unit) {
                     )
                 }
                 val note = when {
-                    row.confirmsGuess -> "confirms Claude's guess"
+                    row.status == WatchProtocol.STATUS_CONFIRM -> "confirms Claude's guess"
+                    row.status == WatchProtocol.STATUS_REPLACE -> "replaces auto-logged ${entryLabel(row.match!!.text)}"
                     row.match != null -> "already logged"
                     e.time == null -> "set a time"
                     else -> null

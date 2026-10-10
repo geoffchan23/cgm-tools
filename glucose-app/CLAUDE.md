@@ -53,9 +53,11 @@ entries are free-text summaries. Conventions inside `journal.text`:
   API, AICore). Nano answers JSON; `TextEntry.kt` validates strictly
   (`parseBreakdown`) and the confirm list shows each row with editable
   time/units/name. Rows matching an entry already logged (same dose type
-  or event name within ±60 min, `matchExisting`) start unchecked as
-  "already logged"; a row matching a guess starts checked and saving
-  confirms that guess with the stated values. Saves to the day being
+  and units, or event name, within ±60 min, `matchExisting`) start
+  unchecked as "already logged"; a row matching a guess or an untouched
+  auto-logged routine row (any units) starts checked and saving updates
+  that row to the stated values (so "23 long" after the routine's 19u
+  replaces it instead of being dropped — happened 2026-10-10). Saves to the day being
   viewed (today in week mode). Inference only runs with the app in the
   foreground (AICore error 30 otherwise); the model downloads on first
   use. Debug: `--es op describe-test --es text "'…'"` logs status, raw
@@ -287,8 +289,10 @@ Parsing (`WatchParse` in `WatchListenerService.kt`), in order:
    "19 and 4" (19/20 → long), insulin brand/slang words, "at 5:30" /
    "an hour ago" / "this morning", "walked 20 minutes" → `20 min walk`.
    Good for short in-the-moment phrases; weak on paragraphs.
-Anything without a time is stamped now. Rows matching an existing entry
-come back "already logged" (unticked); a match on a guess confirms it.
+Anything without a time is stamped now. Every row starts ticked on the
+watch (she unticks; Francine asked 2026-10-10). Status per row: new,
+"already logged" (saving is a no-op), "confirms guess" or "replaces
+auto-log" (both update the matched row).
 Logcat tag `WatchLog` shows which parser ran (`openai`, `nano`,
 `nano-screen`, `rules`), the latency and the rows. The watch waits up to
 30 s ("Thinking…"). `watch-parse-test --ez any true` runs it on the peer.

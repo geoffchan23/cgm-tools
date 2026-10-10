@@ -36,8 +36,17 @@ object WatchProtocol {
     const val PATH_OUTCOME = "/log/outcome"
 
     const val STATUS_NEW = "new"
-    const val STATUS_ALREADY = "already" // a non-guess entry already covers it; watch starts it unticked
+    const val STATUS_ALREADY = "already" // the same entry is already logged; saving it does nothing
     const val STATUS_CONFIRM = "confirm" // saving confirms one of Claude's guesses
+    const val STATUS_REPLACE = "replace" // saving replaces an auto-logged routine row with her values
+}
+
+/** How saving [text] relates to its [match] in the day's log (see [matchExisting]). */
+fun matchStatus(text: String?, match: JournalEntity?): String = when {
+    match == null -> WatchProtocol.STATUS_NEW
+    isGuessEntry(match.text) -> WatchProtocol.STATUS_CONFIRM
+    match.text != text && isRoutineEntry(match) -> WatchProtocol.STATUS_REPLACE
+    else -> WatchProtocol.STATUS_ALREADY
 }
 
 data class WatchRow(val text: String, val label: String, val time: String, val status: String)
@@ -49,12 +58,7 @@ fun watchLabel(p: ProposedEntry): String =
 /** The proposal row for [p] against today's [existing] journal (see [matchExisting]). */
 fun watchRow(p: ProposedEntry, existing: List<JournalEntity>): WatchRow? {
     val text = p.noteText() ?: return null
-    val match = matchExisting(p, existing)
-    val status = when {
-        match == null -> WatchProtocol.STATUS_NEW
-        isGuessEntry(match.text) -> WatchProtocol.STATUS_CONFIRM
-        else -> WatchProtocol.STATUS_ALREADY
-    }
+    val status = matchStatus(text, matchExisting(p, existing))
     return WatchRow(text, watchLabel(p), time12(p.time!!), status)
 }
 
@@ -119,13 +123,14 @@ fun planWatchSave(texts: List<String>, existing: List<JournalEntity>): List<Watc
     return texts.mapNotNull { text ->
         val p = proposedFromText(text) ?: return@mapNotNull null
         val match = matchExisting(p, seen)
-        when {
-            match == null -> WatchSaveOp.Insert(text).also {
+        when (matchStatus(text, match)) {
+            WatchProtocol.STATUS_NEW -> WatchSaveOp.Insert(text).also {
                 // two identical rows in one utterance shouldn't both insert
                 seen += JournalEntity(day = "", text = text, createdAtMs = 0, updatedAtMs = 0)
             }
-            isGuessEntry(match.text) -> WatchSaveOp.Confirm(match, text).also {
-                seen.remove(match); seen += match.copy(text = text)
+            WatchProtocol.STATUS_CONFIRM, WatchProtocol.STATUS_REPLACE -> WatchSaveOp.Confirm(match!!, text).also {
+                // the updated row is hers now: a second match adds, not replaces again
+                seen.remove(match); seen += match.copy(day = "", text = text)
             }
             else -> WatchSaveOp.Already(text)
         }

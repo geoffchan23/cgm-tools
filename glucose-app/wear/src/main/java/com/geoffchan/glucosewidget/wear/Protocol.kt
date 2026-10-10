@@ -22,6 +22,7 @@ object Protocol {
     const val OUTCOME_ANSWERED = "answered"
     const val STATUS_ALREADY = "already"
     const val STATUS_CONFIRM = "confirm"
+    const val STATUS_REPLACE = "replace"
 }
 
 data class Row(val text: String, val label: String, val time: String, val status: String)

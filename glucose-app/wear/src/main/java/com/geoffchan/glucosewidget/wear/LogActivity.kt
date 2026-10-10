@@ -152,7 +152,8 @@ class LogActivity : ComponentActivity() {
                     p.rows.isEmpty() -> Ui.Error("Didn't catch any doses or food — try again.\n\n“$transcript”")
                     else -> {
                         checked.clear()
-                        checked.addAll(p.rows.map { it.status != Protocol.STATUS_ALREADY })
+                        // all ticked: she unticks what she doesn't want (an already-logged row saves as a no-op)
+                        checked.addAll(List(p.rows.size) { true })
                         Ui.Confirm(transcript, p.rows, p.answer, p.changes)
                     }
                 }
@@ -299,6 +300,7 @@ class LogActivity : ComponentActivity() {
                             when (row.status) {
                                 Protocol.STATUS_ALREADY -> "${row.time} · already logged"
                                 Protocol.STATUS_CONFIRM -> "${row.time} · confirms guess"
+                                Protocol.STATUS_REPLACE -> "${row.time} · replaces auto-log"
                                 else -> row.time
                             },
                         )
