@@ -49,7 +49,7 @@ fun isTagEntry(text: String): Boolean = text.startsWith("#") && !text.contains("
 fun defaultUnits(type: String, dayOfWeek: java.time.DayOfWeek): Int =
     if (type == "long-acting") 19 else 4
 
-/** Geoff's fixed morning routine, auto-logged daily (see [Routines]). */
+/** Her morning coffee, auto-logged daily (see [Routines]). */
 const val ROUTINE_TIME = "10:30"
 
 /** Sundays the morning routine happens around 2 pm (Geoff, 2026-10-07). */
@@ -64,12 +64,24 @@ fun morningRoutineTime(dayOfWeek: java.time.DayOfWeek): String =
  */
 const val ROUTINE_SPLIT_MINUTE = 15 * 60
 
-fun morningRoutine(dayOfWeek: java.time.DayOfWeek): List<String> = morningRoutineTime(dayOfWeek).let { t ->
-    listOf(
-        doseNoteText("short-acting", "${defaultUnits("short-acting", dayOfWeek)}u", t),
-        doseNoteText("long-acting", "${defaultUnits("long-acting", dayOfWeek)}u", t),
-        eventNoteText("coffee", t),
+/** What the routine auto-logs: just the coffee. She logs her own doses. */
+fun morningRoutine(dayOfWeek: java.time.DayOfWeek): List<String> =
+    listOf(eventNoteText("coffee", morningRoutineTime(dayOfWeek)))
+
+/**
+ * The routine also auto-logged 4u short + 19u long until this day; from
+ * 2026-10-11 she logs her doses herself (Geoff, 2026-10-10).
+ */
+val ROUTINE_DOSES_UNTIL: java.time.LocalDate = java.time.LocalDate.of(2026, 10, 10)
+
+/** Every row the routine may have auto-logged on [day], for recognising them later. */
+fun routineRows(day: java.time.LocalDate): List<String> {
+    val t = morningRoutineTime(day.dayOfWeek)
+    val doses = if (day.isAfter(ROUTINE_DOSES_UNTIL)) emptyList() else listOf(
+        doseNoteText("short-acting", "${defaultUnits("short-acting", day.dayOfWeek)}u", t),
+        doseNoteText("long-acting", "${defaultUnits("long-acting", day.dayOfWeek)}u", t),
     )
+    return doses + morningRoutine(day.dayOfWeek)
 }
 
 /**

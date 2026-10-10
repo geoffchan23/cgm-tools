@@ -90,9 +90,12 @@ broadcasts to non-exported receivers. With several ADB devices attached
 
 ## Auto-logged routines
 
-Every day at 10:30 (Sundays 14:00, since 2026-10-07) the app logs `dose: short-acting 4u @ 10:30`,
-`dose: long-acting 19u @ 10:30` (19 every day since 2026-09-12) and
-`event: coffee @ 10:30`. `MorningRoutine.ensure()` runs inside the
+Every day at 10:30 (Sundays 14:00, since 2026-10-07) the app logs
+`event: coffee @ 10:30`. Until 2026-10-10 it also logged
+`dose: short-acting 4u @ 10:30` and `dose: long-acting 19u @ 10:30`;
+Geoff dropped those (she logs her own doses — the auto 19u hid her real
+23u that day). `routineRows(day)` / `gaps.py` still recognise those dose
+rows as routine up to that date. `MorningRoutine.ensure()` runs inside the
 5-minute refresh worker: first run after 10:30 local inserts whatever is
 missing and stamps `routineLoggedDay` in DataStore. A hand-logged dose of
 the same type or an event named coffee that day suppresses its routine

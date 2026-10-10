@@ -13,8 +13,10 @@ gitignored ledgers in `data/guesses/`.
 
 ## How her days usually run
 
-- **Morning:** coffee + 4u short + 19u long, logged by the app's routine at
-  10:30 — and 10:30 is right on weekdays (Geoff, 2026-10-05), even when the
+- **Morning:** coffee + 4u short + 19u long at 10:30. The app auto-logs
+  only the coffee from 2026-10-11 (doses too until 10-10); she logs her
+  doses herself, so a morning with coffee but no doses gets them as
+  guesses (S1). 10:30 is right on weekdays (Geoff, 2026-10-05), even when the
   curve starts climbing ~08:30 (dawn rise). **Sundays it's ~14:00**; the app
   auto-logs Sundays at 14:00 from 2026-10-11 on. Earlier Sundays have
   10:30 rows that need moving (see S1).
@@ -35,7 +37,9 @@ gitignored ledgers in `data/guesses/`.
 ### S1 Morning routine hump — keep the routine rows
 - **Signature:** rise starting 09:30–11:00, peak 11:30–13:00 about 3–6 above
   the start, then a fall into early afternoon.
-- **Write:** nothing — the 10:30 routine rows already cover it.
+- **Write:** nothing if her doses are logged. From 2026-10-11 only the
+  coffee is auto-logged: if no morning short/long dose is logged, add
+  `short-acting 4u` and `long-acting 19u` at the coffee's time as guesses.
 - **Sundays before 2026-10-11:** the routine happened ~14:00 but was logged
   at 10:30. Put `coffee`, `short-acting 4u`
   and `long-acting 19u` at 14:00 as guesses and list the three 10:30
@@ -158,3 +162,5 @@ question with the time and size.
   The app now auto-logs Sunday's routine at 14:00.
 - 2026-10-08 — Geoff dropped the evening routine (burger and 6u); S4
   supplies both as guesses on unlogged weeknights.
+- 2026-10-10 — Geoff dropped the auto-logged morning doses (coffee stays):
+  the auto 19u hid her real 23u. S1 guesses doses on mornings without them.

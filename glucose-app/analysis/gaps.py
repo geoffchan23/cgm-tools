@@ -43,13 +43,18 @@ DOSE_RE = re.compile(r"^dose: (.+) (\d+)\S* @ (\d{1,2}):(\d{2})( \(guess\))?$")
 EVENT_RE = re.compile(r"^event: (.+?) @ (\d{1,2}):(\d{2})( \(guess\))?$")
 
 # Exactly what Routines.kt inserts; such a row says nothing about the day.
+# The morning doses were auto-logged only until 2026-10-10 (coffee still is);
+# after that she logs them, so identical dose rows are hers.
 # The evening routine only ran 2026-09-17 … 10-08 (the burger stopped on the
 # last day too) — identical rows outside that were typed by hand.
 MORNING_ROUTINE = {
-    "dose: short-acting 4u @ 10:30",
-    "dose: long-acting 19u @ 10:30",
     "event: coffee @ 10:30",
 }
+MORNING_ROUTINE_DOSES = {
+    "dose: short-acting 4u @ 10:30",
+    "dose: long-acting 19u @ 10:30",
+}
+MORNING_ROUTINE_DOSES_UNTIL = dt.date(2026, 10, 10)
 EVENING_ROUTINE = {
     "dose: short-acting 6u @ 17:30",
     "event: chicken burger @ 17:30",
@@ -60,6 +65,7 @@ EVENING_ROUTINE_UNTIL = dt.date(2026, 10, 8)
 
 def is_routine(day, text):
     return text in MORNING_ROUTINE or (
+        text in MORNING_ROUTINE_DOSES and day <= MORNING_ROUTINE_DOSES_UNTIL) or (
         text in EVENING_ROUTINE and EVENING_ROUTINE_FROM <= day <= EVENING_ROUTINE_UNTIL)
 
 SWING = 2.0  # mmol/L a turning point must move to count as a rise or fall

@@ -6,8 +6,9 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 /**
- * Auto-logs the morning routine once per local day: short-acting,
- * long-acting and coffee at 10:30 (Sundays 14:00). An evening dinner
+ * Auto-logs the morning routine once per local day: coffee at 10:30
+ * (Sundays 14:00). Until 2026-10-10 it also logged 4u short + 19u long;
+ * she logs her doses herself now. An evening dinner
  * routine existed 2026-09-17 … 10-08 and was dropped; dinner is logged by
  * hand or voice.
  *

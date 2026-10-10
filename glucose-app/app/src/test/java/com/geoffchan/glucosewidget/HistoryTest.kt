@@ -255,22 +255,29 @@ class LatestMarkerTest {
 }
 
 class MorningRoutineTest {
-    @Test fun `routine is 4u short, 19u long, coffee, at 10 30 Monday to Saturday`() {
-        val expected = listOf("dose: short-acting 4u @ 10:30", "dose: long-acting 19u @ 10:30", "event: coffee @ 10:30")
-        assertEquals(expected, morningRoutine(java.time.DayOfWeek.WEDNESDAY))
-        assertEquals(expected, morningRoutine(java.time.DayOfWeek.SATURDAY))
+    @Test fun `routine is just coffee, at 10 30 Monday to Saturday`() {
+        assertEquals(listOf("event: coffee @ 10:30"), morningRoutine(java.time.DayOfWeek.WEDNESDAY))
+        assertEquals(listOf("event: coffee @ 10:30"), morningRoutine(java.time.DayOfWeek.SATURDAY))
     }
 
     @Test fun `Sunday routine is the same at 14 00`() {
-        val expected = listOf("dose: short-acting 4u @ 14:00", "dose: long-acting 19u @ 14:00", "event: coffee @ 14:00")
-        assertEquals(expected, morningRoutine(java.time.DayOfWeek.SUNDAY))
+        assertEquals(listOf("event: coffee @ 14:00"), morningRoutine(java.time.DayOfWeek.SUNDAY))
         assertEquals("14:00", morningRoutineTime(java.time.DayOfWeek.SUNDAY))
         // still inside the morning window
         assertTrue(14 * 60 < ROUTINE_SPLIT_MINUTE)
     }
 
+    @Test fun `routine doses are recognised only up to 2026-10-10`() {
+        val sat = java.time.LocalDate.of(2026, 10, 10)
+        assertEquals(
+            listOf("dose: short-acting 4u @ 10:30", "dose: long-acting 19u @ 10:30", "event: coffee @ 10:30"),
+            routineRows(sat),
+        )
+        assertEquals(listOf("event: coffee @ 10:30"), routineRows(sat.plusDays(2)))
+    }
+
     @Test fun `hand-logged entries of the same kind suppress their routine twin`() {
-        val routine = morningRoutine(java.time.DayOfWeek.MONDAY)
+        val routine = routineRows(java.time.LocalDate.of(2026, 10, 5))
         assertEquals(routine, routineMissing(routine, emptyList()))
         assertEquals(
             listOf("dose: long-acting 19u @ 10:30"),

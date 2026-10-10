@@ -125,17 +125,17 @@ fun matchExisting(p: ProposedEntry, existing: List<JournalEntity>, windowMinutes
     return matches.firstOrNull { !isReplaceable(it) } ?: matches.firstOrNull()
 }
 
-/** A morning-routine row exactly as [Routines] auto-logged it on its day. */
+/** A morning-routine row exactly as [Routines] auto-logged it on its day ([routineRows]). */
 fun isRoutineEntry(e: JournalEntity): Boolean =
-    runCatching { java.time.LocalDate.parse(e.day).dayOfWeek }.getOrNull()?.let { e.text in morningRoutine(it) } ?: false
+    runCatching { java.time.LocalDate.parse(e.day) }.getOrNull()?.let { e.text in routineRows(it) } ?: false
 
 /** Her own account of this row updates it: a guess, or an untouched routine row. */
 fun isReplaceable(e: JournalEntity): Boolean = isGuessEntry(e.text) || isRoutineEntry(e)
 
 /**
  * Instructions for Gemini Nano. Small model, so: one schema, explicit rules
- * for her routine, one worked example, JSON only. The defaults mirror the
- * morning routine (10:30 coffee + doses) and her usual 17:30 dinner.
+ * for her routine, one worked example, JSON only. The default times mirror
+ * her 10:30 morning coffee and her usual 17:30 dinner.
  */
 /**
  * How a description becomes entries — shared by the on-device prompt
