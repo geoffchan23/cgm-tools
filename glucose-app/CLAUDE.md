@@ -1,4 +1,10 @@
-# Glucose Widget — notes for Claude Code
+# Sugar.AI (formerly Glucose Widget) — notes for Claude Code
+
+Visible name **Sugar.AI** (phone app, watch app, tile) since 2026-10-10; the
+package id stays `com.geoffchan.glucosewidget` (changing it would make a new
+app and lose data, Dexcom login, watch pairing and sync). The GitHub repo is
+`geoffchan23/Sugar.AI` (was `cgm-tools`; the local folder kept its name). The
+assistant is called **Ray**.
 
 Personal Android app on Geoff's phone (reports as "Pixel 9 Pro"). Widget
 shows the current Dexcom G7 reading; the app accumulates history and a
@@ -150,9 +156,9 @@ likewise. Dose/log rows come straight from Room (last 3 days) at render
 time; the app calls `GlucoseWidget().updateAll()` after every journal
 save/delete, and the 5-min refresh keeps the reading age current.
 
-## Assistant (OpenAI, from 2026-10-08)
+## Assistant — Ray (OpenAI, from 2026-10-08)
 
-Francine's CGM assistant (`Assistant.kt`, `AssistantTools.kt`): OpenAI's
+Francine's CGM assistant, **Ray** (`Assistant.kt`, `AssistantTools.kt`): OpenAI's
 Responses API with function tools over her own data. It logs what she says
 (as rows she confirms — the model never writes) and answers questions
 ("why did I go low last night?", "this week vs last?"). Model is a setting,
@@ -186,8 +192,8 @@ The old "no cloud / never an LLM API" rule is gone (Geoff, 2026-10-08).
   (`reply.awaiting_answer`, proposing nothing). Reply (phone button / watch
   chip; `/log/parse` `replyTo`) sends her answer with up to 4 earlier
   exchanges rebuilt from the interaction log (`historyAfter`); the asking
-  record's outcome becomes `replied`. Still no chat UI or stored thread.
-  ADB: `ask-test … --es replyTo <id>` (the id is logged).
+  record's outcome becomes `replied`. ADB: `ask-test … --es replyTo <id>`
+  (the id is logged). For real conversations use the chat (below).
 - Safety: explains patterns, never recommends doses or treatment changes
   (refers to her endo); tells her to treat a low first.
 - **What goes to OpenAI:** her message, the current reading, and whatever
@@ -202,6 +208,48 @@ The old "no cloud / never an LLM API" rule is gone (Geoff, 2026-10-08).
   adb -s <serial> shell am broadcast -n $P/.IngestReceiver --es op ai-clear
   ```
   Settings shows the model (never the key). Unset or offline → Nano/rules.
+
+### Chat with Ray (from 2026-10-10)
+
+`ChatActivity` ("Ray" in the main header, or the + menu): threads shared
+by both phones, Francine and Geoff both writing, Ray answering. Settings
+says which person this phone is (`Store.chatAuthor`; default Francine on
+the main phone, Geoff on the other; ADB `op chat-author --es author geoff`).
+
+- Same loop (`Assistant.run`) with `CHAT_INSTRUCTIONS` (= `RAY_CORE` + chat
+  rules; `ASSISTANT_INSTRUCTIONS` is `RAY_CORE` + watch-sized replies), the
+  thread replayed as input (`chatPrior`: people as "Geoff: …" user turns,
+  Ray's turns with what became of his cards; newest 24k chars), ≤ 14
+  rounds, 150 s, effort medium, plus three chat-only tools (`RayTools.kt`,
+  run by `RayEngine.kt`):
+  - `query_data` — one SELECT on a **read-only** connection to glucose.db
+    (`checkQuery` rejects anything else first; ≤ 200 rows).
+  - `run_analysis` — JavaScript Ray writes, run in androidx.javascriptengine's
+    isolated sandbox (separate process, no network/files), ≤ 180 days of
+    data preloaded (`analysisScript`: `days`, `readings{t,v,d,m}`,
+    `journal`), 20 s, 256 MB. Errors go back so he fixes and re-runs.
+  - `save_report` — self-contained HTML into files/reports/
+    (`ray-<date>-<HHmm>-<slug>.html`), listed in Reports, opened with
+    JavaScript off. Reports stay on the phone that made them.
+- Proposals become a **card** on Ray's message (`ChatCard`: entries for
+  today + changes), all ticked; Save writes through `planWatchSave` /
+  `Journal.applyChanges` (`ChatStore.saveCard`), Dismiss drops it; the
+  card's state syncs so both phones see who saved it.
+- Messages (`chat_messages`, Room v5) sync through the same relay ("chat"
+  in the payload, outbox `c:<uid>`), trimmed to fit one relay message
+  (`trimChatForSync`: tool code, then meta, then text — the full text stays
+  on the phone that wrote it). Incoming messages from the other person or
+  their Ray post a notification (`ChatNotification`) unless that thread is open.
+- Each chat turn is also an interaction-log record (source `chat`, with
+  `data.chat.{thread,author}`), outcome from the card.
+- A message's footer lists what Ray looked at; tap to see the SQL/code.
+- ADB: `--es op chat-test --es author geoff --es text "…" [--es thread <id>]`
+  posts a real message (it syncs) and logs Ray's reply under tag `ChatTest`.
+- Live check 2026-10-10 (thread `raytest1`, as Geoff): SQL count +
+  30-day comparison ($0.0005), a JS analysis he debugged himself ($0.0013),
+  and a lows report for her endo ($0.0019).
+- Not built yet (Geoff chose to wait): Ray asking Claude Code for work on
+  the Mac. Geoff's phone needs the OpenAI key before Ray can answer there.
 
 ## Interaction log (for evals and skills, from 2026-10-08)
 

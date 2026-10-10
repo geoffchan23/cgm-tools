@@ -13,9 +13,10 @@ import javax.crypto.spec.SecretKeySpec
  * rules. No Android here, so it's all unit-tested; [Sync] does the I/O.
  *
  * A message is base64(nonce ‖ AES-256-GCM ciphertext) of a JSON payload
- * `{"v":1,"device":…,"rows":[…],"tombs":[…],"inter":[…]}`. The relay
- * (ntfy.sh) only ever sees the base64. "inter" (assistant interaction log
- * records, see InteractionCore.kt) is optional, so older payloads still decode.
+ * `{"v":1,"device":…,"rows":[…],"tombs":[…],"inter":[…],"chat":[…]}`. The
+ * relay (ntfy.sh) only ever sees the base64. "inter" (assistant interaction
+ * log records, see InteractionCore.kt) and "chat" (messages with Ray, see
+ * ChatCore.kt) are optional, so older payloads still decode.
  */
 const val SYNC_FORMAT = 1
 
@@ -39,6 +40,7 @@ data class SyncPayload(
     val tombs: List<SyncTomb> = emptyList(),
     val v: Int = SYNC_FORMAT,
     val inter: List<SyncInteraction> = emptyList(),
+    val chat: List<SyncChat> = emptyList(),
 )
 
 fun JournalEntity.toSyncRow() = SyncRow(uid, day, text, scope, createdAtMs, updatedAtMs)
@@ -52,6 +54,7 @@ fun encodePayload(p: SyncPayload): String = JSONObject()
     }))
     .put("tombs", JSONArray(p.tombs.map { JSONObject().put("uid", it.uid).put("deletedAtMs", it.deletedAtMs) }))
     .apply { if (p.inter.isNotEmpty()) put("inter", JSONArray(p.inter.map { encodeSyncInteraction(it) })) }
+    .apply { if (p.chat.isNotEmpty()) put("chat", JSONArray(p.chat.map { encodeSyncChat(it) })) }
     .toString()
 
 /** Null for anything that isn't a well-formed payload of a format we know. */
@@ -62,6 +65,7 @@ fun decodePayload(json: String): SyncPayload? = runCatching {
     val rows = o.optJSONArray("rows") ?: JSONArray()
     val tombs = o.optJSONArray("tombs") ?: JSONArray()
     val inter = o.optJSONArray("inter") ?: JSONArray()
+    val chat = o.optJSONArray("chat") ?: JSONArray()
     SyncPayload(
         device = o.getString("device"),
         rows = (0 until rows.length()).map { i ->
@@ -77,6 +81,7 @@ fun decodePayload(json: String): SyncPayload? = runCatching {
         },
         v = v,
         inter = (0 until inter.length()).map { decodeSyncInteraction(inter.getJSONObject(it)) },
+        chat = (0 until chat.length()).map { decodeSyncChat(chat.getJSONObject(it)) },
     )
 }.getOrNull()
 
@@ -109,10 +114,10 @@ object SyncCrypto {
 fun encryptedSize(plainBytes: Int): Int = (plainBytes + 12 + 16 + 2) / 3 * 4
 
 /**
- * Split rows, tombstones and interaction records into payloads whose
- * encrypted message stays under [maxMessageBytes]. A single oversized item
- * still goes out alone (interaction records are trimmed beforehand, see
- * [trimForSync], so they fit).
+ * Split rows, tombstones, interaction records and chat messages into
+ * payloads whose encrypted message stays under [maxMessageBytes]. A single
+ * oversized item still goes out alone (records and messages are trimmed
+ * beforehand, see [trimForSync] and [trimChatForSync], so they fit).
  */
 fun chunkPayloads(
     device: String,
@@ -120,29 +125,21 @@ fun chunkPayloads(
     tombs: List<SyncTomb>,
     inter: List<SyncInteraction> = emptyList(),
     maxMessageBytes: Int = MAX_MESSAGE_BYTES,
+    chat: List<SyncChat> = emptyList(),
 ): List<SyncPayload> {
     val out = mutableListOf<SyncPayload>()
-    var curRows = mutableListOf<SyncRow>()
-    var curTombs = mutableListOf<SyncTomb>()
-    var curInter = mutableListOf<SyncInteraction>()
-    fun size(r: List<SyncRow>, t: List<SyncTomb>, i: List<SyncInteraction>) =
-        encryptedSize(encodePayload(SyncPayload(device, r, t, inter = i)).toByteArray(Charsets.UTF_8).size)
-    fun flush() {
-        if (curRows.isNotEmpty() || curTombs.isNotEmpty() || curInter.isNotEmpty()) out += SyncPayload(device, curRows, curTombs, inter = curInter)
-        curRows = mutableListOf(); curTombs = mutableListOf(); curInter = mutableListOf()
+    var cur = SyncPayload(device)
+    fun size(p: SyncPayload) = encryptedSize(encodePayload(p).toByteArray(Charsets.UTF_8).size)
+    fun empty(p: SyncPayload) = p.rows.isEmpty() && p.tombs.isEmpty() && p.inter.isEmpty() && p.chat.isEmpty()
+    fun flush() { if (!empty(cur)) out += cur; cur = SyncPayload(device) }
+    fun add(next: (SyncPayload) -> SyncPayload) {
+        if (!empty(cur) && size(next(cur)) > maxMessageBytes) flush()
+        cur = next(cur)
     }
-    for (r in rows) {
-        if (size(curRows + r, curTombs, curInter) > maxMessageBytes) flush()
-        curRows += r
-    }
-    for (t in tombs) {
-        if (size(curRows, curTombs + t, curInter) > maxMessageBytes) flush()
-        curTombs += t
-    }
-    for (i in inter) {
-        if (size(curRows, curTombs, curInter + i) > maxMessageBytes) flush()
-        curInter += i
-    }
+    for (r in rows) add { it.copy(rows = it.rows + r) }
+    for (t in tombs) add { it.copy(tombs = it.tombs + t) }
+    for (i in inter) add { it.copy(inter = it.inter + i) }
+    for (c in chat) add { it.copy(chat = it.chat + c) }
     flush()
     return out
 }

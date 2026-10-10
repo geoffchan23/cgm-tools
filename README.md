@@ -1,4 +1,4 @@
-# cgm-tools
+# Sugar.AI
 
 Personal continuous-glucose-monitor tooling for a Dexcom G7 setup, built
 to sideload only — nothing here is published to any store.
@@ -27,7 +27,7 @@ richer understanding of her diabetes management over time.
 | | | |
 |---|---|---|
 | [`watch-face/`](watch-face/) | **Big Glucose** — a Wear OS watch face | The stock Pixel digital face, kept as-is, with the glucose complication rendered ~4× larger (units and timestamp dropped). Watch Face Format XML, no code. Runs on a Pixel Watch 2. |
-| [`glucose-app/`](glucose-app/) | **Glucose Widget** — an Android phone app | Home-screen widget showing the current reading (mmol/L + trend arrow), plus a day/week history chart with a food/insulin journal. Kotlin + Compose + Glance. Runs on a Pixel phone. |
+| [`glucose-app/`](glucose-app/) | **Sugar.AI** — an Android phone app (+ Wear OS voice logger) | Home-screen widget showing the current reading (mmol/L + trend arrow), a day/week history chart with a food/insulin journal, and **Ray**, an AI assistant you can chat with (shared between two phones) or talk to from the watch: he logs what she says, answers questions from her real data, writes and runs his own analysis on the phone, and saves reports. Kotlin + Compose + Glance. Runs on a Pixel phone. |
 
 The two are unrelated at runtime and build separately — each subdirectory is
 a self-contained Gradle project with its own README and `CLAUDE.md`. They

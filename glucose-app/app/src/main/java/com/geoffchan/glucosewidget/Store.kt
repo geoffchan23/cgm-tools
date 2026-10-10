@@ -85,6 +85,16 @@ object Store {
         context.dataStore.edit { it[KEY_IS_MAIN] = main }
     }
 
+    private val KEY_CHAT_AUTHOR = stringPreferencesKey("chatAuthor")
+
+    /** Who writes in the chat from this phone: set in Settings, else hers if main, Geoff's otherwise. */
+    suspend fun chatAuthor(context: Context): String =
+        context.dataStore.data.first()[KEY_CHAT_AUTHOR] ?: if (isMainPhone(context)) AUTHOR_FRANCINE else AUTHOR_GEOFF
+
+    suspend fun saveChatAuthor(context: Context, author: String) {
+        context.dataStore.edit { it[KEY_CHAT_AUTHOR] = author }
+    }
+
     // --- two-phone sync state (key + topic are in securePrefs below) ---
 
     private val KEY_DEVICE_ID = stringPreferencesKey("syncDeviceId")

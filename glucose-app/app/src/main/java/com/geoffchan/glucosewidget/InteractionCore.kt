@@ -14,6 +14,7 @@ const val SOURCE_WATCH = "watch"
 const val SOURCE_WATCH_QUEUED = "watch-queued"
 const val SOURCE_PHONE = "phone"
 const val SOURCE_DEBUG = "debug"
+const val SOURCE_CHAT = "chat" // the chat screen (Francine or Geoff, see data.chat.author)
 
 /** What she did with a proposal. */
 const val OUTCOME_SAVED = "saved" // saved (some of) the proposed rows

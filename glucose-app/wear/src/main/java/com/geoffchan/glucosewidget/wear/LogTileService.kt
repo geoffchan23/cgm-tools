@@ -34,7 +34,7 @@ class LogTileService : TileService() {
             .build()
         val layout = PrimaryLayout.Builder(device)
             .setPrimaryLabelTextContent(
-                Text.Builder(this, "Glucose log").setTypography(Typography.TYPOGRAPHY_CAPTION1).build(),
+                Text.Builder(this, "Tell Ray").setTypography(Typography.TYPOGRAPHY_CAPTION1).build(),
             )
             .setContent(
                 Button.Builder(this, open)

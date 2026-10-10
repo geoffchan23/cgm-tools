@@ -31,6 +31,13 @@
             android:theme="@android:style/Theme.Material.NoActionBar" />
 
         <activity
+            android:name=".ChatActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+
+        <activity
             android:name=".ReportsActivity"
             android:exported="false"
             android:theme="@android:style/Theme.Material.NoActionBar" />

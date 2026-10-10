@@ -210,9 +210,10 @@ private fun SyncSection() {
 private fun AssistantSection() {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val cfg = androidx.compose.runtime.remember { Store.aiConfig(ctx) }
-    Text("Assistant", style = MaterialTheme.typography.titleMedium)
+    val scope = rememberCoroutineScope()
+    Text("Ray (assistant)", style = MaterialTheme.typography.titleMedium)
     Text(
-        if (cfg == null) "Not set up — typed and spoken entries use the on-device model."
+        if (cfg == null) "Not set up — typed and spoken entries use the on-device model, and the chat can't answer."
         else "OpenAI ${cfg.model}, effort ${cfg.effort ?: "auto (low for logging, medium for questions)"}. " +
             "Sends your question and the readings/logs it looks up to OpenAI.",
         style = MaterialTheme.typography.bodySmall,
@@ -221,4 +222,19 @@ private fun AssistantSection() {
     var logged by remember { mutableStateOf<Int?>(null) }
     androidx.compose.runtime.LaunchedEffect(Unit) { logged = runCatching { GlucoseDb.get(ctx).dao().interactionCount() }.getOrNull() }
     logged?.let { Text("Interaction log: $it recorded", style = MaterialTheme.typography.bodySmall) }
+    // who's chatting from this phone (Ray addresses them by name; messages are labelled)
+    var author by remember { mutableStateOf<String?>(null) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { author = Store.chatAuthor(ctx) }
+    author?.let { a ->
+        Text("In the chat this phone is ${authorName(a)}", style = MaterialTheme.typography.bodySmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            for (who in listOf(AUTHOR_FRANCINE, AUTHOR_GEOFF)) {
+                androidx.compose.material3.FilterChip(
+                    selected = a == who,
+                    onClick = { scope.launch { Store.saveChatAuthor(ctx, who); author = who } },
+                    label = { Text(authorName(who)) },
+                )
+            }
+        }
+    }
 }

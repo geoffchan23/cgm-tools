@@ -132,7 +132,11 @@ class MainActivity : ComponentActivity() {
                                     onClick = { showAddMenu = false; dosing = true },
                                 )
                                 androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text("Ask / log by text") },
+                                    text = { Text("Chat with Ray") },
+                                    onClick = { showAddMenu = false; startActivity(Intent(this@MainActivity, ChatActivity::class.java)) },
+                                )
+                                androidx.compose.material3.DropdownMenuItem(
+                                    text = { Text("Ask Ray / log by text") },
                                     onClick = { showAddMenu = false; describing = true },
                                 )
                                 if (isWeek) {
@@ -186,6 +190,9 @@ class MainActivity : ComponentActivity() {
                                 onClick = { day = day.plusDays(spanDays.toLong()) },
                                 enabled = firstDay.plusDays(spanDays.toLong()) <= today,
                             ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next") }
+                            TextButton(onClick = {
+                                startActivity(Intent(this@MainActivity, ChatActivity::class.java))
+                            }) { Text("Ray") }
                             IconButton(onClick = {
                                 startActivity(Intent(this@MainActivity, ReportsActivity::class.java))
                             }) { Icon(Icons.AutoMirrored.Filled.List, "Reports") }
@@ -527,7 +534,7 @@ class MainActivity : ComponentActivity() {
                     val targetEntries by dao.journalFor(SCOPE_DAY, target.toString())
                         .collectAsState(initial = emptyList())
                     DescribeDialog(
-                        title = "Ask or log — ${target.format(DateTimeFormatter.ofPattern("MMM d", Locale.CANADA))}",
+                        title = "Ask Ray or log — ${target.format(DateTimeFormatter.ofPattern("MMM d", Locale.CANADA))}",
                         day = target,
                         existing = targetEntries,
                         onDismiss = { describing = false },

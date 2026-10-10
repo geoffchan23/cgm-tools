@@ -199,12 +199,12 @@ fun DescribeDialog(
                     aiError = if (e is kotlinx.coroutines.TimeoutCancellationException) "timeout after 45000 ms" else e.message ?: e.javaClass.simpleName
                     attempts += ParseAttempt("openai", false, aiError, System.currentTimeMillis() - ta)
                     if (!ready || model.checkStatus() != FeatureStatus.AVAILABLE) {
-                        status = "The assistant couldn't answer (${e.message}). Try again in a moment."
+                        status = "Ray couldn't answer (${e.message}). Try again in a moment."
                         working = false
                         log("none")
                         return@launch
                     }
-                    status = "The assistant couldn't answer; using the on-device model."
+                    status = "Ray couldn't answer; using the on-device model."
                 }
             }
             val tn = System.currentTimeMillis()

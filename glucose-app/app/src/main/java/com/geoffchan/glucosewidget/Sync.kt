@@ -35,7 +35,8 @@ import java.util.concurrent.TimeUnit
  *
  * Assistant interaction records ([InteractionLog]) ride along: outbox
  * entries "i:<uid>", sent trimmed to fit a message ([trimForSync]); the full
- * trace stays on the phone where it happened.
+ * trace stays on the phone where it happened. Chat messages with Ray
+ * ([ChatStore]) are "c:<uid>", trimmed the same way ([trimChatForSync]).
  *
  * Not set up (no key/topic) = no-op; the app behaves as a single phone.
  */
@@ -65,6 +66,14 @@ object Sync {
     }
 
     private const val INTERACTION_PREFIX = "i:"
+    private const val CHAT_PREFIX = "c:"
+
+    /** Called after a chat message is written (sent, or a card saved). Sends right away. */
+    suspend fun chatChanged(context: Context, uid: String) {
+        if (Store.syncConfig(context) == null) return
+        Store.addToOutbox(context, listOf(CHAT_PREFIX + uid))
+        enqueue(context, delaySeconds = 1)
+    }
 
     /** Run a sync soon, when there's a network; retried with backoff on failure. */
     fun enqueue(context: Context, delaySeconds: Long = 0) {
@@ -83,7 +92,8 @@ object Sync {
         Store.addToOutbox(
             context,
             dao.journalUpdatedSince(since).map { it.uid } + dao.tombstonesSince(since).map { it.uid } +
-                dao.interactionUidsUpdatedSince(since).map { INTERACTION_PREFIX + it },
+                dao.interactionUidsUpdatedSince(since).map { INTERACTION_PREFIX + it } +
+                dao.chatUidsUpdatedSince(since).map { CHAT_PREFIX + it },
         )
     }
 
@@ -129,7 +139,8 @@ object Sync {
     private suspend fun publishOutbox(context: Context, cfg: Store.SyncConfig) {
         val all = Store.syncOutbox(context)
         if (all.isEmpty()) return
-        val (interUids, uids) = all.partition { it.startsWith(INTERACTION_PREFIX) }
+        val (chatUids, rest) = all.partition { it.startsWith(CHAT_PREFIX) }
+        val (interUids, uids) = rest.partition { it.startsWith(INTERACTION_PREFIX) }
         val dao = GlucoseDb.get(context).dao()
         val rows = mutableListOf<SyncRow>()
         val tombs = mutableListOf<SyncTomb>()
@@ -139,16 +150,18 @@ object Sync {
             else dao.tombstone(uid)?.let { tombs += SyncTomb(it.uid, it.deletedAtMs) }
         }
         val inter = interUids.mapNotNull { dao.interaction(it.removePrefix(INTERACTION_PREFIX))?.let { e -> trimForSync(e) } }
+        val chat = chatUids.mapNotNull { dao.chatMessage(it.removePrefix(CHAT_PREFIX))?.let { m -> trimChatForSync(m) } }
         val device = Store.deviceId(context)
-        for (payload in chunkPayloads(device, rows, tombs, inter)) {
+        for (payload in chunkPayloads(device, rows, tombs, inter, chat = chat)) {
             post(cfg, SyncCrypto.encrypt(cfg.key, encodePayload(payload)))
             Store.removeFromOutbox(
                 context,
-                payload.rows.map { it.uid } + payload.tombs.map { it.uid } + payload.inter.map { INTERACTION_PREFIX + it.uid },
+                payload.rows.map { it.uid } + payload.tombs.map { it.uid } + payload.inter.map { INTERACTION_PREFIX + it.uid } +
+                    payload.chat.map { CHAT_PREFIX + it.uid },
             )
         }
         // entries with nothing behind them have nothing to send
-        val sent = (rows.map { it.uid } + tombs.map { it.uid } + inter.map { INTERACTION_PREFIX + it.uid }).toSet()
+        val sent = (rows.map { it.uid } + tombs.map { it.uid } + inter.map { INTERACTION_PREFIX + it.uid } + chat.map { CHAT_PREFIX + it.uid }).toSet()
         Store.removeFromOutbox(context, all - sent)
         Store.markPublished(context)
     }
@@ -173,6 +186,7 @@ object Sync {
         val me = Store.deviceId(context)
         var lastId: String? = null
         var changed = false
+        val incoming = mutableListOf<ChatMessageEntity>()
         for (line in lines) {
             val msg = runCatching { JSONObject(line) }.getOrNull() ?: continue
             if (msg.optString("event") != "message") continue
@@ -180,15 +194,16 @@ object Sync {
             val body = msg.optString("message")
             val payload = SyncCrypto.decrypt(cfg.key, body)?.let { decodePayload(it) } ?: continue
             if (payload.device == me) continue
-            if (apply(context, payload)) changed = true
+            if (apply(context, payload, incoming)) changed = true
         }
         lastId?.let { Store.saveSyncSince(context, it) }
         Store.markPolled(context)
         if (changed) GlucoseWidget().updateAll(context)
+        if (incoming.isNotEmpty()) ChatNotification.newMessages(context, incoming)
     }
 
     /** Merge one payload straight into Room — never through [Journal], so it isn't re-published. */
-    private suspend fun apply(context: Context, p: SyncPayload): Boolean {
+    private suspend fun apply(context: Context, p: SyncPayload, incoming: MutableList<ChatMessageEntity>): Boolean {
         val db = GlucoseDb.get(context)
         val dao = db.dao()
         var changed = false
@@ -220,6 +235,13 @@ object Sync {
             for (i in p.inter) {
                 val local = dao.interaction(i.uid)
                 applyRemoteInteraction(i, local)?.let { if (local == null) dao.insertInteraction(it) else dao.updateInteraction(it) }
+            }
+            for (c in p.chat) {
+                val local = dao.chatMessage(c.uid)
+                mergeChat(c, local)?.let {
+                    dao.upsertChat(it)
+                    if (local == null) incoming += it
+                }
             }
         }
         return changed

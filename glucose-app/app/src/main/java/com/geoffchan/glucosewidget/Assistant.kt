@@ -83,11 +83,14 @@ fun defaultEffort(message: String): String {
 }
 
 /**
- * The stable system prompt (cached prefix). Anything that changes per
- * request — now, the current reading, which day — goes in the user turn.
+ * Ray's shared core: who she is, her routines, logging and change rules,
+ * safety. [ASSISTANT_INSTRUCTIONS] (watch + Ask dialog) and
+ * [CHAT_INSTRUCTIONS] (the chat screen) each add how to reply. Anything
+ * that changes per request — now, the current reading, which day — goes in
+ * the user turn, so each prompt stays a stable cached prefix.
  */
-val ASSISTANT_INSTRUCTIONS = """
-You are Francine's personal diabetes assistant, living in her phone and watch. She has had type 1 diabetes since she was 2. She uses a Dexcom G7. Glucose is in mmol/L; her target range is 3.9-10.0. She lives in Toronto (America/Toronto); all times are local.
+val RAY_CORE = """
+You are Ray, Francine's personal diabetes assistant, living in her phone and watch (the Sugar.AI app). She has had type 1 diabetes since she was 2. She uses a Dexcom G7. Glucose is in mmol/L; her target range is 3.9-10.0. She lives in Toronto (America/Toronto); all times are local.
 
 You do two things:
 1. Log what she tells you: doses and food/drink/activity. Call propose_entries once with every entry. She confirms each one on screen before anything is saved, so propose, don't ask. Corrections and changes to what's already logged, or to other days, go through propose_changes (below).
@@ -118,7 +121,10 @@ Changing her log (propose_changes):
 Safety:
 - You can explain patterns, compare periods and point out what tends to happen. Never recommend an insulin dose, a dose change, a ratio or any change to her treatment; if she asks, say that's one to work out with her endocrinologist, and offer the data that would help that conversation.
 - If her current glucose is below 3.9 or falling fast toward it, start your answer by telling her to treat the low first.
+""".trim()
 
+/** Watch and Ask dialog: a watch-sized answer plus optional phone detail. */
+val ASSISTANT_INSTRUCTIONS = RAY_CORE + "\n\n" + """
 Replying:
 - Finish by calling reply exactly once. answer: one or two short sentences that fit on a watch screen, plain words, no lists or markdown. detail: optional fuller explanation for her phone (a few short sentences or simple lines), or null.
 - If she only logged something and there's nothing worth adding, answer can be an empty string.
@@ -159,7 +165,7 @@ object Assistant {
 
     private val http = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(45, TimeUnit.SECONDS)
+        .readTimeout(90, TimeUnit.SECONDS) // a chat round that writes analysis code can take a while
         .build()
 
     fun configured(context: Context): Boolean = Store.aiConfig(context) != null
@@ -171,7 +177,7 @@ object Assistant {
             caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 
-    private fun roomData(context: Context) = object : AssistantData {
+    fun roomData(context: Context) = object : AssistantData {
         private val dao = GlucoseDb.get(context).dao()
         override suspend fun readings(startMs: Long, endMs: Long) = dao.readingsIn(startMs, endMs)
         override suspend fun journal(firstDay: String, lastDay: String) = dao.dayJournalBetween(firstDay, lastDay)
@@ -206,6 +212,11 @@ object Assistant {
     /**
      * The tool loop. Every output item (reasoning included) is replayed:
      * store=false. [transport] is the HTTP call (a fake in tests).
+     *
+     * The watch and Ask dialog use the defaults. The chat ([RayChat]) passes
+     * its own [instructions], a longer [tools] list, the thread as [prior]
+     * and [extraTool] for the tools only it has (queries, analysis, reports);
+     * [extraTool] returns null for names it doesn't handle.
      */
     suspend fun run(
         cfg: AiConfig,
@@ -216,10 +227,16 @@ object Assistant {
         trace: JSONArray = JSONArray(),
         history: List<Turn> = emptyList(),
         today: LocalDate = LocalDate.now(zone),
+        instructions: String = ASSISTANT_INSTRUCTIONS,
+        tools: JSONArray = AssistantTools.definitions,
+        maxRounds: Int = MAX_ROUNDS,
+        prior: List<JSONObject> = historyInput(history),
+        maxOutputTokens: Int = 8_000,
+        extraTool: (suspend (name: String, args: String) -> String?)? = null,
         transport: suspend (key: String, body: JSONObject) -> JSONObject = ::post,
     ): AssistantResult {
         val t0 = System.currentTimeMillis()
-        val input = JSONArray(historyInput(history)).put(JSONObject().put("role", "user").put("content", userTurn))
+        val input = JSONArray(prior).put(JSONObject().put("role", "user").put("content", userTurn))
         val proposed = mutableListOf<ProposedEntry>()
         val changes = mutableListOf<ChangeOp>()
         val changeRejects = mutableListOf<String>()
@@ -230,15 +247,15 @@ object Assistant {
         var inTok = 0; var cachedTok = 0; var outTok = 0; var reasoningTok = 0
         var lastText: String? = null
 
-        for (round in 1..MAX_ROUNDS) {
+        for (round in 1..maxRounds) {
             val body = JSONObject()
                 .put("model", cfg.model)
-                .put("instructions", ASSISTANT_INSTRUCTIONS)
+                .put("instructions", instructions)
                 .put("input", input)
-                .put("tools", AssistantTools.definitions)
+                .put("tools", tools)
                 .put("reasoning", JSONObject().put("effort", effort))
                 .put("store", false)
-                .put("max_output_tokens", 8_000)
+                .put("max_output_tokens", maxOutputTokens)
             val res = transport(cfg.key, body)
             val roundLog = JSONObject().put("round", round)
             val roundCalls = JSONArray()
@@ -289,7 +306,7 @@ object Assistant {
                         replied = true
                         "{\"ok\":true}"
                     }
-                    else -> AssistantTools.run(name, args, data, zone)
+                    else -> extraTool?.invoke(name, args) ?: AssistantTools.run(name, args, data, zone)
                 }
                 input.put(JSONObject().put("type", "function_call_output").put("call_id", c.optString("call_id")).put("output", result))
                 roundCalls.put(
@@ -299,7 +316,7 @@ object Assistant {
                 )
             }
             if (replied) break
-            if (round == MAX_ROUNDS) log("stopped after $MAX_ROUNDS rounds")
+            if (round == maxRounds) log("stopped after $maxRounds rounds")
         }
 
         val finalAnswer = answer ?: lastText.orEmpty().trim()
@@ -329,7 +346,7 @@ object Assistant {
             .takeIf { it.isNotBlank() }
     }
 
-    private suspend fun post(key: String, body: JSONObject): JSONObject = withContext(Dispatchers.IO) {
+    suspend fun post(key: String, body: JSONObject): JSONObject = withContext(Dispatchers.IO) {
         val req = Request.Builder().url(URL)
             .header("Authorization", "Bearer $key")
             .post(body.toString().toRequestBody(JSON))

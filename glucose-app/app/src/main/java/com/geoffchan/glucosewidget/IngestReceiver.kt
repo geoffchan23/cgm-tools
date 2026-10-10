@@ -111,6 +111,9 @@ class IngestReceiver : BroadcastReceiver() {
                     }
                     "ai-clear" -> { Store.clearAiConfig(context); android.util.Log.i("Assistant", "cleared") }
                     // Runs the assistant on --es text without saving anything; logs the result.
+                    // chat as someone, e.g. --es text "how was last week?" --es author geoff [--es thread <id>]; logs Ray's reply
+                    "chat-test" -> chatTest(context, intent.getStringExtra("text").orEmpty(), intent.getStringExtra("author") ?: AUTHOR_GEOFF, intent.getStringExtra("thread"))
+                    "chat-author" -> intent.getStringExtra("author")?.takeIf { it == AUTHOR_FRANCINE || it == AUTHOR_GEOFF }?.let { Store.saveChatAuthor(context, it) }
                     "ask-test" -> askTest(context, intent.getStringExtra("text").orEmpty(), intent.getBooleanExtra("watch", false), intent.getStringExtra("replyTo"))
                     "describe-test" -> describeTest(context, intent.getStringExtra("text").orEmpty())
                     "watch-parse-test" -> android.util.Log.i(
@@ -129,6 +132,18 @@ class IngestReceiver : BroadcastReceiver() {
     }
 
     /** Runs the assistant without saving; recorded in the interaction log as source=debug. */
+    /** A real chat turn (it's saved and syncs like any message); logcat tag "ChatTest" shows the reply. */
+    private suspend fun chatTest(context: Context, text: String, author: String, thread: String?) {
+        if (text.isBlank()) return
+        val t = thread ?: newUid()
+        val m = RayChat.reply(context, t, author, text)
+        val log = { msg: String -> android.util.Log.i("ChatTest", msg) }
+        log("thread: $t")
+        m.text.lines().forEach { log("ray: $it") }
+        decodeCard(m.card)?.let { c -> (c.entries + c.changes.map { changeLogText(it) }).forEach { log("card: $it") } }
+        m.meta?.let { log("meta: ${it.take(3000)}") }
+    }
+
     private suspend fun askTest(context: Context, text: String, fromWatch: Boolean, replyTo: String?) {
         val today = java.time.LocalDate.now()
         val trace = org.json.JSONArray()

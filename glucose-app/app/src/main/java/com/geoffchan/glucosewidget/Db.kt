@@ -65,6 +65,25 @@ data class AssistantLogEntity(
     val outcome: String? = null,
 )
 
+/**
+ * One message in a chat with Ray (see Chat.kt), shared by both phones.
+ * [author] is "francine", "geoff" or "ray". [card] (Ray's messages) is JSON:
+ * the entries/changes he proposed and whether someone saved them. [meta] is
+ * JSON: tools he used (with any code), cost, report file, error. Rows are
+ * merged by [uid], last write wins on [updatedAtMs] (a card being saved).
+ */
+@Entity(tableName = "chat_messages", indices = [androidx.room.Index(value = ["thread", "createdAtMs"])])
+data class ChatMessageEntity(
+    @PrimaryKey val uid: String = newUid(),
+    val thread: String,
+    val createdAtMs: Long,
+    val updatedAtMs: Long,
+    val author: String,
+    val text: String,
+    val card: String? = null,
+    val meta: String? = null,
+)
+
 const val SCOPE_DAY = "day"
 const val SCOPE_WEEK = "week"
 
@@ -135,6 +154,29 @@ interface GlucoseDao {
 
     @Query("SELECT COUNT(*) FROM assistant_log")
     suspend fun interactionCount(): Int
+
+    // Chat with Ray; writes go through [ChatStore] (sync), not these directly.
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertChat(m: ChatMessageEntity)
+
+    @Query("SELECT * FROM chat_messages WHERE uid = :uid")
+    suspend fun chatMessage(uid: String): ChatMessageEntity?
+
+    @Query("SELECT * FROM chat_messages WHERE thread = :thread ORDER BY createdAtMs")
+    fun chatThread(thread: String): Flow<List<ChatMessageEntity>>
+
+    @Query("SELECT * FROM chat_messages WHERE thread = :thread ORDER BY createdAtMs")
+    suspend fun chatThreadNow(thread: String): List<ChatMessageEntity>
+
+    /** Every message, oldest first; threads are grouped in [chatThreads]. */
+    @Query("SELECT * FROM chat_messages ORDER BY createdAtMs")
+    fun allChat(): Flow<List<ChatMessageEntity>>
+
+    @Query("SELECT * FROM chat_messages ORDER BY createdAtMs")
+    suspend fun allChatNow(): List<ChatMessageEntity>
+
+    @Query("SELECT uid FROM chat_messages WHERE updatedAtMs >= :sinceMs")
+    suspend fun chatUidsUpdatedSince(sinceMs: Long): List<String>
 }
 
 val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
@@ -166,7 +208,23 @@ val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
     }
 }
 
-@Database(entities = [ReadingEntity::class, JournalEntity::class, JournalTombstone::class, AssistantLogEntity::class], version = 4, exportSchema = true)
+/** v5: chat with Ray (CREATE matches Room's own; checked against schemas/…/5.json in tests). */
+val MIGRATION_4_5_SQL = listOf(
+    "CREATE TABLE IF NOT EXISTS `chat_messages` (`uid` TEXT NOT NULL, `thread` TEXT NOT NULL, `createdAtMs` INTEGER NOT NULL, " +
+        "`updatedAtMs` INTEGER NOT NULL, `author` TEXT NOT NULL, `text` TEXT NOT NULL, `card` TEXT, `meta` TEXT, PRIMARY KEY(`uid`))",
+    "CREATE INDEX IF NOT EXISTS `index_chat_messages_thread_createdAtMs` ON `chat_messages` (`thread`, `createdAtMs`)",
+)
+
+val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        MIGRATION_4_5_SQL.forEach { db.execSQL(it) }
+    }
+}
+
+@Database(
+    entities = [ReadingEntity::class, JournalEntity::class, JournalTombstone::class, AssistantLogEntity::class, ChatMessageEntity::class],
+    version = 5, exportSchema = true,
+)
 abstract class GlucoseDb : RoomDatabase() {
     abstract fun dao(): GlucoseDao
 
@@ -175,7 +233,7 @@ abstract class GlucoseDb : RoomDatabase() {
 
         fun get(context: Context): GlucoseDb = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, GlucoseDb::class.java, "glucose.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build().also { instance = it }
         }
     }
