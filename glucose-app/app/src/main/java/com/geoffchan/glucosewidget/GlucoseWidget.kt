@@ -21,9 +21,6 @@ import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.fillMaxSize
-import androidx.glance.layout.size
-import androidx.glance.Image
-import androidx.glance.ImageProvider
 import androidx.glance.layout.padding
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
@@ -77,21 +74,17 @@ class GlucoseWidget : GlanceAppWidget() {
         val now = System.currentTimeMillis()
         val bg = Color(0xF22A1D17) // cocoa, from the icon's face
         val dim = Color(0xFFA8968C)
-        Row(
+        Column(
             modifier = GlanceModifier
                 .fillMaxSize()
                 .background(bg)
                 .cornerRadius(24.dp)
-                .padding(start = 14.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)
+                .padding(start = 20.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)
                 .clickable(actionStartActivity<MainActivity>()),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalAlignment = Alignment.Start,
         ) {
-            Image(ImageProvider(R.drawable.ray_avatar), contentDescription = "Sugar.AI", modifier = GlanceModifier.size(36.dp))
-            Column(
-                modifier = GlanceModifier.padding(start = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalAlignment = Alignment.Start,
-            ) {
+            run {
                 // Row 1: big reading + arrow, age right after it. Rows are left-aligned.
                 when {
                     !hasCreds -> Text("Set up", style = TextStyle(color = ColorProvider(dim), fontSize = 16.sp))
@@ -107,16 +100,16 @@ class GlucoseWidget : GlanceAppWidget() {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 mmolText(reading.mgdl),
-                                style = TextStyle(color = ColorProvider(color), fontSize = 34.sp, fontWeight = FontWeight.Bold),
+                                style = TextStyle(color = ColorProvider(color), fontSize = 40.sp, fontWeight = FontWeight.Bold),
                                 maxLines = 1,
                             )
                             Text(
                                 " " + trendArrow(reading.trend),
-                                style = TextStyle(color = ColorProvider(color), fontSize = 22.sp),
+                                style = TextStyle(color = ColorProvider(color), fontSize = 26.sp),
                                 maxLines = 1,
                             )
                             Text(
-                                " " + ageText(reading.timestampMs, now),
+                                "  " + ageText(reading.timestampMs, now),
                                 style = TextStyle(color = ColorProvider(if (state == GlucoseState.STALE) color else dim), fontSize = 13.sp),
                                 maxLines = 1,
                             )

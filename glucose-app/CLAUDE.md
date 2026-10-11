@@ -27,7 +27,7 @@ time in range, swipe the chart to change day; the log as a timeline: tap
 to edit, swipe left to delete with Undo; the Ask Ray bar with a mic and
 + Dose / + Food chips), **Ray** (chat, threads as chips) and **Reports**.
 Settings is the gear on Today. `ChatActivity` / `ReportsActivity` are
-trampolines kept for notifications. Widget and watch use the same palette.
+trampolines kept for notifications. Widget (cocoa, no logo — no room) and watch use the same palette.
 
 ## Exploring the data (no export feature — by design)
 
