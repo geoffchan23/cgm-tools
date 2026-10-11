@@ -25,7 +25,7 @@ high amber, green target band). One activity with three tabs (MainActivity):
 **Today** (`TodayScreen.kt`: Now card with the latest reading — red when
 low, amber when high — last dose/meal, the chart card with Day/Week and
 time in range, swipe the chart to change day; the log as a timeline: tap
-to edit, swipe left to delete with Undo; the Ask Ray bar with a mic and
+to edit, swipe left to reveal Delete (tap it; Undo after); the Ask Ray bar with a mic and
 + Dose / + Food chips), **Ray** (chat, threads as chips) and **Reports**.
 Settings is the gear on Today. `ChatActivity` / `ReportsActivity` are
 trampolines kept for notifications. Widget (deep indigo, no logo — no room) and watch use the same palette.

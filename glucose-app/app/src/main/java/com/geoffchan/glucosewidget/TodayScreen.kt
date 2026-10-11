@@ -11,7 +11,16 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -46,12 +55,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -745,6 +751,8 @@ private fun QuickChip(label: String, onClick: () -> Unit) {
     }
 }
 
+private val REVEAL_WIDTH = 96.dp
+
 private enum class RowKind { SHORT, LONG, FOOD, NOTE }
 private data class RowView(val time: String, val kind: RowKind, val title: String, val guess: Boolean)
 
@@ -758,27 +766,46 @@ private fun rowView(text: String): RowView {
     return RowView("", RowKind.NOTE, text, false)
 }
 
-/** One timeline row: time · icon · what. Tap edits; swipe left deletes. */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * One timeline row: time · icon · what. Tap edits. Swiping left only
+ * reveals a Delete button (past 60% of its width, or a firm fling); the
+ * row is deleted when that's tapped — a stray swipe never deletes
+ * (Geoff, 2026-10-10: the old swipe-to-delete fired by accident).
+ */
 @Composable
 private fun LogRow(entry: JournalEntity, onEdit: () -> Unit, onKeep: () -> Unit, onDelete: () -> Unit) {
     val v = remember(entry.text) { rowView(entry.text) }
     val c = LocalSugar.current
-    val state = rememberSwipeToDismissBoxState(
-        confirmValueChange = { if (it == SwipeToDismissBoxValue.EndToStart) { onDelete(); true } else false },
-    )
-    SwipeToDismissBox(
-        state,
-        enableDismissFromStartToEnd = false,
-        backgroundContent = {
-            Box(
-                Modifier.fillMaxSize().background(c.low, RoundedCornerShape(12.dp)).padding(end = 18.dp),
-                contentAlignment = Alignment.CenterEnd,
-            ) { Text("Delete", color = Color.White, style = MaterialTheme.typography.labelLarge) }
-        },
-    ) {
+    val scope = rememberCoroutineScope()
+    val revealPx = with(LocalDensity.current) { REVEAL_WIDTH.toPx() }
+    val offset = remember { Animatable(0f) }
+    fun close() = scope.launch { offset.animateTo(0f) }
+    Box(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+        if (offset.value < 0f) {
+            Box(Modifier.matchParentSize(), contentAlignment = Alignment.CenterEnd) {
+                Surface(
+                    onClick = { close(); onDelete() },
+                    shape = RoundedCornerShape(12.dp),
+                    color = c.low,
+                    contentColor = Color.White,
+                    modifier = Modifier.width(REVEAL_WIDTH - 8.dp).fillMaxHeight().padding(vertical = 4.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) { Text("Delete", style = MaterialTheme.typography.labelLarge) }
+                }
+            }
+        }
         Row(
-            Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).clickable(onClick = onEdit)
+            Modifier.offset { IntOffset(offset.value.roundToInt(), 0) }
+                .fillMaxWidth().background(MaterialTheme.colorScheme.background)
+                .draggable(
+                    rememberDraggableState { d -> scope.launch { offset.snapTo((offset.value + d).coerceIn(-revealPx, 0f)) } },
+                    Orientation.Horizontal,
+                    onDragStopped = { velocity ->
+                        val open = offset.value < -revealPx * 0.6f || (velocity < -2500f && offset.value < -revealPx * 0.3f)
+                        offset.animateTo(if (open) -revealPx else 0f)
+                    },
+                )
+                .clickable { if (offset.value != 0f) close() else onEdit() }
                 .padding(horizontal = 4.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
