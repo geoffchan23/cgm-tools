@@ -47,7 +47,7 @@ class SetupActivity : ComponentActivity() {
         val settings = runBlocking { Store.settings(ctx) }
 
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) {
+            SugarTheme {
                 androidx.compose.material3.Scaffold(
                     topBar = {
                         @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)

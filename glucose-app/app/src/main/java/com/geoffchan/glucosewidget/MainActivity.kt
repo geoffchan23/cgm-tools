@@ -3,78 +3,95 @@ package com.geoffchan.glucosewidget
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.runtime.collectAsState
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.glance.appwidget.updateAll
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import java.io.File
 
 /** Intent extra: an interaction-log record whose proposed changes to review. */
 const val EXTRA_REVIEW_CHANGES = "reviewChanges"
+/** Intent extra: which tab to show ([TAB_TODAY], [TAB_RAY], [TAB_REPORTS]). */
+const val EXTRA_TAB = "tab"
+const val TAB_TODAY = "today"
+const val TAB_RAY = "ray"
+const val TAB_REPORTS = "reports"
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * The whole app: three tabs — Today ([TodayScreen]), Ray ([RayScreen]) and
+ * Reports ([ReportsScreen]); Settings is the gear on Today. Notifications
+ * reach a tab through intent extras (ChatActivity / ReportsActivity just
+ * forward here).
+ */
 class MainActivity : ComponentActivity() {
     /** Set when opened from the "review changes from your watch" notification. */
     private var reviewId by mutableStateOf<String?>(null)
+    private var tab by mutableStateOf(TAB_TODAY)
+    private var chatThread by mutableStateOf("")
+    private var openReport by mutableStateOf<File?>(null)
+    private var resumed by mutableStateOf(false)
+
+    private fun route(intent: Intent) {
+        intent.getStringExtra(EXTRA_REVIEW_CHANGES)?.let { reviewId = it; tab = TAB_TODAY }
+        intent.getStringExtra(ChatActivity.EXTRA_THREAD)?.let { chatThread = it; tab = TAB_RAY }
+        intent.getStringExtra(ReportsActivity.EXTRA_OPEN)?.let { name ->
+            openReport = File(reportsDir(this), name).takeIf { it.isFile }
+            tab = TAB_REPORTS
+        }
+        intent.getStringExtra(EXTRA_TAB)?.let { tab = it }
+    }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        intent.getStringExtra(EXTRA_REVIEW_CHANGES)?.let { reviewId = it }
+        route(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        resumed = true
+    }
+
+    override fun onPause() {
+        super.onPause()
+        resumed = false
+        ChatNotification.openThread = null
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        if (savedInstanceState == null) reviewId = intent.getStringExtra(EXTRA_REVIEW_CHANGES)
         val dao = GlucoseDb.get(this).dao()
-        val zone = ZoneId.systemDefault()
+        // carry on the latest conversation if it's from the last day, else start fresh
+        chatThread = runBlocking {
+            chatThreads(dao.allChatNow()).firstOrNull { System.currentTimeMillis() - it.lastAtMs < 24 * 3600_000L }?.thread
+        } ?: newUid()
+        if (savedInstanceState == null) route(intent)
         Refresh.enqueue(this) // opening the app freshens the data
         Sync.enqueue(this) // and pulls the other phone's entries
         // Android 13+: notifications need a runtime grant (used for "report ready").
@@ -82,549 +99,58 @@ class MainActivity : ComponentActivity() {
             registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) {}
                 .launch(android.Manifest.permission.POST_NOTIFICATIONS)
         }
+        setContent { SugarTheme { App() } }
+    }
 
-        setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) {
-                var day by remember { mutableStateOf(LocalDate.now(zone)) }
-                var mode by remember { mutableStateOf(SCOPE_DAY) }
-                var showPicker by remember { mutableStateOf(false) }
-                var editing by remember { mutableStateOf<JournalEntity?>(null) }
-                var adding by remember { mutableStateOf(false) }
-                var deleting by remember { mutableStateOf<JournalEntity?>(null) }
-                var dosing by remember { mutableStateOf(false) }
-                var editingDose by remember { mutableStateOf<JournalEntity?>(null) } // set alongside dosing
-                var logging by remember { mutableStateOf(false) }
-                var editingLog by remember { mutableStateOf<JournalEntity?>(null) } // set alongside logging
-                var describing by remember { mutableStateOf(false) }
-                val scope = rememberCoroutineScope()
+    @Composable
+    private fun App() {
+        val snackbar = remember { SnackbarHostState() }
+        LaunchedEffect(tab, chatThread, resumed) {
+            val chatting = resumed && tab == TAB_RAY
+            ChatNotification.openThread = if (chatting) chatThread else null
+            if (chatting) Sync.enqueue(this@MainActivity) // pull anything the other phone said
+        }
+        BackHandler(enabled = tab == TAB_RAY || (tab == TAB_REPORTS && openReport == null)) { tab = TAB_TODAY }
 
-                val today = LocalDate.now(zone)
-                val isWeek = mode == SCOPE_WEEK
-                val firstDay = if (isWeek) weekStartOf(day) else day
-                val spanDays = if (isWeek) 7 else 1
-                val entryKey = firstDay.toString()
-
-                val (startMs, endMs) = rangeBoundsMs(firstDay, spanDays, zone)
-                val readings by dao.readingsBetween(startMs, endMs)
-                    .collectAsState(initial = emptyList())
-                val scopedEntries by dao.journalFor(mode, entryKey)
-                    .collectAsState(initial = emptyList())
-                // Week view also lists that week's day notes, labeled by date.
-                val dayEntriesInWeek by (
-                    if (isWeek) dao.dayJournalInRange(firstDay.toString(), firstDay.plusDays(6).toString())
-                    else dao.journalFor("none", "none")
-                    ).collectAsState(initial = emptyList())
-                val entries = scopedEntries + dayEntriesInWeek
-
-                var showAddMenu by remember { mutableStateOf(false) }
-                Scaffold(
-                    floatingActionButton = {
-                        androidx.compose.foundation.layout.Box {
-                            FloatingActionButton(onClick = { showAddMenu = true }) {
-                                Icon(Icons.Filled.Add, contentDescription = "Add")
-                            }
-                            androidx.compose.material3.DropdownMenu(
-                                expanded = showAddMenu,
-                                onDismissRequest = { showAddMenu = false },
-                            ) {
-                                androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text("Log dose") },
-                                    onClick = { showAddMenu = false; dosing = true },
-                                )
-                                androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text("Chat with Ray") },
-                                    onClick = { showAddMenu = false; startActivity(Intent(this@MainActivity, ChatActivity::class.java)) },
-                                )
-                                androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text("Ask Ray / log by text") },
-                                    onClick = { showAddMenu = false; describing = true },
-                                )
-                                if (isWeek) {
-                                    androidx.compose.material3.DropdownMenuItem(
-                                        text = { Text("Add week note") },
-                                        onClick = { showAddMenu = false; adding = true },
-                                    )
-                                } else {
-                                    androidx.compose.material3.DropdownMenuItem(
-                                        text = { Text("Log food/exercise") },
-                                        onClick = { showAddMenu = false; logging = true },
-                                    )
-                                }
-                            }
-                        }
-                    },
-                ) { padding ->
-                    Column(Modifier.fillMaxSize().padding(padding)) {
-                        // ---- header ----
-                        Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            IconButton(onClick = { day = day.minusDays(spanDays.toLong()) }) {
-                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous")
-                            }
-                            Column(
-                                Modifier.weight(1f)
-                                    .clickable { showPicker = true } // the date itself is the picker button
-                                    .padding(vertical = 4.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                val fmt = DateTimeFormatter.ofPattern("MMM d", Locale.CANADA)
-                                Text(
-                                    if (isWeek) {
-                                        "${firstDay.format(fmt)} – ${firstDay.plusDays(6).format(fmt)}"
-                                    } else {
-                                        day.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.CANADA))
-                                    },
-                                    style = MaterialTheme.typography.titleLarge,
-                                )
-                                val current = if (isWeek) weekStartOf(today) == firstDay else day == today
-                                if (current)
-
-                                    Text(
-                                        if (isWeek) "This week" else "Today",
-                                        style = MaterialTheme.typography.labelSmall,
-                                    )
-                            }
-                            IconButton(
-                                onClick = { day = day.plusDays(spanDays.toLong()) },
-                                enabled = firstDay.plusDays(spanDays.toLong()) <= today,
-                            ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next") }
-                            TextButton(onClick = {
-                                startActivity(Intent(this@MainActivity, ChatActivity::class.java))
-                            }) { Text("Ray") }
-                            IconButton(onClick = {
-                                startActivity(Intent(this@MainActivity, ReportsActivity::class.java))
-                            }) { Icon(Icons.AutoMirrored.Filled.List, "Reports") }
-                            IconButton(onClick = {
-                                startActivity(Intent(this@MainActivity, SetupActivity::class.java))
-                            }) { Icon(Icons.Filled.Settings, "Settings") }
-                        }
-
-                        // ---- day/week toggle ----
-                        Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            FilterChip(selected = !isWeek, onClick = { mode = SCOPE_DAY }, label = { Text("Day") })
-                            FilterChip(selected = isWeek, onClick = { mode = SCOPE_WEEK }, label = { Text("Week") })
-                        }
-
-
-                        // ---- chart ----
-                        val settings = remember { runBlocking { Store.settings(this@MainActivity) } }
-                        val (doseMarks, eventMarks) = markerData(entries, firstDay)
-                        androidx.compose.foundation.layout.Box {
-                            RangeChart(
-                                readings = readings,
-                                firstDay = firstDay,
-                                days = spanDays,
-                                zone = zone,
-                                modifier = Modifier.fillMaxWidth().height(240.dp).padding(horizontal = 12.dp),
-                                lowMmol = settings.lowMmol,
-                                highMmol = settings.highMmol,
-                                doses = doseMarks,
-                                events = eventMarks,
-                            )
-                            IconButton(
-                                onClick = {
-                                    startActivity(
-                                        Intent(this@MainActivity, ChartActivity::class.java)
-                                            .putExtra("epochDay", firstDay.toEpochDay())
-                                            .putExtra("days", spanDays),
-                                    )
-                                },
-                                modifier = Modifier.align(Alignment.TopEnd).padding(end = 8.dp),
-                            ) { Text("⛶", style = MaterialTheme.typography.titleLarge) }
-                        }
-                        Text(
-                            buildString {
-                                append(
-                                    if (readings.isEmpty()) "No readings in this range"
-                                    else "${readings.size} readings",
-                                )
-                                if (doseMarks.isNotEmpty()) {
-                                    append(" · ${doseMarks.size} dose"); if (doseMarks.size > 1) append("s"); append(" ▲")
-                                }
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.padding(start = 24.dp, top = 2.dp),
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbar) },
+            containerColor = MaterialTheme.colorScheme.background,
+            bottomBar = {
+                Column {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    NavigationBar(containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp) {
+                        val colors = NavigationBarItemDefaults.colors(
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            selectedTextColor = MaterialTheme.colorScheme.onSurface,
                         )
-
-                        Spacer(Modifier.height(8.dp))
-
-                        // ---- journal (scoped to day or week) ----
-                        LazyColumn(
-                            Modifier.weight(1f).padding(horizontal = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            items(sortForList(entries.filterNot { isDerivedEntry(it.text) }), key = { it.id }) { entry ->
-                                Card(Modifier.fillMaxWidth()) {
-                                    Column(Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp)) {
-                                        if (isWeek && entry.scope == SCOPE_DAY) {
-                                            Text(
-                                                LocalDate.parse(entry.day)
-                                                    .format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.CANADA)),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.padding(top = 6.dp),
-                                            )
-                                        }
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(
-                                                entryLabel(entry.text),
-                                                Modifier.weight(1f).padding(vertical = 8.dp),
-                                                style = MaterialTheme.typography.bodyMedium,
-                                            )
-                                            if (isGuessEntry(entry.text)) {
-                                                // Claude's inference from the curve: Keep confirms it as-is
-                                                TextButton(onClick = {
-                                                    scope.launch {
-                                                        Journal.update(this@MainActivity, 
-                                                            entry.copy(text = confirmGuess(entry.text), updatedAtMs = System.currentTimeMillis()),
-                                                        )
-                                                        GlucoseWidget().updateAll(this@MainActivity)
-                                                    }
-                                                }) { Text("Keep") }
-                                            }
-                                            TextButton(onClick = {
-                                                when {
-                                                    parseDoseNote(entry.text) != null -> { editingDose = entry; dosing = true }
-                                                    parseEventNote(entry.text) != null -> { editingLog = entry; logging = true }
-                                                    else -> editing = entry
-                                                }
-                                            }) { Text("Edit") }
-                                            IconButton(onClick = { deleting = entry }) {
-                                                Icon(Icons.Filled.Delete, "Delete note")
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            item { Spacer(Modifier.height(72.dp)) } // clear the FAB
-                        }
+                        NavigationBarItem(
+                            selected = tab == TAB_TODAY, onClick = { tab = TAB_TODAY },
+                            icon = { Icon(Icons.Filled.Home, null) }, label = { Text("Today") }, colors = colors,
+                        )
+                        NavigationBarItem(
+                            selected = tab == TAB_RAY, onClick = { tab = TAB_RAY },
+                            icon = { RayAvatar(26.dp) }, label = { Text("Ray") }, colors = colors,
+                        )
+                        NavigationBarItem(
+                            selected = tab == TAB_REPORTS, onClick = { tab = TAB_REPORTS },
+                            icon = { Icon(Icons.AutoMirrored.Filled.List, null) }, label = { Text("Reports") }, colors = colors,
+                        )
                     }
                 }
-
-                // ---- dialogs ----
-                if (showPicker) {
-                    val pickerState = rememberDatePickerState(
-                        initialSelectedDateMillis = day.atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli(),
-                    )
-                    DatePickerDialog(
-                        onDismissRequest = { showPicker = false },
-                        confirmButton = {
-                            TextButton(onClick = {
-                                pickerState.selectedDateMillis?.let {
-                                    day = Instant.ofEpochMilli(it).atZone(ZoneId.of("UTC")).toLocalDate()
-                                }
-                                showPicker = false
-                            }) { Text("OK") }
-                        },
-                    ) { DatePicker(state = pickerState) }
-                }
-
-                if (adding || editing != null) {
-                    var text by remember(adding, editing) { mutableStateOf(editing?.text ?: "") }
-                    AlertDialog(
-                        onDismissRequest = { adding = false; editing = null },
-                        title = {
-                            Text(
-                                when {
-                                    editing != null -> "Edit note"
-                                    isWeek -> "New note — week of ${firstDay.format(DateTimeFormatter.ofPattern("MMM d", Locale.CANADA))}"
-                                    else -> "New note — ${day.format(DateTimeFormatter.ofPattern("MMM d", Locale.CANADA))}"
-                                },
-                            )
-                        },
-                        text = {
-                            OutlinedTextField(
-                                text, { text = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                placeholder = {
-                                    Text(
-                                        if (isWeek) "How was the week? Routine, food themes, exercise…"
-                                        else "What happened? Meals, activity, sleep…",
-                                    )
-                                },
-                                minLines = 3,
-                            )
-                        },
-                        confirmButton = {
-                            Button(
-                                enabled = text.isNotBlank(),
-                                onClick = {
-                                    val now = System.currentTimeMillis()
-                                    val toSave = editing?.copy(text = text.trim(), updatedAtMs = now)
-                                        ?: JournalEntity(
-                                            day = entryKey, text = text.trim(),
-                                            createdAtMs = now, updatedAtMs = now, scope = mode,
-                                        )
-                                    scope.launch {
-                                        if (editing != null) Journal.update(this@MainActivity, toSave) else Journal.insert(this@MainActivity, toSave)
-                                        GlucoseWidget().updateAll(this@MainActivity)
-                                        adding = false; editing = null
-                                    }
-                                },
-                            ) { Text("Save") }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { adding = false; editing = null }) { Text("Cancel") }
-                        },
-                    )
-                }
-
-                if (dosing) {
-                    val existing = editingDose?.let { parseDoseNote(it.text) }
-                    var insulinType by remember {
-                        mutableStateOf(existing?.insulinType ?: runBlocking { Store.lastMedication(this@MainActivity) })
+            },
+        ) { padding ->
+            Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
+                when (tab) {
+                    TAB_RAY -> RayScreen(chatThread) { chatThread = it }
+                    TAB_REPORTS -> ReportsScreen(openReport) { openReport = it }
+                    else -> TodayScreen(snackbar) {
+                        startActivity(Intent(this@MainActivity, SetupActivity::class.java))
                     }
-                    var unitsText by remember {
-                        mutableStateOf((existing?.units ?: defaultUnits(insulinType, LocalDate.now(zone).dayOfWeek)).toString())
-                    }
-                    fun unitsOrNull() = unitsText.toIntOrNull()?.takeIf { it in 1..100 }
-                    fun bump(delta: Int) {
-                        unitsText = ((unitsText.toIntOrNull() ?: 0) + delta).coerceIn(1, 100).toString()
-                    }
-                    var doseTime by remember { mutableStateOf(existing?.time ?: java.time.LocalTime.now(zone).withSecond(0)) }
-                    fun closeDose() { dosing = false; editingDose = null }
-                    AlertDialog(
-                        onDismissRequest = { closeDose() },
-                        title = {
-                            Text(
-                                if (editingDose != null) "Edit dose"
-                                else "Log dose — ${(if (isWeek) LocalDate.now(zone) else day).format(DateTimeFormatter.ofPattern("MMM d", Locale.CANADA))}",
-                            )
-                        },
-                        text = {
-                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    FilterChip(
-                                        selected = insulinType == "short-acting",
-                                        onClick = {
-                                            insulinType = "short-acting"
-                                            unitsText = defaultUnits("short-acting", LocalDate.now(zone).dayOfWeek).toString()
-                                        },
-                                        label = { Text("Short-acting") },
-                                    )
-                                    FilterChip(
-                                        selected = insulinType == "long-acting",
-                                        onClick = {
-                                            insulinType = "long-acting"
-                                            unitsText = defaultUnits("long-acting", LocalDate.now(zone).dayOfWeek).toString()
-                                        },
-                                        label = { Text("Long-acting") },
-                                    )
-                                }
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    androidx.compose.material3.FilledTonalIconButton(onClick = { bump(-1) }) {
-                                        Text("−", style = MaterialTheme.typography.titleLarge)
-                                    }
-                                    OutlinedTextField(
-                                        unitsText,
-                                        { new -> if (new.length <= 3 && new.all(Char::isDigit)) unitsText = new },
-                                        label = { Text("Units") },
-                                        singleLine = true,
-                                        isError = unitsOrNull() == null,
-                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
-                                        ),
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    androidx.compose.material3.FilledTonalIconButton(onClick = { bump(+1) }) {
-                                        Text("+", style = MaterialTheme.typography.titleLarge)
-                                    }
-                                }
-                                TimeField(doseTime, { doseTime = it }, pickerTitle = "Dose time")
-                            }
-                        },
-                        confirmButton = {
-                            Button(
-                                enabled = unitsOrNull() != null,
-                                onClick = {
-                                    val units = unitsOrNull() ?: return@Button
-                                    val now = System.currentTimeMillis()
-                                    val time = doseTime.format(DateTimeFormatter.ofPattern("HH:mm"))
-                                    val text = doseNoteText(insulinType, "${units}u", time)
-                                    val toEdit = editingDose
-                                    scope.launch {
-                                        if (toEdit != null) {
-                                            // Edit keeps the entry's day and creation time; only the note changes.
-                                            Journal.update(this@MainActivity, toEdit.copy(text = text, updatedAtMs = now))
-                                        } else {
-                                            // Like food logs: the day being viewed (day mode), so
-                                            // yesterday's dose can be backfilled; today in week mode.
-                                            Journal.insert(this@MainActivity,
-                                                JournalEntity(
-                                                    day = (if (isWeek) LocalDate.now(zone) else day).toString(), text = text,
-                                                    createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY,
-                                                ),
-                                            )
-                                            Store.saveLastMedication(this@MainActivity, insulinType)
-                                        }
-                                        GlucoseWidget().updateAll(this@MainActivity)
-                                        closeDose()
-                                    }
-                                },
-                            ) { Text("Save") }
-                        },
-                        dismissButton = { TextButton(onClick = { closeDose() }) { Text("Cancel") } },
-                    )
-                }
-
-                if (logging) {
-                    val existing = editingLog?.let { parseEventNote(it.text) }
-                    var what by remember { mutableStateOf(existing?.name ?: "") }
-                    var logTime by remember { mutableStateOf(existing?.time ?: java.time.LocalTime.now(zone).withSecond(0)) }
-                    fun closeLog() { logging = false; editingLog = null }
-                    AlertDialog(
-                        onDismissRequest = { closeLog() },
-                        title = {
-                            Text(
-                                if (editingLog != null) "Edit log"
-                                else "Log food/exercise — ${day.format(DateTimeFormatter.ofPattern("MMM d", Locale.CANADA))}",
-                            )
-                        },
-                        text = {
-                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                OutlinedTextField(
-                                    what, { what = it },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    placeholder = { Text("lunch, 30 min walk, ice cream…") },
-                                    singleLine = true,
-                                )
-                                TimeField(logTime, { logTime = it }, pickerTitle = "Log time")
-                            }
-                        },
-                        confirmButton = {
-                            Button(
-                                enabled = what.isNotBlank(),
-                                onClick = {
-                                    val now = System.currentTimeMillis()
-                                    val text = eventNoteText(what, logTime.format(DateTimeFormatter.ofPattern("HH:mm")))
-                                    val toEdit = editingLog
-                                    scope.launch {
-                                        if (toEdit != null) {
-                                            Journal.update(this@MainActivity, toEdit.copy(text = text, updatedAtMs = now))
-                                        } else {
-                                            // Logs go to the day being viewed, so yesterday can be backfilled.
-                                            Journal.insert(this@MainActivity,
-                                                JournalEntity(
-                                                    day = (if (isWeek) LocalDate.now(zone) else day).toString(), text = text,
-                                                    createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY,
-                                                ),
-                                            )
-                                        }
-                                        GlucoseWidget().updateAll(this@MainActivity)
-                                        closeLog()
-                                    }
-                                },
-                            ) { Text("Save") }
-                        },
-                        dismissButton = { TextButton(onClick = { closeLog() }) { Text("Cancel") } },
-                    )
-                }
-
-                if (describing) {
-                    // Like the other dialogs: the day being viewed, today in week mode.
-                    val target = if (isWeek) LocalDate.now(zone) else day
-                    val targetEntries by dao.journalFor(SCOPE_DAY, target.toString())
-                        .collectAsState(initial = emptyList())
-                    DescribeDialog(
-                        title = "Ask Ray or log — ${target.format(DateTimeFormatter.ofPattern("MMM d", Locale.CANADA))}",
-                        day = target,
-                        existing = targetEntries,
-                        onDismiss = { describing = false },
-                        onSave = { save ->
-                            val now = System.currentTimeMillis()
-                            scope.launch {
-                                val items = mutableListOf<SavedItem>()
-                                for ((proposed, text) in save.inserts) {
-                                    val row = JournalEntity(
-                                        day = target.toString(), text = text,
-                                        createdAtMs = now, updatedAtMs = now, scope = SCOPE_DAY,
-                                    )
-                                    Journal.insert(this@MainActivity, row)
-                                    items += SavedItem(proposed, text, row.uid, "insert")
-                                }
-                                for ((guess, proposed, text) in save.confirms) {
-                                    Journal.update(this@MainActivity, guess.copy(text = text, updatedAtMs = now))
-                                    items += SavedItem(proposed, text, guess.uid, "confirm")
-                                }
-                                items += Journal.applyChanges(this@MainActivity, save.changes)
-                                GlucoseWidget().updateAll(this@MainActivity)
-                                save.interactionId?.let {
-                                    InteractionLog.setOutcomeLater(this@MainActivity, it, Outcome(OUTCOME_SAVED, now, items, save.unticked))
-                                }
-                                describing = false
-                            }
-                        },
-                    )
-                }
-
-                reviewId?.let { id -> ChangesDialog(id) { reviewId = null } }
-
-                deleting?.let { doomed ->
-                    AlertDialog(
-                        onDismissRequest = { deleting = null },
-                        title = { Text("Delete note?") },
-                        text = { Text(doomed.text.take(120)) },
-                        confirmButton = {
-                            Button(onClick = {
-                                scope.launch {
-                                    Journal.delete(this@MainActivity, doomed)
-                                    GlucoseWidget().updateAll(this@MainActivity)
-                                    deleting = null
-                                }
-                            }) { Text("Delete") }
-                        },
-                        dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } },
-                    )
                 }
             }
         }
-    }
-}
 
-/**
- * −15m / [ 12:21 PM ] / +15m. Tapping the time opens Material's clock in
- * 12-hour mode (AM/PM toggle). Storage stays 24-hour; only display is 12-hour.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@androidx.compose.runtime.Composable
-private fun TimeField(time: java.time.LocalTime, onChange: (java.time.LocalTime) -> Unit, pickerTitle: String) {
-    var showPicker by remember { mutableStateOf(false) }
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        TextButton(onClick = { onChange(time.minusMinutes(15)) }) { Text("−15m") }
-        androidx.compose.material3.OutlinedButton(
-            onClick = { showPicker = true },
-            modifier = Modifier.weight(1f),
-        ) { Text(time12(time)) }
-        TextButton(onClick = { onChange(time.plusMinutes(15)) }) { Text("+15m") }
-    }
-    if (showPicker) {
-        val state = androidx.compose.material3.rememberTimePickerState(
-            initialHour = time.hour,
-            initialMinute = time.minute,
-            is24Hour = false,
-        )
-        AlertDialog(
-            onDismissRequest = { showPicker = false },
-            title = { Text(pickerTitle) },
-            text = { androidx.compose.material3.TimePicker(state = state) },
-            confirmButton = {
-                TextButton(onClick = {
-                    onChange(java.time.LocalTime.of(state.hour, state.minute))
-                    showPicker = false
-                }) { Text("OK") }
-            },
-            dismissButton = { TextButton(onClick = { showPicker = false }) { Text("Cancel") } },
-        )
+        reviewId?.let { id -> ChangesDialog(id) { reviewId = null } }
     }
 }

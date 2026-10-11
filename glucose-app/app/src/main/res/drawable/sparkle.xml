@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The icon's four-point sparkle, in cream. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="32dp"
+    android:height="32dp"
+    android:viewportWidth="32"
+    android:viewportHeight="32">
+    <group android:translateX="-54" android:translateY="-14">
+        <path
+            android:fillColor="#FFF1B8"
+            android:pathData="M70,14 C71.2,25 75,28.8 86,30 C75,31.2 71.2,35 70,46 C68.8,35 65,31.2 54,30 C65,28.8 68.8,25 70,14 Z" />
+    </group>
+</vector>

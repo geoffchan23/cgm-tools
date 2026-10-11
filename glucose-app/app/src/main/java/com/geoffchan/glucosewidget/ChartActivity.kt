@@ -35,7 +35,7 @@ class ChartActivity : ComponentActivity() {
         val (startMs, endMs) = rangeBoundsMs(firstDay, days, zone)
 
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) {
+            SugarTheme {
                 val readings by dao.readingsBetween(startMs, endMs)
                     .collectAsState(initial = emptyList())
                 val dayEntries by dao.dayJournalInRange(
@@ -44,7 +44,7 @@ class ChartActivity : ComponentActivity() {
                 val settings = remember { runBlocking { Store.settings(this@ChartActivity) } }
                 val (doseMarks, eventMarks) = markerData(dayEntries, firstDay)
 
-                Box(Modifier.fillMaxSize().background(Color.Black)) {
+                Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                     RangeChart(
                         readings = readings,
                         firstDay = firstDay,
@@ -65,7 +65,7 @@ class ChartActivity : ComponentActivity() {
                         Icon(
                             Icons.Filled.Close,
                             contentDescription = "Close fullscreen",
-                            tint = Color.White, // outside a Surface the default tint is black
+                            tint = MaterialTheme.colorScheme.onSurface, // outside a Surface the default tint is black
                         )
                     }
                 }

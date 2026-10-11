@@ -36,6 +36,7 @@ import com.google.mlkit.genai.prompt.Generation
 import com.google.mlkit.genai.prompt.TextPart
 import com.google.mlkit.genai.prompt.generateContentRequest
 import kotlinx.coroutines.launch
+import androidx.compose.ui.focus.focusRequester
 import java.time.LocalTime
 
 /** A proposed row in the confirm list, with what it matched in the day's log. */
@@ -88,6 +89,7 @@ fun DescribeDialog(
     existing: List<JournalEntity>,
     onDismiss: () -> Unit,
     onSave: (ReviewedSave) -> Unit,
+    initialText: String = "", // e.g. what she said into the Ask bar's mic
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val useAssistant = remember { Assistant.configured(context) }
@@ -97,7 +99,8 @@ fun DescribeDialog(
     DisposableEffect(Unit) { onDispose { model.close() } }
     val scope = rememberCoroutineScope()
 
-    var paragraph by remember { mutableStateOf("") }
+    var paragraph by remember { mutableStateOf(initialText) }
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
     var ready by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>("Checking on-device model…") }
     var working by remember { mutableStateOf(false) }
@@ -246,7 +249,7 @@ fun DescribeDialog(
         status = null
     }
 
-    AlertDialog(
+    SheetDialog(
         onDismissRequest = { close() },
         title = { Text(title) },
         text = {
@@ -256,9 +259,13 @@ fun DescribeDialog(
             ) {
                 if (!reviewing) {
                     replyingTo?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary) }
+                    LaunchedEffect(Unit) {
+                        kotlinx.coroutines.delay(250) // let the sheet open first
+                        runCatching { focus.requestFocus() }
+                    }
                     OutlinedTextField(
                         paragraph, { paragraph = it },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp).focusRequester(focus),
                         placeholder = {
                             Text(
                                 if (useAssistant) "Log something (\"sourdough with 15 g cheddar and took 3\") or ask (\"why did I go low last night?\")…"
@@ -417,7 +424,7 @@ fun ChangesDialog(interactionId: String, onDone: () -> Unit) {
         loaded = true
     }
     val picked = changes.filter { it.checked }
-    AlertDialog(
+    SheetDialog(
         onDismissRequest = onDone,
         title = { Text("Changes from your watch") },
         text = {

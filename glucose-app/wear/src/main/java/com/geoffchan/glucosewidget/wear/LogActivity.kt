@@ -106,7 +106,7 @@ class LogActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme { Scaffold(timeText = { TimeText() }) { Screen() } } }
+        setContent { MaterialTheme(colors = SugarColors) { Scaffold(timeText = { TimeText() }) { Screen() } } }
         if (savedInstanceState == null) listen()
         // Anything held from when the phone was away goes out now, quietly.
         if (WatchQueue.all(this).isNotEmpty()) lifecycleScope.launch { runCatching { WatchQueue.flush(applicationContext) } }
@@ -335,3 +335,16 @@ class LogActivity : ComponentActivity() {
         }
     }
 }
+
+/** Sugar.AI's colours (the app icon's orange, sparkle cream and cocoa) on the watch's black. */
+private val SugarColors = androidx.wear.compose.material.Colors(
+    primary = androidx.compose.ui.graphics.Color(0xFFFF8A5B),
+    primaryVariant = androidx.compose.ui.graphics.Color(0xFFE8622C),
+    secondary = androidx.compose.ui.graphics.Color(0xFFFFF1B8),
+    secondaryVariant = androidx.compose.ui.graphics.Color(0xFFE8C9A8),
+    surface = androidx.compose.ui.graphics.Color(0xFF2A1D17),
+    onPrimary = androidx.compose.ui.graphics.Color(0xFF2A1208),
+    onSecondary = androidx.compose.ui.graphics.Color(0xFF2A1D17),
+    onSurface = androidx.compose.ui.graphics.Color(0xFFF6ECE6),
+    onSurfaceVariant = androidx.compose.ui.graphics.Color(0xFFA8968C),
+)

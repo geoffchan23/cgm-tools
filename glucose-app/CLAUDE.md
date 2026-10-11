@@ -12,6 +12,23 @@ day-level journal. Sideloaded debug build only — never publish, never
 add accounts or telemetry. Wearer's Dexcom Share login is a PHONE NUMBER
 (+1416…), not an email.
 
+## Look and layout (from 2026-10-10)
+
+Branding comes from the app icon (a sugar cube with Ray's sparkle and a
+chibi cat-mouth face): sugar orange `#FF7A45`, sparkle cream `#FFF1B8`,
+cocoa `#3A2318`; Nunito (variable, `res/font/nunito.ttf`); light/dark follow
+the phone. All in `SugarTheme.kt` (`Brand`, `LocalSugar` chart/status
+colours, `RayAvatar`, `SheetDialog` = AlertDialog's slots as a bottom
+sheet). Glucose status colours stay separate from the brand (low red,
+high amber, green target band). One activity with three tabs (MainActivity):
+**Today** (`TodayScreen.kt`: Now card with the latest reading — red when
+low, amber when high — last dose/meal, the chart card with Day/Week and
+time in range, swipe the chart to change day; the log as a timeline: tap
+to edit, swipe left to delete with Undo; the Ask Ray bar with a mic and
++ Dose / + Food chips), **Ray** (chat, threads as chips) and **Reports**.
+Settings is the gear on Today. `ChatActivity` / `ReportsActivity` are
+trampolines kept for notifications. Widget and watch use the same palette.
+
 ## Exploring the data (no export feature — by design)
 
 ```bash
@@ -53,7 +70,7 @@ entries are free-text summaries. Conventions inside `journal.text`:
   one in the dose/log dialog saves it confirmed. The widget ignores
   guesses; routines treat them as covering (no double-logging). Insert
   them with the receiver like any row.
-- **Ask / log by text** (FAB menu; was "Describe in words"): a question or
+- **Ask / log by text** (the "Ask Ray or log…" bar on Today, or its mic; was "Describe in words"): a question or
   paragraph goes to the OpenAI assistant when it's set up and online (see
   "Assistant" below), else to on-device Gemini Nano (ML Kit GenAI Prompt
   API, AICore). Nano answers JSON; `TextEntry.kt` validates strictly
@@ -211,7 +228,7 @@ The old "no cloud / never an LLM API" rule is gone (Geoff, 2026-10-08).
 
 ### Chat with Ray (from 2026-10-10)
 
-`ChatActivity` ("Ray" in the main header, or the + menu): threads shared
+The **Ray** tab (`RayScreen` in ChatActivity.kt; `ChatActivity` itself now only forwards notifications to it): threads shared
 by both phones, Francine and Geoff both writing, Ray answering. Settings
 says which person this phone is (`Store.chatAuthor`; default Francine on
 the main phone, Geoff on the other; ADB `op chat-author --es author geoff`).
@@ -338,7 +355,7 @@ Parsing (`WatchParse` in `WatchListenerService.kt`), in order:
    **Her phone needs, once:**
    `adb shell appops set com.geoffchan.glucosewidget USE_FULL_SCREEN_INTENT allow`
    (Android 14+ doesn't grant it to non-call apps) and the AICore model
-   downloaded (open "Describe in words" once, or `op describe-test`).
+   downloaded (send something from the Ask bar once, or `op describe-test`).
 3. **`parseSpoken`** (`SpokenEntry.kt`, deterministic): number words,
    "19 and 4" (19/20 → long), insulin brand/slang words, "at 5:30" /
    "an hour ago" / "this morning", "walked 20 minutes" → `20 min walk`.
@@ -398,7 +415,7 @@ report (consensus metrics, 24 h overlay, day strips, every low with its
 preceding 3 h, observations for the endo). `tools/weekly-report.sh` runs
 the whole cycle: find phone via mDNS → pull DB → generate → push into the
 app's **Reports** screen (`files/reports/report-<first>_<last>.html`,
-list icon in the header, WebView; a notification is posted when a new
+the Reports tab, WebView; a notification is posted when a new
 report arrives and opens it directly). The `weekly-report` skill (repo
 `.claude/skills/`) wraps that plus republishing the artifact
 (`https://claude.ai/code/artifact/42522e03-0809-4e84-b7cb-7ff7eebf974a`).

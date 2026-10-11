@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Window behind Compose: the app's light background, so launch doesn't flash black. -->
+    <style name="Theme.Sugar" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/sugar_bg</item>
+    </style>
+    <color name="sugar_bg">#FFF9F5</color>
+</resources>

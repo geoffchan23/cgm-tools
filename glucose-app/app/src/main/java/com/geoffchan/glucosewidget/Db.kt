@@ -96,6 +96,9 @@ interface GlucoseDao {
     @Query("SELECT * FROM readings WHERE timestampMs >= :startMs AND timestampMs < :endMs ORDER BY timestampMs")
     fun readingsBetween(startMs: Long, endMs: Long): Flow<List<ReadingEntity>>
 
+    @Query("SELECT * FROM readings ORDER BY timestampMs DESC LIMIT 1")
+    fun latestReading(): Flow<ReadingEntity?>
+
     @Query("SELECT * FROM journal WHERE day = :key AND scope = :scope ORDER BY createdAtMs")
     fun journalFor(scope: String, key: String): Flow<List<JournalEntity>>
 

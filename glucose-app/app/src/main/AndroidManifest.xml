@@ -19,7 +19,9 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@android:style/Theme.Material.NoActionBar">
+            android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.Sugar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -29,19 +31,18 @@
         <activity
             android:name=".SetupActivity"
             android:exported="false"
-            android:theme="@android:style/Theme.Material.NoActionBar" />
+            android:theme="@style/Theme.Sugar" />
 
         <activity
             android:name=".ChatActivity"
             android:exported="false"
             android:launchMode="singleTop"
-            android:windowSoftInputMode="adjustResize"
-            android:theme="@android:style/Theme.Material.NoActionBar" />
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <activity
             android:name=".ReportsActivity"
             android:exported="false"
-            android:theme="@android:style/Theme.Material.NoActionBar" />
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <activity
             android:name=".ChartActivity"

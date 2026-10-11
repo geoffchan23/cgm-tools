@@ -21,6 +21,9 @@ import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.fillMaxSize
+import androidx.glance.layout.size
+import androidx.glance.Image
+import androidx.glance.ImageProvider
 import androidx.glance.layout.padding
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
@@ -72,63 +75,71 @@ class GlucoseWidget : GlanceAppWidget() {
         lastLog: LastLog?,
     ) {
         val now = System.currentTimeMillis()
-        val bg = Color(0xE6000000)
-        val dim = Color(0xFF757575)
-        Column(
+        val bg = Color(0xF22A1D17) // cocoa, from the icon's face
+        val dim = Color(0xFFA8968C)
+        Row(
             modifier = GlanceModifier
                 .fillMaxSize()
                 .background(bg)
                 .cornerRadius(24.dp)
-                .padding(start = 22.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)
+                .padding(start = 14.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)
                 .clickable(actionStartActivity<MainActivity>()),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalAlignment = Alignment.Start,
         ) {
-            // Row 1: big reading + arrow, age right after it. Rows are left-aligned.
-            when {
-                !hasCreds -> Text("Set up", style = TextStyle(color = ColorProvider(Color.Gray), fontSize = 16.sp))
-                reading == null -> Text("…", style = TextStyle(color = ColorProvider(Color.Gray), fontSize = 24.sp))
-                else -> {
-                    val state = displayState(reading, now, settings.lowMmol, settings.highMmol)
-                    val color = when (state) {
-                        GlucoseState.LOW -> Color(0xFFFF5252)
-                        GlucoseState.HIGH -> Color(0xFFFFB300)
-                        GlucoseState.IN_RANGE -> Color.White
-                        GlucoseState.STALE -> Color(0xFF9E9E9E)
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            mmolText(reading.mgdl),
-                            style = TextStyle(color = ColorProvider(color), fontSize = 40.sp, fontWeight = FontWeight.Bold),
-                            maxLines = 1,
-                        )
-                        Text(
-                            " " + trendArrow(reading.trend),
-                            style = TextStyle(color = ColorProvider(color), fontSize = 26.sp),
-                            maxLines = 1,
-                        )
-                        Text(
-                            "  " + ageText(reading.timestampMs, now),
-                            style = TextStyle(color = ColorProvider(if (state == GlucoseState.STALE) color else dim), fontSize = 13.sp),
-                            maxLines = 1,
-                        )
+            Image(ImageProvider(R.drawable.ray_avatar), contentDescription = "Sugar.AI", modifier = GlanceModifier.size(36.dp))
+            Column(
+                modifier = GlanceModifier.padding(start = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalAlignment = Alignment.Start,
+            ) {
+                // Row 1: big reading + arrow, age right after it. Rows are left-aligned.
+                when {
+                    !hasCreds -> Text("Set up", style = TextStyle(color = ColorProvider(dim), fontSize = 16.sp))
+                    reading == null -> Text("…", style = TextStyle(color = ColorProvider(dim), fontSize = 24.sp))
+                    else -> {
+                        val state = displayState(reading, now, settings.lowMmol, settings.highMmol)
+                        val color = when (state) {
+                            GlucoseState.LOW -> Color(0xFFFF6B6E)
+                            GlucoseState.HIGH -> Color(0xFFFFC14D)
+                            GlucoseState.IN_RANGE -> Color.White
+                            GlucoseState.STALE -> dim
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                mmolText(reading.mgdl),
+                                style = TextStyle(color = ColorProvider(color), fontSize = 38.sp, fontWeight = FontWeight.Bold),
+                                maxLines = 1,
+                            )
+                            Text(
+                                " " + trendArrow(reading.trend),
+                                style = TextStyle(color = ColorProvider(color), fontSize = 24.sp),
+                                maxLines = 1,
+                            )
+                            Text(
+                                "  " + ageText(reading.timestampMs, now),
+                                style = TextStyle(color = ColorProvider(if (state == GlucoseState.STALE) color else dim), fontSize = 13.sp),
+                                maxLines = 1,
+                            )
+                        }
                     }
                 }
-            }
-            // Rows 2 and 3: last dose, last food/exercise log — value, then its clock time.
-            for (item in listOf(lastDose, lastLog)) {
-                if (item == null) continue
-                Row(modifier = GlanceModifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        item.label,
-                        style = TextStyle(color = ColorProvider(Color(0xFFDDDDDD)), fontSize = 16.sp),
-                        maxLines = 1,
-                    )
-                    Text(
-                        "  " + whenText(item.atMs, java.time.ZoneId.systemDefault()),
-                        style = TextStyle(color = ColorProvider(dim), fontSize = 15.sp),
-                        maxLines = 1,
-                    )
+                // Rows 2 and 3: last dose, last food/exercise log — orange mark, value, then its clock time.
+                for (item in listOf(lastDose, lastLog)) {
+                    if (item == null) continue
+                    val mark = item.label.substringBefore(' ')
+                    Row(modifier = GlanceModifier.padding(top = 1.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(mark + " ", style = TextStyle(color = ColorProvider(Color(0xFFFFB08A)), fontSize = 15.sp), maxLines = 1)
+                        Text(
+                            item.label.substringAfter(' '),
+                            style = TextStyle(color = ColorProvider(Color(0xFFF6ECE6)), fontSize = 15.sp),
+                            maxLines = 1,
+                        )
+                        Text(
+                            "  " + whenText(item.atMs, java.time.ZoneId.systemDefault()),
+                            style = TextStyle(color = ColorProvider(dim), fontSize = 14.sp),
+                            maxLines = 1,
+                        )
+                    }
                 }
             }
         }

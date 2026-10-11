@@ -1,11 +1,14 @@
 package com.geoffchan.glucosewidget
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -38,7 +41,7 @@ fun tickStepMinutes(visibleMinutes: Float): Int = when {
 /**
  * Glucose over [days] consecutive days starting at [firstDay]. Dots, not a
  * line — a line would interpolate across collection gaps and invent data.
- * Color is status (low red / high amber / in-range white) with the shaded
+ * Color is status (low red / high amber / in-range ink) with the shaded
  * target band as the redundant, non-color encoding. Single series: no legend.
  *
  * Pinch zooms the time axis (glucose axis stays fixed), drag pans, both
@@ -55,8 +58,13 @@ fun RangeChart(
     highMmol: Double = Store.DEFAULT_HIGH,
     doses: List<Pair<Float, DoseNote>> = emptyList(), // minute-of-range to dose
     events: List<Pair<Float, EventNote>> = emptyList(), // minute-of-range to event
+    onSwipe: ((Int) -> Unit)? = null, // unzoomed horizontal fling: -1 = earlier, +1 = later
 ) {
     val density = LocalDensity.current
+    val c = LocalSugar.current
+    fun argb(color: Color) = android.graphics.Color.argb(
+        (color.alpha * 255).toInt(), (color.red * 255).toInt(), (color.green * 255).toInt(), (color.blue * 255).toInt(),
+    )
     val (startMs, endMs) = rangeBoundsMs(firstDay, days, zone)
     val totalMinutes = (endMs - startMs) / 60_000f
 
@@ -65,11 +73,25 @@ fun RangeChart(
     val visibleMinutes = totalMinutes / zoomX
 
     val padLeftPx = with(density) { 30.dp.toPx() }
+    // Swipe between days/weeks: only while unzoomed, once per gesture.
+    var swipeAcc by remember(firstDay, days) { mutableFloatStateOf(0f) }
+    var swiped by remember(firstDay, days) { mutableStateOf(false) }
+    val swipePx = with(density) { 90.dp.toPx() }
 
     Canvas(
         modifier
             .pointerInput(firstDay, days) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    swipeAcc = 0f; swiped = false
+                }
+            }
+            .pointerInput(firstDay, days) {
                 detectTransformGestures { centroid, pan, gestureZoom, _ ->
+                    if (onSwipe != null && zoomX <= 1.001f && gestureZoom == 1f && !swiped) {
+                        swipeAcc += pan.x
+                        if (kotlin.math.abs(swipeAcc) > swipePx) { swiped = true; onSwipe(if (swipeAcc > 0) -1 else 1) }
+                    }
                     val plotW = (size.width - padLeftPx).coerceAtLeast(1f)
                     val frac = ((centroid.x - padLeftPx) / plotW).coerceIn(0f, 1f)
                     val anchorMin = viewStartMin + frac * (totalMinutes / zoomX)
@@ -97,19 +119,20 @@ fun RangeChart(
         fun xOf(minute: Float) =
             plot.left + ((minute - viewStartMin) / visibleMinutes) * plot.width
 
-        val gridInk = Color(0x22FFFFFF)
-        val mutedInk = Color(0x99FFFFFF)
+        val gridInk = c.grid
+        val mutedInk = c.muted
 
-        // target band — the calm zone, barely-there fill
+        // target band — the calm zone, a faint green
         drawRect(
-            color = Color(0x14FFFFFF),
+            color = c.band,
             topLeft = Offset(plot.left, yOf(highMmol)),
             size = androidx.compose.ui.geometry.Size(plot.width, yOf(lowMmol) - yOf(highMmol)),
         )
 
         val textPaint = android.graphics.Paint().apply {
-            color = android.graphics.Color.argb(0x99, 0xFF, 0xFF, 0xFF)
+            color = argb(c.muted)
             textSize = labelPx
+            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
             isAntiAlias = true
         }
 
@@ -179,9 +202,9 @@ fun RangeChart(
                 if (minute < viewStartMin - 5 || minute > viewEndMin + 5) continue
                 val mmol = mmolValue(reading.mgdl)
                 val color = when {
-                    mmol < lowMmol -> Color(0xFFFF5252)
-                    mmol > highMmol -> Color(0xFFFFB300)
-                    else -> Color.White
+                    mmol < lowMmol -> c.low
+                    mmol > highMmol -> c.high
+                    else -> c.ink
                 }
                 drawCircle(color, r, Offset(xOf(minute), yOf(mmol)))
             }
@@ -194,10 +217,10 @@ fun RangeChart(
                 ?.let { yOf(mmolValue(it.mgdl)) }
             val curveGap = with(density) { 22.dp.toPx() }
 
-            // dose markers: purple triangles below the curve — filled for
+            // dose markers: orange triangles below the curve — filled for
             // short-acting, outlined for long-acting, units labeled beside.
             // Claude's guesses are dashed outlines at half strength, "4u?".
-            val dosePurple = Color(0xFFD0BCFF)
+            val dosePurple = c.dose
             val guessStroke = androidx.compose.ui.graphics.drawscope.Stroke(
                 width = with(density) { 1.5.dp.toPx() },
                 pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(
@@ -206,7 +229,7 @@ fun RangeChart(
             )
             val triH = with(density) { 9.dp.toPx() }
             val dosePaint = android.graphics.Paint().apply {
-                this.color = android.graphics.Color.argb(0xFF, 0xD0, 0xBC, 0xFF)
+                this.color = argb(c.dose)
                 textSize = with(density) { 13.sp.toPx() }
                 isFakeBoldText = true
                 isAntiAlias = true
@@ -246,11 +269,11 @@ fun RangeChart(
                 }
             }
 
-            // event markers: teal diamonds floating just above the curve
-            val eventTeal = Color(0xFF80DEEA)
+            // event markers: cocoa/latte diamonds floating just above the curve
+            val eventTeal = c.event
             val diaR = with(density) { 5.dp.toPx() }
             val eventPaint = android.graphics.Paint().apply {
-                this.color = android.graphics.Color.argb(0xFF, 0x80, 0xDE, 0xEA)
+                this.color = argb(c.event)
                 textSize = with(density) { 12.sp.toPx() }
                 isAntiAlias = true
             }
@@ -299,10 +322,10 @@ fun RangeChart(
                     val mmol = mmolValue(latest.mgdl)
                     val stale = now - latest.timestampMs > STALE_AFTER_MS
                     val color = when {
-                        stale -> android.graphics.Color.argb(0xFF, 0x9E, 0x9E, 0x9E)
-                        mmol < lowMmol -> android.graphics.Color.argb(0xFF, 0xFF, 0x52, 0x52)
-                        mmol > highMmol -> android.graphics.Color.argb(0xFF, 0xFF, 0xB3, 0x00)
-                        else -> android.graphics.Color.WHITE
+                        stale -> argb(c.muted)
+                        mmol < lowMmol -> argb(c.low)
+                        mmol > highMmol -> argb(c.high)
+                        else -> argb(c.dose)
                     }
                     // ring the newest dot so the label visibly belongs to it
                     val latestMin = (latest.timestampMs - startMs) / 60_000f

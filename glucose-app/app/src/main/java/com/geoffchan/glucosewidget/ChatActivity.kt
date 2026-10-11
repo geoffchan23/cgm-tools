@@ -17,6 +17,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Surface
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -39,7 +46,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -64,73 +70,76 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/**
- * Chat with Ray (see [RayChat]): shared threads between her phone and
- * Geoff's. Ray's messages can carry a card of proposed entries/changes
- * (ticked; untick, then Save), a saved report, and what he ran to get
- * there (tap to see the SQL or code).
- */
+/** Old entry point (notifications, report links): forwards to the Ray tab. */
 class ChatActivity : ComponentActivity() {
     companion object { const val EXTRA_THREAD = "thread" }
 
-    private var thread by mutableStateOf<String?>(null)
-
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        intent.getStringExtra(EXTRA_THREAD)?.let { thread = it }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        ChatNotification.openThread = thread
-        Sync.enqueue(this) // pull anything the other phone said
-    }
-
-    override fun onPause() {
-        super.onPause()
-        ChatNotification.openThread = null
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val dao = GlucoseDb.get(this).dao()
-        val me = runBlocking { Store.chatAuthor(this@ChatActivity) }
-        thread = intent.getStringExtra(EXTRA_THREAD) ?: runBlocking {
-            // carry on the latest conversation if it's from the last day, else start fresh
-            chatThreads(dao.allChatNow()).firstOrNull { System.currentTimeMillis() - it.lastAtMs < 24 * 3600_000L }?.thread
-        } ?: newUid()
-        setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) {
-                var listing by remember { mutableStateOf(false) }
-                BackHandler(enabled = listing) { listing = false }
-                val all by dao.allChat().collectAsState(initial = emptyList())
-                val current = thread ?: return@MaterialTheme
-                LaunchedEffect(current) { ChatNotification.openThread = current }
-                Scaffold { padding ->
-                    Column(Modifier.fillMaxSize().padding(padding).imePadding()) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            IconButton(onClick = { if (listing) listing = false else finish() }) {
-                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Back")
-                            }
-                            Column(Modifier.weight(1f)) {
-                                Text(if (listing) "Chats" else "Ray", style = MaterialTheme.typography.titleLarge)
-                                if (!listing) Text("You're ${authorName(me)} on this phone", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
-                            }
-                            if (!listing) IconButton(onClick = { listing = true }) { Icon(Icons.AutoMirrored.Filled.List, "All chats") }
-                            IconButton(onClick = { thread = newUid(); listing = false }) { Icon(Icons.Filled.Add, "New chat") }
-                        }
-                        if (listing) {
-                            ThreadList(chatThreads(all)) { thread = it; listing = false }
-                        } else {
-                            Conversation(current, all.filter { it.thread == current }, me)
-                        }
-                    }
+        startActivity(
+            Intent(this, MainActivity::class.java)
+                .putExtra(EXTRA_TAB, TAB_RAY)
+                .apply { intent.getStringExtra(EXTRA_THREAD)?.let { putExtra(EXTRA_THREAD, it) } }
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        )
+        finish()
+    }
+}
+
+/**
+ * The Ray tab (see [RayChat]): shared threads between her phone and
+ * Geoff's, as chips across the top. Ray's messages can carry a card of
+ * proposed entries/changes (ticked; untick, then Save), a saved report, and
+ * what he ran to get there (tap to see the SQL or code).
+ */
+@Composable
+fun RayScreen(thread: String, onThread: (String) -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val dao = remember { GlucoseDb.get(context).dao() }
+    val me = remember { runBlocking { Store.chatAuthor(context) } }
+    val other = if (me == AUTHOR_FRANCINE) AUTHOR_GEOFF else AUTHOR_FRANCINE
+    val all by dao.allChat().collectAsState(initial = emptyList())
+    val threads = chatThreads(all)
+    Column(Modifier.fillMaxSize().imePadding()) {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RayAvatar(42.dp)
+            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                Text("Ray", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "You're ${authorName(me)} · shared with ${authorName(other)}",
+                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = { onThread(newUid()) }) { Icon(Icons.Filled.Add, "New chat") }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        if (threads.isNotEmpty()) {
+            LazyRow(
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                if (threads.none { it.thread == thread }) item("new") { ThreadChip("New chat", true) {} }
+                items(threads, key = { it.thread }) { t ->
+                    ThreadChip(t.title.let { if (it.length > 26) it.take(25).trimEnd() + "…" else it }, t.thread == thread) { onThread(t.thread) }
                 }
             }
         }
+        Conversation(thread, all.filter { it.thread == thread }, me)
+    }
+}
+
+@Composable
+private fun ThreadChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurfaceVariant,
+    ) {
+        Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
     }
 }
 
@@ -140,25 +149,6 @@ private val DAY_TIME = DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.CANAD
 private fun whenLabel(ms: Long): String {
     val t = Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault())
     return if (t.toLocalDate() == LocalDate.now()) t.format(TIME) else t.format(DAY_TIME)
-}
-
-@Composable
-private fun ThreadList(threads: List<ChatThreadSummary>, onOpen: (String) -> Unit) {
-    if (threads.isEmpty()) {
-        Text("No chats yet.", Modifier.padding(24.dp), style = MaterialTheme.typography.bodyMedium)
-        return
-    }
-    LazyColumn(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(threads, key = { it.thread }) { t ->
-            Card(onClick = { onOpen(t.thread) }, modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(12.dp)) {
-                    Text(t.title, style = MaterialTheme.typography.bodyLarge)
-                    Text(t.lastLine, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary, maxLines = 2)
-                    Text("${whenLabel(t.lastAtMs)} · ${t.count} messages", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
-                }
-            }
-        }
-    }
 }
 
 private val STARTERS = listOf(
@@ -184,38 +174,62 @@ private fun androidx.compose.foundation.layout.ColumnScope.Conversation(thread: 
     }
 
     LazyColumn(
-        Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp),
+        Modifier.weight(1f).fillMaxWidth().padding(horizontal = 14.dp),
         state = listState,
         reverseLayout = true,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        item("bottom") { Spacer(Modifier.size(4.dp)) }
         if (thinking) item("thinking") {
+            // the sparkle "twinkles" while he works
+            val pulse = androidx.compose.animation.core.rememberInfiniteTransition(label = "ray")
+            val alpha by pulse.animateFloat(
+                0.45f, 1f,
+                androidx.compose.animation.core.infiniteRepeatable<Float>(
+                    androidx.compose.animation.core.tween<Float>(700), androidx.compose.animation.core.RepeatMode.Reverse,
+                ),
+                label = "alpha",
+            )
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(4.dp)) {
-                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                Text("  Ray is looking into it…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                RayAvatar(28.dp, Modifier.graphicsLayer { this.alpha = alpha })
+                Text("  Ray is looking into it…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         items(messages.asReversed(), key = { it.uid }) { m -> Bubble(m, me) }
         if (messages.isEmpty()) item("empty") {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 12.dp)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+            ) {
+                RayAvatar(72.dp)
+                Text("Hi, I'm Ray", style = MaterialTheme.typography.titleLarge)
                 Text(
-                    "Ask Ray anything about Francine's glucose, or tell him what to log. He can look through all of her data, run his own analysis and make reports. Geoff and Francine both see this chat.",
+                    "Ask me anything about Francine's glucose, or tell me what to log. I can look through all of her data, run my own analysis and make reports. Geoff and Francine both see this chat.",
                     style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
                 STARTERS.forEach { s -> AssistChip(onClick = { send(s) }, label = { Text(s) }) }
             }
         }
     }
-    Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth().padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         OutlinedTextField(
             draft, { draft = it },
             modifier = Modifier.weight(1f),
             placeholder = { Text("Message Ray") },
+            shape = RoundedCornerShape(24.dp),
             maxLines = 6,
         )
-        IconButton(onClick = { send(draft) }, enabled = draft.isNotBlank() && !thinking) {
-            Icon(Icons.AutoMirrored.Filled.Send, "Send")
-        }
+        androidx.compose.material3.FilledIconButton(
+            onClick = { send(draft) },
+            enabled = draft.isNotBlank() && !thinking,
+            modifier = Modifier.padding(start = 6.dp).size(48.dp),
+        ) { Icon(Icons.AutoMirrored.Filled.Send, "Send") }
     }
 }
 
@@ -224,19 +238,33 @@ private fun Bubble(m: ChatMessageEntity, me: String) {
     val mine = m.author == me
     val ray = m.author == AUTHOR_RAY
     val meta = remember(m.meta) { m.meta?.let { runCatching { JSONObject(it) }.getOrNull() } }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start) {
-        Card(
-            modifier = Modifier.widthIn(max = 340.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = when {
-                    mine -> MaterialTheme.colorScheme.primaryContainer
-                    ray -> MaterialTheme.colorScheme.surfaceVariant
-                    else -> MaterialTheme.colorScheme.secondaryContainer
-                },
-            ),
+    val big = 18.dp; val tail = 6.dp
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = if (ray) Arrangement.Start else Arrangement.End,
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        if (ray) { RayAvatar(28.dp); Spacer(Modifier.size(8.dp)) }
+        Surface(
+            modifier = Modifier.widthIn(max = if (ray) 360.dp else 300.dp),
+            shape = if (ray) RoundedCornerShape(big, big, big, tail) else RoundedCornerShape(big, big, tail, big),
+            color = when {
+                mine -> MaterialTheme.colorScheme.primary
+                ray -> MaterialTheme.colorScheme.surfaceContainer
+                else -> MaterialTheme.colorScheme.secondaryContainer
+            },
+            contentColor = when {
+                mine -> MaterialTheme.colorScheme.onPrimary
+                else -> MaterialTheme.colorScheme.onSurface
+            },
+            border = if (ray) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null,
         ) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("${authorName(m.author)} · ${whenLabel(m.createdAtMs)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+            Column(Modifier.padding(horizontal = 13.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    "${authorName(m.author)} · ${whenLabel(m.createdAtMs)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = androidx.compose.material3.LocalContentColor.current.copy(alpha = 0.7f),
+                )
                 SelectionContainer { Text(m.text, style = MaterialTheme.typography.bodyMedium) }
                 decodeCard(m.card)?.let { CardView(m.uid, it, me) }
                 meta?.optString("report")?.takeIf { it.isNotBlank() }?.let { ReportLink(it) }
@@ -252,7 +280,10 @@ private fun ReportLink(file: String) {
     val here = remember(file) { File(reportsDir(context), file).isFile }
     if (here) {
         OutlinedButton(onClick = {
-            context.startActivity(Intent(context, ReportsActivity::class.java).putExtra(ReportsActivity.EXTRA_OPEN, file))
+            context.startActivity(
+                Intent(context, MainActivity::class.java).putExtra(ReportsActivity.EXTRA_OPEN, file)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            )
         }) { Text("Open report: ${RayTools.reportTitleOf(file) ?: file}") }
     } else {
         Text("Report saved on the other phone: ${RayTools.reportTitleOf(file) ?: file}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
