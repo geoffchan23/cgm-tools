@@ -199,7 +199,11 @@ fun TodayScreen(snackbar: SnackbarHostState, onOpenSettings: () -> Unit) {
             }
         }
 
-        Column(Modifier.padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // ---- the log, as a timeline (everything above it scrolls with it; the Ask bar stays put) ----
+        val rows = sortForList(entries.filterNot { isDerivedEntry(it.text) || it.uid in pendingDelete }).let { if (isWeek) it else it.asReversed() }
+        LazyColumn(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+          item("top") {
+          Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             NowCard(latest, now, settings, latestDose(recent, zone), latestEvent(recent, zone), zone, today, onOpenSettings)
 
             // ---- chart card ----
@@ -251,20 +255,19 @@ fun TodayScreen(snackbar: SnackbarHostState, onOpenSettings: () -> Unit) {
                     )
                 }
             }
-        }
-
-        // ---- the log, as a timeline ----
-        val rows = sortForList(entries.filterNot { isDerivedEntry(it.text) || it.uid in pendingDelete }).let { if (isWeek) it else it.asReversed() }
-        SectionTitle(
+          }
+          }
+          item("title") {
+            SectionTitle(
             when {
                 isWeek -> "This week's log".takeIf { weekStartOf(today) == firstDay } ?: "Week's log"
                 day == today -> "Today's log"
                 else -> "${day.format(MD)} log"
             },
-            Modifier.padding(start = 18.dp, end = 18.dp, top = 12.dp, bottom = 2.dp),
+            Modifier.padding(start = 4.dp, end = 4.dp, top = 14.dp, bottom = 2.dp),
             trailing = if (rows.isEmpty()) null else "${rows.size} ${if (rows.size == 1) "entry" else "entries"}",
-        )
-        LazyColumn(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+            )
+          }
             if (rows.isEmpty()) item("empty") {
                 Text(
                     "Nothing logged yet. Tell Ray what you ate or took, or use + Dose and + Food.",
@@ -696,8 +699,9 @@ private fun NowCard(
                             val onDay = Instant.ofEpochMilli(p.atMs).atZone(zone).toLocalDate()
                             val whenLabel = (if (onDay == today) "" else if (onDay == today.minusDays(1)) "yesterday " else "${onDay.format(MD)} ") + whenText(p.atMs, zone)
                             Text(
-                                "${p.label} · $whenLabel",
+                                "${p.label.let { if (it.length > 30) it.take(29).trimEnd() + "…" else it }} · $whenLabel",
                                 style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
                                 modifier = Modifier.background(Color.White.copy(alpha = 0.2f), CircleShape).padding(horizontal = 10.dp, vertical = 4.dp),
                             )
                         }

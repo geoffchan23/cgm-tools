@@ -107,16 +107,16 @@ class GlucoseWidget : GlanceAppWidget() {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 mmolText(reading.mgdl),
-                                style = TextStyle(color = ColorProvider(color), fontSize = 38.sp, fontWeight = FontWeight.Bold),
+                                style = TextStyle(color = ColorProvider(color), fontSize = 34.sp, fontWeight = FontWeight.Bold),
                                 maxLines = 1,
                             )
                             Text(
                                 " " + trendArrow(reading.trend),
-                                style = TextStyle(color = ColorProvider(color), fontSize = 24.sp),
+                                style = TextStyle(color = ColorProvider(color), fontSize = 22.sp),
                                 maxLines = 1,
                             )
                             Text(
-                                "  " + ageText(reading.timestampMs, now),
+                                " " + ageText(reading.timestampMs, now),
                                 style = TextStyle(color = ColorProvider(if (state == GlucoseState.STALE) color else dim), fontSize = 13.sp),
                                 maxLines = 1,
                             )
