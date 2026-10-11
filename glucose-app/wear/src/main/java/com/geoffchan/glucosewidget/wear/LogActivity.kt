@@ -336,15 +336,15 @@ class LogActivity : ComponentActivity() {
     }
 }
 
-/** Sugar.AI's colours (the app icon's orange, sparkle cream and cocoa) on the watch's black. */
+/** Sugar.AI's colours (the app icon's indigo, sparkle cream and deep indigo) on the watch's black. */
 private val SugarColors = androidx.wear.compose.material.Colors(
-    primary = androidx.compose.ui.graphics.Color(0xFFFF8A5B),
-    primaryVariant = androidx.compose.ui.graphics.Color(0xFFE8622C),
+    primary = androidx.compose.ui.graphics.Color(0xFF8B8CF8),
+    primaryVariant = androidx.compose.ui.graphics.Color(0xFF4338CA),
     secondary = androidx.compose.ui.graphics.Color(0xFFFFF1B8),
-    secondaryVariant = androidx.compose.ui.graphics.Color(0xFFE8C9A8),
-    surface = androidx.compose.ui.graphics.Color(0xFF2A1D17),
-    onPrimary = androidx.compose.ui.graphics.Color(0xFF2A1208),
-    onSecondary = androidx.compose.ui.graphics.Color(0xFF2A1D17),
-    onSurface = androidx.compose.ui.graphics.Color(0xFFF6ECE6),
-    onSurfaceVariant = androidx.compose.ui.graphics.Color(0xFFA8968C),
+    secondaryVariant = androidx.compose.ui.graphics.Color(0xFFC7D2FE),
+    surface = androidx.compose.ui.graphics.Color(0xFF1B1B2F),
+    onPrimary = androidx.compose.ui.graphics.Color(0xFF15133A),
+    onSecondary = androidx.compose.ui.graphics.Color(0xFF1B1B2F),
+    onSurface = androidx.compose.ui.graphics.Color(0xFFECECF7),
+    onSurfaceVariant = androidx.compose.ui.graphics.Color(0xFF9A9BB5),
 )

@@ -15,8 +15,9 @@ add accounts or telemetry. Wearer's Dexcom Share login is a PHONE NUMBER
 ## Look and layout (from 2026-10-10)
 
 Branding comes from the app icon (a sugar cube with Ray's sparkle and a
-chibi cat-mouth face): sugar orange `#FF7A45`, sparkle cream `#FFF1B8`,
-cocoa `#3A2318`; Nunito (variable, `res/font/nunito.ttf`); light/dark follow
+chibi cat-mouth face): indigo `#4F46E5` (was orange `#FF7A45` until Geoff
+switched it the same day), sparkle cream `#FFF1B8`, the face's cocoa
+`#3A2318`, cool indigo-tinted neutrals; Nunito (variable, `res/font/nunito.ttf`); light/dark follow
 the phone. All in `SugarTheme.kt` (`Brand`, `LocalSugar` chart/status
 colours, `RayAvatar`, `SheetDialog` = AlertDialog's slots as a bottom
 sheet). Glucose status colours stay separate from the brand (low red,
@@ -27,7 +28,7 @@ time in range, swipe the chart to change day; the log as a timeline: tap
 to edit, swipe left to delete with Undo; the Ask Ray bar with a mic and
 + Dose / + Food chips), **Ray** (chat, threads as chips) and **Reports**.
 Settings is the gear on Today. `ChatActivity` / `ReportsActivity` are
-trampolines kept for notifications. Widget (cocoa, no logo — no room) and watch use the same palette.
+trampolines kept for notifications. Widget (deep indigo, no logo — no room) and watch use the same palette.
 
 ## Exploring the data (no export feature — by design)
 

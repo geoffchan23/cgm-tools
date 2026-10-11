@@ -35,13 +35,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.Arrangement
 
 /**
- * Sugar.AI's look, taken from the app icon: sugar orange, the sparkle's
- * cream and the face's cocoa. Light and dark follow the phone. Glucose
+ * Sugar.AI's look, taken from the app icon: indigo (Geoff's pick,
+ * 2026-10-10; was orange), the sparkle's cream and the face's cocoa, on
+ * cool indigo-tinted neutrals. Light and dark follow the phone. Glucose
  * status colours (low / high) are deliberately separate from the brand.
  */
 object Brand {
-    val Sugar = Color(0xFFFF7A45)
-    val SugarDeep = Color(0xFFE8622C) // text/buttons on white: plain Sugar is too faint
+    val Sugar = Color(0xFF4F46E5)
+    val SugarDeep = Color(0xFF4338CA)
     val Sparkle = Color(0xFFFFF1B8)
     val Cocoa = Color(0xFF3A2318)
     val Low = Color(0xFFE5484D)
@@ -61,49 +62,49 @@ data class SugarColors(
     val high: Color,
     val dose: Color,
     val event: Color,
-    val soft: Color,      // orange-tinted chip / icon backgrounds
+    val soft: Color,      // indigo-tinted chip / icon backgrounds
     val onSoft: Color,
 )
 
 private val LightSugar = SugarColors(
-    ink = Color(0xFF2A1D17), muted = Color(0xFF8A776D), grid = Color(0x122A1D17),
+    ink = Color(0xFF1B1B2F), muted = Color(0xFF6B6C85), grid = Color(0x121B1B2F),
     band = Color(0x1A2FA36B), low = Brand.Low, high = Brand.HighLight,
-    dose = Brand.SugarDeep, event = Color(0xFF8B5E3C), soft = Color(0xFFFFE6DA), onSoft = Color(0xFFC2410C),
+    dose = Brand.SugarDeep, event = Color(0xFF0E9F8E), soft = Color(0xFFE0E7FF), onSoft = Color(0xFF3730A3),
 )
 private val DarkSugar = SugarColors(
-    ink = Color(0xFFF6ECE6), muted = Color(0xFFA8968C), grid = Color(0x14F6ECE6),
+    ink = Color(0xFFECECF7), muted = Color(0xFF9A9BB5), grid = Color(0x14ECECF7),
     band = Color(0x292FA36B), low = Color(0xFFFF6B6E), high = Brand.HighDark,
-    dose = Color(0xFFFF8A5B), event = Color(0xFFE8C9A8), soft = Color(0xFF4A2414), onSoft = Color(0xFFFFB08A),
+    dose = Color(0xFF8B8CF8), event = Color(0xFF5EEAD4), soft = Color(0xFF2E2B6B), onSoft = Color(0xFFA5B4FC),
 )
 
 val LocalSugar = staticCompositionLocalOf { DarkSugar }
 
 private val LightScheme = lightColorScheme(
     primary = Brand.SugarDeep, onPrimary = Color.White,
-    primaryContainer = Color(0xFFFFE6DA), onPrimaryContainer = Color(0xFF6B2A0E),
-    secondary = Color(0xFF8A776D), onSecondary = Color.White,
-    secondaryContainer = Color(0xFFFFF1EA), onSecondaryContainer = Color(0xFF2A1D17),
-    tertiary = Color(0xFF8B5E3C), onTertiary = Color.White,
-    background = Color(0xFFFFF9F5), onBackground = Color(0xFF2A1D17),
-    surface = Color(0xFFFFF9F5), onSurface = Color(0xFF2A1D17),
-    surfaceVariant = Color(0xFFFFF1EA), onSurfaceVariant = Color(0xFF8A776D),
-    surfaceContainerLowest = Color.White, surfaceContainerLow = Color(0xFFFFFCFA),
-    surfaceContainer = Color.White, surfaceContainerHigh = Color(0xFFFFF4EE), surfaceContainerHighest = Color(0xFFFFEDE4),
-    outline = Color(0xFFE2CFC4), outlineVariant = Color(0xFFF1E4DC),
+    primaryContainer = Color(0xFFE0E7FF), onPrimaryContainer = Color(0xFF1E1B4B),
+    secondary = Color(0xFF6B6C85), onSecondary = Color.White,
+    secondaryContainer = Color(0xFFEEEFFA), onSecondaryContainer = Color(0xFF1B1B2F),
+    tertiary = Color(0xFF0E9F8E), onTertiary = Color.White,
+    background = Color(0xFFF7F7FB), onBackground = Color(0xFF1B1B2F),
+    surface = Color(0xFFF7F7FB), onSurface = Color(0xFF1B1B2F),
+    surfaceVariant = Color(0xFFEEEFFA), onSurfaceVariant = Color(0xFF6B6C85),
+    surfaceContainerLowest = Color.White, surfaceContainerLow = Color(0xFFFBFBFE),
+    surfaceContainer = Color.White, surfaceContainerHigh = Color(0xFFF1F2FB), surfaceContainerHighest = Color(0xFFE9EAF8),
+    outline = Color(0xFFD9DAEE), outlineVariant = Color(0xFFE8E9F5),
     error = Brand.Low, onError = Color.White,
 )
 private val DarkScheme = darkColorScheme(
-    primary = Color(0xFFFF8A5B), onPrimary = Color(0xFF2A1208),
-    primaryContainer = Color(0xFF4A2414), onPrimaryContainer = Color(0xFFFFD9C7),
-    secondary = Color(0xFFA8968C), onSecondary = Color(0xFF17100D),
-    secondaryContainer = Color(0xFF2C1F19), onSecondaryContainer = Color(0xFFF6ECE6),
-    tertiary = Color(0xFFE8C9A8), onTertiary = Color(0xFF2A1D17),
-    background = Color(0xFF17100D), onBackground = Color(0xFFF6ECE6),
-    surface = Color(0xFF17100D), onSurface = Color(0xFFF6ECE6),
-    surfaceVariant = Color(0xFF2C1F19), onSurfaceVariant = Color(0xFFA8968C),
-    surfaceContainerLowest = Color(0xFF120C0A), surfaceContainerLow = Color(0xFF1C1411),
-    surfaceContainer = Color(0xFF221814), surfaceContainerHigh = Color(0xFF2A1E19), surfaceContainerHighest = Color(0xFF33251F),
-    outline = Color(0xFF4A3830), outlineVariant = Color(0xFF33251F),
+    primary = Color(0xFF8B8CF8), onPrimary = Color(0xFF15133A),
+    primaryContainer = Color(0xFF2E2B6B), onPrimaryContainer = Color(0xFFE0E7FF),
+    secondary = Color(0xFF9A9BB5), onSecondary = Color(0xFF0F0F1A),
+    secondaryContainer = Color(0xFF22223A), onSecondaryContainer = Color(0xFFECECF7),
+    tertiary = Color(0xFF5EEAD4), onTertiary = Color(0xFF1B1B2F),
+    background = Color(0xFF0F0F1A), onBackground = Color(0xFFECECF7),
+    surface = Color(0xFF0F0F1A), onSurface = Color(0xFFECECF7),
+    surfaceVariant = Color(0xFF22223A), onSurfaceVariant = Color(0xFF9A9BB5),
+    surfaceContainerLowest = Color(0xFF0A0A12), surfaceContainerLow = Color(0xFF14141F),
+    surfaceContainer = Color(0xFF181828), surfaceContainerHigh = Color(0xFF1F1F33), surfaceContainerHighest = Color(0xFF26263D),
+    outline = Color(0xFF3A3A55), outlineVariant = Color(0xFF26263D),
     error = Color(0xFFFF6B6E), onError = Color(0xFF2A0A0B),
 )
 
@@ -134,7 +135,7 @@ fun SugarTheme(content: @Composable () -> Unit) {
     }
 }
 
-/** Ray's face: the app icon's cube on its orange circle. */
+/** Ray's face: the app icon's cube on its indigo circle. */
 @Composable
 fun RayAvatar(size: Dp, modifier: Modifier = Modifier) {
     Image(painterResource(R.drawable.ray_avatar), contentDescription = "Ray", modifier = modifier.size(size))

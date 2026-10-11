@@ -6,7 +6,7 @@
     android:viewportWidth="100"
     android:viewportHeight="100">
     <path
-        android:fillColor="#FF7A45"
+        android:fillColor="#4F46E5"
         android:pathData="M50,0 A50,50 0 1 0 50,100 A50,50 0 1 0 50,0 Z" />
     <group>
         <!-- cube -->
@@ -15,8 +15,8 @@
             android:pathData="M33,32 H59 A9,9 0 0 1 68,41 V67 A9,9 0 0 1 59,76 H33 A9,9 0 0 1 24,67 V41 A9,9 0 0 1 33,32 Z" />
         <!-- gap around the sparkle -->
         <path
-            android:fillColor="#FF7A45"
-            android:strokeColor="#FF7A45"
+            android:fillColor="#4F46E5"
+            android:strokeColor="#4F46E5"
             android:strokeWidth="8"
             android:strokeLineJoin="round"
             android:pathData="M70,14 C71.2,25 75,28.8 86,30 C75,31.2 71.2,35 70,46 C68.8,35 65,31.2 54,30 C65,28.8 68.8,25 70,14 Z" />

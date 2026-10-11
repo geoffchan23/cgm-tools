@@ -3,5 +3,5 @@
     <style name="Theme.Sugar" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/sugar_bg</item>
     </style>
-    <color name="sugar_bg">#17100D</color>
+    <color name="sugar_bg">#0F0F1A</color>
 </resources>

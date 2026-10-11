@@ -217,7 +217,7 @@ fun RangeChart(
                 ?.let { yOf(mmolValue(it.mgdl)) }
             val curveGap = with(density) { 22.dp.toPx() }
 
-            // dose markers: orange triangles below the curve — filled for
+            // dose markers: indigo triangles below the curve — filled for
             // short-acting, outlined for long-acting, units labeled beside.
             // Claude's guesses are dashed outlines at half strength, "4u?".
             val dosePurple = c.dose
@@ -269,7 +269,7 @@ fun RangeChart(
                 }
             }
 
-            // event markers: cocoa/latte diamonds floating just above the curve
+            // event markers: teal diamonds floating just above the curve
             val eventTeal = c.event
             val diaR = with(density) { 5.dp.toPx() }
             val eventPaint = android.graphics.Paint().apply {

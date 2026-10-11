@@ -72,8 +72,8 @@ class GlucoseWidget : GlanceAppWidget() {
         lastLog: LastLog?,
     ) {
         val now = System.currentTimeMillis()
-        val bg = Color(0xF22A1D17) // cocoa, from the icon's face
-        val dim = Color(0xFFA8968C)
+        val bg = Color(0xF21B1B2F) // deep indigo
+        val dim = Color(0xFF9A9BB5)
         Column(
             modifier = GlanceModifier
                 .fillMaxSize()
@@ -116,15 +116,15 @@ class GlucoseWidget : GlanceAppWidget() {
                         }
                     }
                 }
-                // Rows 2 and 3: last dose, last food/exercise log — orange mark, value, then its clock time.
+                // Rows 2 and 3: last dose, last food/exercise log — indigo mark, value, then its clock time.
                 for (item in listOf(lastDose, lastLog)) {
                     if (item == null) continue
                     val mark = item.label.substringBefore(' ')
                     Row(modifier = GlanceModifier.padding(top = 1.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(mark + " ", style = TextStyle(color = ColorProvider(Color(0xFFFFB08A)), fontSize = 15.sp), maxLines = 1)
+                        Text(mark + " ", style = TextStyle(color = ColorProvider(Color(0xFFA5B4FC)), fontSize = 15.sp), maxLines = 1)
                         Text(
                             item.label.substringAfter(' '),
-                            style = TextStyle(color = ColorProvider(Color(0xFFF6ECE6)), fontSize = 15.sp),
+                            style = TextStyle(color = ColorProvider(Color(0xFFECECF7)), fontSize = 15.sp),
                             maxLines = 1,
                         )
                         Text(

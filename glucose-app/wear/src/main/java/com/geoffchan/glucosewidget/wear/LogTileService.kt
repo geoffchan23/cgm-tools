@@ -40,7 +40,7 @@ class LogTileService : TileService() {
                 Button.Builder(this, open)
                     .setIconContent(MIC)
                     .setSize(ButtonDefaults.EXTRA_LARGE_SIZE)
-                    .setButtonColors(androidx.wear.protolayout.material.ButtonColors(0xFFFF7A45.toInt(), 0xFFFFFFFF.toInt()))
+                    .setButtonColors(androidx.wear.protolayout.material.ButtonColors(0xFF4F46E5.toInt(), 0xFFFFFFFF.toInt()))
                     .setContentDescription("Log a dose, food or activity by voice")
                     .build(),
             )
